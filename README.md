@@ -22,8 +22,6 @@ curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.
 
 # Start a new project
 mkdir my-app && cd my-app
-forge init                   # creates a starter PROMPT.md
-# Edit PROMPT.md to describe your app
 forge init                   # bootstraps the project
 claude                       # start building
 ```
