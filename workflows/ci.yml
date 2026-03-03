@@ -8,16 +8,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
       - name: TypeCheck
-        run: npx tsc --noEmit
+        run: pnpm tsc --noEmit
+      - name: Test
+        run: pnpm test
       - name: Build
-        run: npm run build
+        run: pnpm build
         env:
           SKIP_ENV_VALIDATION: true
+
+  e2e:
+    name: E2E Tests
+    needs: quality
+    runs-on: ubuntu-latest
+    if: hashFiles('e2e/**') != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright (Chromium only)
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build
+        run: pnpm build
+        env:
+          SKIP_ENV_VALIDATION: true
+      - name: Run E2E tests
+        run: pnpm test:e2e

@@ -73,9 +73,10 @@ For each issue in the backlog, file it using `gh issue create`. Each issue must 
 ## Acceptance Criteria
 - [ ] [Specific, testable criterion]
 - [ ] [Specific, testable criterion]
-- [ ] npm run lint passes
-- [ ] npx tsc --noEmit passes
-- [ ] npm run build completes without error
+- [ ] pnpm lint passes
+- [ ] pnpm tsc --noEmit passes
+- [ ] pnpm test passes
+- [ ] pnpm build completes without error
 ```
 
 Filing command:

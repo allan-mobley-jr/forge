@@ -4,7 +4,7 @@ description: >
   Claim the next available GitHub Issue, implement it on a feature branch,
   and open a pull request. Used by the Forge orchestrator to drive the build
   loop. Invoke manually with /build to trigger a single work cycle.
-allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *), Read, Write, Edit, MultiEdit, Glob, Grep, Task
+allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task
 ---
 
 # /build — Issue to Branch to PR
@@ -67,24 +67,48 @@ This is where you write code. Follow these principles:
 
 1. **Read before writing.** Understand existing code before modifying it.
 2. **Follow existing patterns.** Match the style, naming conventions, and architecture of what's already there.
-3. **Install packages when needed.** `npm install {package}` for dependencies specified in the issue.
+3. **Install packages when needed.** `pnpm add {package}` for dependencies specified in the issue.
 4. **Use the Task tool for complex research.** If you need to understand an API or library, spawn a research sub-agent rather than guessing.
 5. **Work incrementally.** Make small, logical changes. Don't try to implement everything in one giant edit.
-6. **Test as you go.** Run the dev server (`npm run dev`) to verify changes work when practical.
+6. **Test as you go.** Run the dev server (`pnpm dev`) to verify changes work when practical.
+
+### Step 6b: Review and test (sub-agents)
+
+After implementation is complete, spawn two sub-agents **in parallel** via the Task tool:
+
+1. **Review agent** — Read `skills/build/references/review-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the list of files changed (with contents), and the project's CLAUDE.md as context.
+
+2. **Test agent** — Read `skills/build/references/test-agent.md` and spawn a Task the same way. Include the issue labels so it can determine whether to skip (e.g., `type:config`).
+
+Both agents are read-only advisors. They return structured output — they do not write files.
+
+### Step 6c: Apply review feedback and write tests
+
+Process the sub-agent outputs:
+
+1. **Review: must-fix items** — Apply each must-fix change. These are blocking. If the review agent returned "None," skip this step.
+2. **Review: suggestions** — Save the suggestions list for the PR body. Do not apply them now.
+3. **Test: test files** — Write each test file to disk at the path specified by the test agent. If the test agent returned "Skipped," no test files are needed.
+4. **Run tests** — If test files were written:
+   ```bash
+   pnpm test
+   ```
+   If tests fail, read the output and fix the implementation (not the tests — the tests describe correct behavior). Re-run once.
 
 ### Step 7: Quality checks
 
-Run all three checks:
+Run all four checks:
 
 ```bash
-npm run lint
-npx tsc --noEmit
-npm run build
+pnpm lint
+pnpm tsc --noEmit
+pnpm test
+pnpm build
 ```
 
 **If all pass:** proceed to Step 8.
 
-**If any fail:** read the error output, fix the issues, and run the checks again. You get **2 total attempts** (the initial run + one retry).
+**If any fail:** spawn the **debug agent**. Read `skills/build/references/debug-agent.md` and spawn a Task with its contents as the prompt. Append the full error output, the list of files changed, and the issue body. The debug agent returns a prioritized list of fixes — apply them in order, then re-run all four checks. You get **2 total attempts** (the initial run + one retry after the debug agent's fixes).
 
 ### Step 8: On success — commit and open PR
 
@@ -115,6 +139,16 @@ Closes #{N}
 
 [Copy the acceptance criteria from the issue, checking off completed items]
 
+## Tests
+
+[Summary from test agent: number of test files, number of test cases, key scenarios covered.
+Or: "Tests skipped — [reason from test agent]"]
+
+## Review Notes
+
+[List any non-blocking suggestions from the review agent here.
+Or: "No additional suggestions."]
+
 ---
 
 > Preview deploy will appear below. Check it before approving.
@@ -133,7 +167,7 @@ gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:done"
 
 ### Step 9: On failure — escalate
 
-If quality checks fail after 2 attempts:
+If quality checks fail after 2 attempts (initial + debug-assisted retry):
 
 ```bash
 # Capture the error
@@ -156,8 +190,8 @@ gh issue comment $ISSUE --body "$(cat <<'EOF'
 {error output}
 \`\`\`
 
-**What was attempted:**
-[Brief description of what you tried to fix]
+**Debug agent diagnosis:**
+[Summary of what the debug agent identified and what fixes were attempted]
 
 **Branch:** `agent/issue-{N}-{slug}` (pushed with current state)
 EOF
@@ -179,4 +213,5 @@ After completing (success or failure), end with:
 - **PR body must reference the issue** with `Closes #{N}`.
 - **Write `/tmp/forge-current-issue`** so the Stop hook knows which issue to comment on.
 - **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for.
-- **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + build.
+- **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
+- **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.

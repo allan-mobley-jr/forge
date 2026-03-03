@@ -1,4 +1,4 @@
-# Forge
+# ⚒ Forge
 
 <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview-under-1MB.png" alt="Forge — Autonomous Next.js Development" width="1280" />
 
@@ -17,21 +17,13 @@ GitHub is the single source of truth. Issues are the task queue. PRs are the uni
 ## Quick Start
 
 ```bash
-# Install Forge
+# Install Forge (one-time)
 curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
 
-# Create a project
+# Start a new project
 mkdir my-app && cd my-app
-
-# Describe your app
-cat > PROMPT.md << 'EOF'
-# My App
-A task management app with projects, due dates, and a clean dashboard.
-EOF
-
-# Bootstrap and start building
-forge init
-claude
+forge init                   # bootstraps the project
+claude                       # start building
 ```
 
 The `/forge` skill auto-invokes when Claude Code starts, reads the project state from GitHub, and begins the plan-build loop.
@@ -55,11 +47,29 @@ Each project gets:
 - A Vercel project with automatic preview deploys on PRs
 - A label taxonomy for tracking issue and agent state
 
+## Resuming Work
+
+**Coming back to a project:** Just open a terminal and start Claude Code. The `/forge` skill reads project state from GitHub — open issues, in-progress PRs, labels — and picks up where it left off. No local state to lose.
+
+```bash
+cd my-app
+claude
+```
+
+**If `forge init` was interrupted:** If bootstrap fails partway through (network error, auth timeout, etc.), resume from where it stopped:
+
+```bash
+forge init --resume
+```
+
+Every step checks whether it already completed, so resumed runs skip finished work and retry from the point of failure.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
+| `forge init --resume` | Resume a failed or interrupted bootstrap |
 | `forge update` | Update Forge to the latest version |
 | `forge version` | Show installed version |
 
@@ -78,17 +88,17 @@ Each project gets:
 ```
 forge/
 ├── install.sh              # curl | bash installer
-├── bootstrap/setup.sh      # 23-step idempotent project setup
+├── bootstrap/setup.sh      # Idempotent project setup
 ├── skills/                 # Claude Code skill definitions
 │   ├── forge/SKILL.md      #   Master orchestrator
 │   ├── plan/SKILL.md       #   Research & issue filing
 │   ├── build/SKILL.md      #   Issue → branch → PR
+│   │   └── references/     #   Sub-agent prompts (review, test, debug)
 │   ├── sync/SKILL.md       #   GitHub state reader
 │   └── ask/SKILL.md        #   Human escalation
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
-│   ├── ci.yml              #   Lint + typecheck + build
-│   └── claude-review.yml   #   Optional Claude PR review
+│   └── ci.yml              #   Lint + typecheck + test + build + E2E
 └── templates/
     ├── CLAUDE.md.hbs       # Project CLAUDE.md template
     ├── PROMPT.md            # Example starter prompt

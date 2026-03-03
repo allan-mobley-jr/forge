@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Forge Bootstrap — Idempotent project setup
-# Safe to re-run at any time. Each step checks if already done.
+# Forge Bootstrap — Project setup
+# Tool-check steps (1-9) are idempotent and safe to re-run.
+# Project steps (10+) run once during forge init.
 
 # --- Configuration ---
+
+FORGE_RESUME=false
+if [ "${1:-}" = "--resume" ]; then
+    FORGE_RESUME=true
+fi
 
 FORGE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="$(pwd)"
@@ -25,6 +31,24 @@ skip()  { printf "  ${GREEN}[x]${NC} %s ${YELLOW}(already done)${NC}\n" "$1"; }
 fail()  { printf "  ${RED}[!]${NC} %s\n" "$1"; }
 warn()  { printf "  ${YELLOW}[!]${NC} %s\n" "$1"; }
 
+# --- Error trap ---
+
+on_error() {
+    local exit_code=$?
+    # Restore PROMPT.md if stranded during scaffolding
+    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f /tmp/PROMPT.md.forge-bak ]; then
+        mv /tmp/PROMPT.md.forge-bak "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
+    fi
+    echo ""
+    fail "Bootstrap failed (exit code $exit_code)."
+    echo ""
+    echo "  To resume from where it stopped, run:"
+    echo "    forge init --resume"
+    echo ""
+    exit $exit_code
+}
+trap on_error ERR
+
 # --- Preflight ---
 
 if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
@@ -35,14 +59,29 @@ if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
     exit 1
 fi
 
+if [ -d "$PROJECT_DIR/.git" ]; then
+    if [ "$FORGE_RESUME" != true ]; then
+        fail "This directory is already a git repository."
+        echo ""
+        echo "  forge init is for new projects only."
+        echo "  To resume a failed bootstrap, run:"
+        echo "    forge init --resume"
+        exit 1
+    fi
+fi
+
 echo ""
-info "=== Forge Bootstrap ==="
+if [ "$FORGE_RESUME" = true ]; then
+    info "=== Forge Bootstrap (resuming) ==="
+else
+    info "=== Forge Bootstrap ==="
+fi
 info "Project: $PROJECT_DIR"
 info "Forge:   $FORGE_REPO"
 echo ""
 
 # ============================================================
-# Phase 1: Tool Installation Checks (Steps 1-11)
+# Phase 1: Tool Installation Checks (Steps 1-9)
 # ============================================================
 
 info "--- Checking tools ---"
@@ -59,20 +98,31 @@ step_01_homebrew() {
     ok "$label"
 }
 
-# Step 2: git
-step_02_git() {
-    local label="2. git installed"
-    if command -v git &>/dev/null; then
+# Step 2: Node.js
+step_02_node() {
+    local label="2. Node.js installed"
+    if command -v node &>/dev/null; then
         skip "$label"
         return
     fi
-    brew install git
+    brew install node
     ok "$label"
 }
 
-# Step 3: gh CLI
-step_03_gh() {
-    local label="3. gh CLI installed"
+# Step 3: pnpm
+step_03_pnpm() {
+    local label="3. pnpm installed"
+    if command -v pnpm &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    brew install pnpm
+    ok "$label"
+}
+
+# Step 4: gh CLI
+step_04_gh() {
+    local label="4. gh CLI installed"
     if command -v gh &>/dev/null; then
         skip "$label"
         return
@@ -81,9 +131,9 @@ step_03_gh() {
     ok "$label"
 }
 
-# Step 4: gh authenticated
-step_04_gh_auth() {
-    local label="4. gh authenticated"
+# Step 5: gh authenticated
+step_05_gh_auth() {
+    local label="5. gh authenticated"
     if gh auth status &>/dev/null; then
         skip "$label"
         return
@@ -93,9 +143,9 @@ step_04_gh_auth() {
     ok "$label"
 }
 
-# Step 5: SSH key
-step_05_ssh_key() {
-    local label="5. SSH key exists and added to GitHub"
+# Step 6: SSH key
+step_06_ssh_key() {
+    local label="6. SSH key exists and added to GitHub"
     if ls ~/.ssh/id_*.pub &>/dev/null; then
         skip "$label"
         return
@@ -107,43 +157,57 @@ step_05_ssh_key() {
     ok "$label"
 }
 
-# Step 6: git config
-step_06_git_config() {
-    local label="6. git config (user.name, user.email)"
-    local name email
-    name=$(git config --global user.name 2>/dev/null || true)
-    email=$(git config --global user.email 2>/dev/null || true)
-    if [ -n "$name" ] && [ -n "$email" ]; then
+# Step 7: git config (identity + SSH signing)
+step_07_git_config() {
+    local label="7. git config (identity, SSH signing)"
+    if git config --global user.name &>/dev/null \
+        && git config --global user.email &>/dev/null \
+        && git config --global commit.gpgsign &>/dev/null; then
         skip "$label"
         return
     fi
-    if [ -z "$name" ]; then
-        printf "  Enter your name for git commits: "
-        read -r name
+    # Set identity from GitHub if missing
+    if ! git config --global user.name &>/dev/null || ! git config --global user.email &>/dev/null; then
+        local name email
+        name=$(gh api user -q .name 2>/dev/null || true)
+        email=$(gh api user/emails -q '[.[] | select(.primary==true)] | .[0].email' 2>/dev/null || true)
+        if [ -z "$name" ] || [ -z "$email" ]; then
+            warn "Could not retrieve name/email from GitHub — set manually with:"
+            warn "  git config --global user.name \"Your Name\""
+            warn "  git config --global user.email \"you@example.com\""
+            return
+        fi
         git config --global user.name "$name"
-    fi
-    if [ -z "$email" ]; then
-        printf "  Enter your email for git commits: "
-        read -r email
         git config --global user.email "$email"
+    fi
+    # SSH commit signing — use whichever key exists
+    local signing_key
+    signing_key=$(ls ~/.ssh/id_ed25519.pub ~/.ssh/id_rsa.pub ~/.ssh/id_ecdsa.pub 2>/dev/null | head -1)
+    if [ -n "$signing_key" ]; then
+        git config --global gpg.format ssh
+        git config --global user.signingkey "$signing_key"
+        git config --global commit.gpgsign true
+        git config --global tag.gpgsign true
+    else
+        warn "No SSH public key found — skipping commit signing"
     fi
     ok "$label"
 }
 
-# Step 7: Vercel CLI
-step_07_vercel() {
-    local label="7. Vercel CLI installed"
+# Step 8: Vercel CLI
+step_08_vercel() {
+    local label="8. Vercel CLI installed"
     if command -v vercel &>/dev/null; then
         skip "$label"
         return
     fi
-    npm install -g vercel
+    pnpm i -g vercel
     ok "$label"
 }
 
-# Step 8: Vercel authenticated
-step_08_vercel_auth() {
-    local label="8. Vercel authenticated"
+# Step 9: Vercel authenticated
+step_09_vercel_auth() {
+    local label="9. Vercel authenticated"
     if vercel whoami &>/dev/null; then
         skip "$label"
         return
@@ -153,72 +217,16 @@ step_08_vercel_auth() {
     ok "$label"
 }
 
-# Step 9: Claude Code
-step_09_claude() {
-    local label="9. Claude Code installed"
-    if command -v claude &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    npm install -g @anthropic-ai/claude-code
-    ok "$label"
-}
-
-# Step 10: Claude authenticated
-step_10_claude_auth() {
-    local label="10. Claude Code authenticated"
-    if claude --version &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    warn "Claude Code is installed but may not be authenticated."
-    warn "Run 'claude' and follow the login prompts to authenticate with your Max subscription."
-    ok "$label"
-}
-
-# Step 11: ANTHROPIC_API_KEY check
-step_11_api_key_check() {
-    local label="11. ANTHROPIC_API_KEY not set (uses Max subscription)"
-    if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
-        skip "$label"
-        return
-    fi
-    warn "ANTHROPIC_API_KEY is set in your environment."
-    warn "Forge uses your Claude Max subscription, not an API key."
-    warn "The API key may hijack billing. Consider unsetting it:"
-    warn "  unset ANTHROPIC_API_KEY"
-    warn "  # And remove from your shell profile if set there"
-    ok "$label — WARNING: API key detected"
-}
-
 # ============================================================
-# Phase 2: Project Setup (Steps 12-23)
+# Phase 2: Project Setup (Steps 10-22)
 # ============================================================
 
 echo ""
 info "--- Setting up project ---"
 
-# Step 12: Create GitHub repo
-step_12_github_repo() {
-    local label="12. GitHub repository"
-    local repo_name
-    repo_name=$(basename "$PROJECT_DIR")
-    if gh repo view &>/dev/null 2>&1; then
-        skip "$label"
-        return
-    fi
-    # Initialize git first if needed
-    if [ ! -d .git ]; then
-        git init
-    fi
-    info "  Creating GitHub repository: $repo_name"
-    gh repo create "$repo_name" --public --source=. --push
-    ok "$label"
-}
-
-# Step 13: git init
-step_13_git_init() {
-    local label="13. git initialized"
+# Step 10: git init
+step_10_git_init() {
+    local label="10. git initialized"
     if [ -d .git ]; then
         skip "$label"
         return
@@ -227,51 +235,192 @@ step_13_git_init() {
     ok "$label"
 }
 
-# Step 14: Initial commit
-step_14_initial_commit() {
-    local label="14. Initial commit"
-    if git log --oneline -1 &>/dev/null 2>&1; then
+# Step 10b: Scaffold Next.js app
+step_10b_scaffold() {
+    local label="10b. Next.js app scaffolded"
+    # Restore PROMPT.md if stranded by a previous interrupted run
+    if [ ! -f PROMPT.md ] && [ -f /tmp/PROMPT.md.forge-bak ]; then
+        mv /tmp/PROMPT.md.forge-bak PROMPT.md
+        warn "Restored PROMPT.md from previous interrupted run"
+    fi
+    if [ -f package.json ]; then
         skip "$label"
         return
     fi
-    git add PROMPT.md
-    git commit -m "Initial commit: add PROMPT.md"
+    info "  Scaffolding Next.js app..."
+    # create-next-app refuses non-empty directories — move PROMPT.md aside
+    mv PROMPT.md /tmp/PROMPT.md.forge-bak
+    pnpm dlx create-next-app@latest . \
+        --typescript --tailwind --eslint --app --src-dir \
+        --turbopack --use-pnpm --disable-git --yes
+    mv /tmp/PROMPT.md.forge-bak PROMPT.md
     ok "$label"
 }
 
-# Step 15: Push to GitHub
-step_15_push() {
-    local label="15. Pushed to GitHub"
-    if git remote get-url origin &>/dev/null 2>&1 && git rev-parse --verify origin/main &>/dev/null 2>&1; then
+# Step 10c: Install test dependencies
+step_10c_test_deps() {
+    local label="10c. Test dependencies installed"
+    if pnpm list vitest &>/dev/null 2>&1; then
         skip "$label"
         return
     fi
-    if ! git remote get-url origin &>/dev/null 2>&1; then
-        local repo_name
-        repo_name=$(basename "$PROJECT_DIR")
-        local gh_user
-        gh_user=$(gh api user -q .login)
-        git remote add origin "git@github.com:${gh_user}/${repo_name}.git"
+    info "  Installing test dependencies..."
+    pnpm add -D vitest @vitejs/plugin-react jsdom \
+        @testing-library/react @testing-library/jest-dom @testing-library/user-event \
+        @playwright/test
+    ok "$label"
+}
+
+# Step 10d: Test configuration files
+step_10d_test_config() {
+    local label="10d. Test configuration"
+    if [ -f vitest.config.ts ]; then
+        skip "$label"
+        return
+    fi
+    info "  Writing test configuration..."
+
+    # vitest.config.ts
+    cat > vitest.config.ts <<'VITEST'
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
+    globals: true,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+})
+VITEST
+
+    # vitest.setup.ts
+    cat > vitest.setup.ts <<'SETUP'
+import '@testing-library/jest-dom/vitest'
+SETUP
+
+    # playwright.config.ts
+    cat > playwright.config.ts <<'PLAYWRIGHT'
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+  },
+})
+PLAYWRIGHT
+
+    # Create e2e directory
+    mkdir -p e2e
+
+    # Add test scripts to package.json
+    local tmp_pkg
+    tmp_pkg=$(mktemp)
+    node -e "
+      const pkg = require('./package.json');
+      pkg.scripts = pkg.scripts || {};
+      pkg.scripts.test = 'vitest run';
+      pkg.scripts['test:watch'] = 'vitest';
+      pkg.scripts['test:e2e'] = 'playwright test';
+      require('fs').writeFileSync('$tmp_pkg', JSON.stringify(pkg, null, 2) + '\n');
+    "
+    mv "$tmp_pkg" package.json
+
+    ok "$label"
+}
+
+# Step 11: Initial commit
+step_11_initial_commit() {
+    local label="11. Initial commit"
+    if git rev-parse HEAD &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    git add .
+    git commit -m "Initial commit: scaffold Next.js app with PROMPT.md"
+    ok "$label"
+}
+
+# Step 12: Create GitHub repo
+step_12_github_repo() {
+    local label="12. GitHub repository"
+    if git remote get-url origin &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    # Prompt for repo name (default: folder name)
+    local default_name
+    default_name=$(basename "$PROJECT_DIR")
+    printf "  Repository name [${default_name}]: "
+    read -r repo_name
+    repo_name="${repo_name:-$default_name}"
+    # Prompt for visibility (default: private)
+    printf "  Visibility (public/private) [private]: "
+    read -r visibility
+    visibility="${visibility:-private}"
+    if [ "$visibility" != "public" ] && [ "$visibility" != "private" ]; then
+        warn "Invalid choice '$visibility' — defaulting to private"
+        visibility="private"
+    fi
+    info "  Creating GitHub repository: $repo_name ($visibility)"
+    gh repo create "$repo_name" --"$visibility" --source=. --push
+    ok "$label"
+}
+
+# Step 13: Push to GitHub (fallback if step 12's --push didn't cover it)
+step_13_push() {
+    local label="13. Pushed to GitHub"
+    if git rev-parse --verify origin/main &>/dev/null 2>&1; then
+        skip "$label"
+        return
     fi
     git push -u origin main
     ok "$label"
 }
 
-# Step 16: Vercel link
-step_16_vercel_link() {
-    local label="16. Vercel project linked"
+# Step 14: Vercel project linked to GitHub repo
+step_14_vercel_link() {
+    local label="14. Vercel project linked"
     if [ -f .vercel/project.json ]; then
         skip "$label"
         return
     fi
-    info "  Linking to Vercel..."
-    vercel link
+    info "  Creating Vercel project..."
+    vercel link --yes
+    info "  Connecting GitHub repo..."
+    vercel git connect --yes
     ok "$label"
 }
 
-# Step 17: Copy skills
-step_17_copy_skills() {
-    local label="17. Forge skills installed"
+# Step 15: Copy skills
+step_15_copy_skills() {
+    local label="15. Forge skills installed"
     if [ -f .claude/skills/forge/SKILL.md ]; then
         skip "$label"
         return
@@ -281,9 +430,9 @@ step_17_copy_skills() {
     ok "$label"
 }
 
-# Step 18: Copy hooks
-step_18_copy_hooks() {
-    local label="18. Hooks configuration"
+# Step 16: Copy hooks
+step_16_copy_hooks() {
+    local label="16. Hooks configuration"
     if [ -f .claude/settings.json ]; then
         skip "$label"
         return
@@ -293,9 +442,9 @@ step_18_copy_hooks() {
     ok "$label"
 }
 
-# Step 19: Copy CI workflow
-step_19_copy_ci() {
-    local label="19. CI workflow"
+# Step 17: Copy CI workflow
+step_17_copy_ci() {
+    local label="17. CI workflow"
     if [ -f .github/workflows/ci.yml ]; then
         skip "$label"
         return
@@ -305,9 +454,9 @@ step_19_copy_ci() {
     ok "$label"
 }
 
-# Step 20: Generate CLAUDE.md
-step_20_generate_claude_md() {
-    local label="20. CLAUDE.md generated"
+# Step 18: Generate CLAUDE.md
+step_18_generate_claude_md() {
+    local label="18. CLAUDE.md generated"
     if [ -f CLAUDE.md ]; then
         skip "$label"
         return
@@ -318,30 +467,43 @@ step_20_generate_claude_md() {
     description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1 || echo "A Forge project")
     created_date=$(date +%Y-%m-%d)
 
-    node -e "
-const fs = require('fs');
-let tmpl = fs.readFileSync('${FORGE_REPO}/templates/CLAUDE.md.hbs', 'utf8');
-tmpl = tmpl.replace(/\{\{project_name\}\}/g, '${project_name}');
-tmpl = tmpl.replace(/\{\{github_repo\}\}/g, '${github_repo}');
-tmpl = tmpl.replace(/\{\{description\}\}/g, process.argv[1]);
-tmpl = tmpl.replace(/\{\{created_date\}\}/g, '${created_date}');
-fs.writeFileSync('CLAUDE.md', tmpl);
-" "$description"
+    PROJECT_NAME="$project_name" \
+        GITHUB_REPO="$github_repo" \
+        DESCRIPTION="$description" \
+        CREATED_DATE="$created_date" \
+        perl -pe 's/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
+                  s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
+                  s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
+                  s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;' \
+        "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
     ok "$label"
 }
 
-# Step 21: Branch protection
-step_21_branch_protection() {
-    local label="21. Branch protection ruleset"
+# Step 18b: Commit project configuration
+step_18b_commit_config() {
+    local label="18b. Project configuration committed"
+    if git log --oneline --grep="add Forge configuration" 2>/dev/null | grep -q .; then
+        skip "$label"
+        return
+    fi
+    git add CLAUDE.md .claude/ .github/
+    git commit -m "chore: add Forge configuration"
+    git push
+    ok "$label"
+}
+
+# Step 19: Branch protection
+step_19_branch_protection() {
+    local label="19. Branch protection ruleset"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
         warn "Could not determine repository — skipping branch protection"
         return
     fi
-    # Check if a ruleset already exists
+    # Check if a forge ruleset already exists
     local existing
-    existing=$(gh api "repos/$repo/rulesets" -q 'length' 2>/dev/null || echo "0")
+    existing=$(gh api "repos/$repo/rulesets" -q '[.[] | select(.name == "forge-main-protection")] | length' 2>/dev/null || echo "0")
     if [ "$existing" != "0" ]; then
         skip "$label"
         return
@@ -349,11 +511,18 @@ step_21_branch_protection() {
     gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
-        --input - <<'RULESET' 2>/dev/null || warn "Branch protection failed — you may need to set this up manually"
+        --input - <<RULESET 2>/dev/null || warn "Branch protection failed — you may need to set this up manually"
 {
   "name": "forge-main-protection",
   "target": "branch",
   "enforcement": "active",
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
   "conditions": {
     "ref_name": {
       "include": ["refs/heads/main"],
@@ -364,10 +533,11 @@ step_21_branch_protection() {
     {
       "type": "pull_request",
       "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
         "require_code_owner_review": false,
-        "require_last_push_approval": false
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
       }
     },
     {
@@ -380,6 +550,12 @@ step_21_branch_protection() {
           }
         ]
       }
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "deletion"
     }
   ]
 }
@@ -387,9 +563,39 @@ RULESET
     ok "$label"
 }
 
-# Step 22: Create labels
-step_22_create_labels() {
-    local label="22. GitHub label taxonomy"
+# Step 19b: Repository settings
+step_19b_repo_settings() {
+    local label="19b. Repository settings"
+    local repo
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$repo" ]; then
+        warn "Could not determine repository — skipping repo settings"
+        return
+    fi
+    # Check if already configured (delete_branch_on_merge is not a default)
+    local current
+    current=$(gh api "repos/$repo" -q .delete_branch_on_merge 2>/dev/null || echo "false")
+    if [ "$current" = "true" ]; then
+        skip "$label"
+        return
+    fi
+    gh api "repos/$repo" \
+        -X PATCH \
+        -H "Accept: application/vnd.github+json" \
+        --input - <<'SETTINGS' 2>/dev/null || warn "Repo settings update failed — you may need to configure manually"
+{
+  "delete_branch_on_merge": true,
+  "allow_update_branch": true,
+  "has_wiki": false,
+  "has_projects": false
+}
+SETTINGS
+    ok "$label"
+}
+
+# Step 20: Create labels
+step_20_create_labels() {
+    local label="20. GitHub label taxonomy"
     # Check if forge labels already exist
     if gh label list --json name -q '.[].name' 2>/dev/null | grep -q "agent:ready"; then
         skip "$label"
@@ -412,9 +618,9 @@ step_22_create_labels() {
     ok "$label"
 }
 
-# Step 23: Write config
-step_23_write_config() {
-    local label="23. Forge config"
+# Step 21: Write config
+step_21_write_config() {
+    local label="21. Forge config"
     if [ -f "$FORGE_CONFIG_DIR/config.json" ]; then
         # Update existing config with this project
         skip "$label"
@@ -444,29 +650,32 @@ EOF
 # ============================================================
 
 step_01_homebrew
-step_02_git
-step_03_gh
-step_04_gh_auth
-step_05_ssh_key
-step_06_git_config
-step_07_vercel
-step_08_vercel_auth
-step_09_claude
-step_10_claude_auth
-step_11_api_key_check
+step_02_node
+step_03_pnpm
+step_04_gh
+step_05_gh_auth
+step_06_ssh_key
+step_07_git_config
+step_08_vercel
+step_09_vercel_auth
 
+step_10_git_init
+step_10b_scaffold
+step_10c_test_deps
+step_10d_test_config
+step_11_initial_commit
 step_12_github_repo
-step_13_git_init
-step_14_initial_commit
-step_15_push
-step_16_vercel_link
-step_17_copy_skills
-step_18_copy_hooks
-step_19_copy_ci
-step_20_generate_claude_md
-step_21_branch_protection
-step_22_create_labels
-step_23_write_config
+step_13_push
+step_14_vercel_link
+step_15_copy_skills
+step_16_copy_hooks
+step_17_copy_ci
+step_18_generate_claude_md
+step_18b_commit_config
+step_19_branch_protection
+step_19b_repo_settings
+step_20_create_labels
+step_21_write_config
 
 # ============================================================
 # Done
@@ -475,9 +684,8 @@ step_23_write_config
 echo ""
 info "=== Bootstrap complete ==="
 echo ""
-echo "  Your Forge project is ready. Next steps:"
+echo "  Your Forge project is ready. Run:"
 echo ""
-echo "    cd $PROJECT_DIR"
 echo "    claude"
 echo ""
 echo "  The /forge skill will auto-invoke and start planning your app."

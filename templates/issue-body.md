@@ -14,9 +14,10 @@
 ## Acceptance Criteria
 - [ ] [Specific, testable criterion]
 - [ ] [Specific, testable criterion]
-- [ ] npm run lint passes
-- [ ] npx tsc --noEmit passes
-- [ ] npm run build completes without error
+- [ ] pnpm lint passes
+- [ ] pnpm tsc --noEmit passes
+- [ ] pnpm test passes
+- [ ] pnpm build completes without error
 
 ## Milestone
 [Phase N: Phase Name]
