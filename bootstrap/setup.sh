@@ -190,31 +190,47 @@ step_10_claude() {
     ok "$label"
 }
 
-# Step 11: Claude authenticated
-step_11_claude_auth() {
-    local label="11. Claude Code authenticated"
-    if claude --version &>/dev/null; then
-        skip "$label"
-        return
+# Step 11: Subscription advisement
+step_11_subscription_check() {
+    local label="11. Subscription check"
+    echo ""
+    warn "Forge requires a Claude Max subscription."
+    warn "A Pro subscription will burn through its daily limit quickly."
+    warn "Learn more: https://claude.ai/upgrade"
+    echo ""
+    printf "  Do you have a Claude Max subscription? (y/n) [y]: "
+    read -r has_max
+    has_max="${has_max:-y}"
+    if [ "$has_max" != "y" ] && [ "$has_max" != "Y" ]; then
+        fail "A Max subscription is required to use Forge effectively."
+        echo "  Sign up at https://claude.ai/upgrade then re-run forge init."
+        exit 1
     fi
-    warn "Claude Code is installed but may not be authenticated."
-    warn "Run 'claude' and follow the login prompts to authenticate with your Max subscription."
     ok "$label"
 }
 
 # Step 12: ANTHROPIC_API_KEY check
 step_12_api_key_check() {
-    local label="12. ANTHROPIC_API_KEY not set (uses Max subscription)"
+    local label="12. API key check"
     if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
         skip "$label"
         return
     fi
+    echo ""
     warn "ANTHROPIC_API_KEY is set in your environment."
-    warn "Forge uses your Claude Max subscription, not an API key."
-    warn "The API key may hijack billing. Consider unsetting it:"
-    warn "  unset ANTHROPIC_API_KEY"
-    warn "  # And remove from your shell profile if set there"
-    ok "$label — WARNING: API key detected"
+    warn "Forge will use the API key instead of your Max subscription."
+    warn "API usage is billed per-token with no automatic spending cap."
+    warn "Set a limit at: https://console.anthropic.com/settings/limits"
+    echo ""
+    printf "  Continue with API key? (y/n) [n]: "
+    read -r use_api_key
+    use_api_key="${use_api_key:-n}"
+    if [ "$use_api_key" != "y" ] && [ "$use_api_key" != "Y" ]; then
+        info "  Unset the key and re-run:"
+        info "    unset ANTHROPIC_API_KEY"
+        exit 1
+    fi
+    ok "$label — using API key"
 }
 
 # ============================================================
@@ -513,7 +529,7 @@ step_07_git_config
 step_08_vercel
 step_09_vercel_auth
 step_10_claude
-step_11_claude_auth
+step_11_subscription_check
 step_12_api_key_check
 
 step_13_git_init
