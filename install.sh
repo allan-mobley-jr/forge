@@ -90,9 +90,11 @@ case "${1:-}" in
             cp "$FORGE_REPO/templates/PROMPT.md" PROMPT.md
             echo "Created PROMPT.md from the starter template."
             echo ""
-            echo "  NOTE: Edit PROMPT.md to describe your app before bootstrap"
-            echo "  completes. You'll have time while tools are being installed."
+            echo "  Edit PROMPT.md to describe your application before continuing."
+            echo "  Open it in your editor now — we'll wait."
             echo ""
+            printf "  Press Enter when PROMPT.md is ready... "
+            read -r
         fi
 
         # --- Install / update Claude Code (native binary) ---
