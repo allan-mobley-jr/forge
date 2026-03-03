@@ -88,7 +88,7 @@ Every step checks whether it already completed, so resumed runs skip finished wo
 ```
 forge/
 ├── install.sh              # curl | bash installer
-├── bootstrap/setup.sh      # 23-step idempotent project setup
+├── bootstrap/setup.sh      # Idempotent project setup
 ├── skills/                 # Claude Code skill definitions
 │   ├── forge/SKILL.md      #   Master orchestrator
 │   ├── plan/SKILL.md       #   Research & issue filing

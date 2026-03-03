@@ -467,10 +467,14 @@ step_18_generate_claude_md() {
     description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1 || echo "A Forge project")
     created_date=$(date +%Y-%m-%d)
 
-    sed -e "s|{{project_name}}|${project_name}|g" \
-        -e "s|{{github_repo}}|${github_repo}|g" \
-        -e "s|{{description}}|${description}|g" \
-        -e "s|{{created_date}}|${created_date}|g" \
+    PROJECT_NAME="$project_name" \
+        GITHUB_REPO="$github_repo" \
+        DESCRIPTION="$description" \
+        CREATED_DATE="$created_date" \
+        perl -pe 's/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
+                  s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
+                  s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
+                  s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;' \
         "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
     ok "$label"
 }
@@ -504,9 +508,6 @@ step_19_branch_protection() {
         skip "$label"
         return
     fi
-    # Get the repo owner's admin role ID for bypass
-    local owner_id
-    owner_id=$(gh api user -q .id 2>/dev/null || echo "")
     gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
