@@ -272,15 +272,17 @@ step_16_push() {
     ok "$label"
 }
 
-# Step 17: Vercel link
+# Step 17: Vercel project linked to GitHub repo
 step_17_vercel_link() {
     local label="17. Vercel project linked"
     if [ -f .vercel/project.json ]; then
         skip "$label"
         return
     fi
-    info "  Linking to Vercel..."
-    vercel link
+    info "  Creating Vercel project..."
+    vercel link --yes
+    info "  Connecting GitHub repo..."
+    vercel git connect --yes
     ok "$label"
 }
 
