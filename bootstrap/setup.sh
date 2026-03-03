@@ -339,21 +339,31 @@ step_21_branch_protection() {
         warn "Could not determine repository — skipping branch protection"
         return
     fi
-    # Check if a ruleset already exists
+    # Check if a forge ruleset already exists
     local existing
-    existing=$(gh api "repos/$repo/rulesets" -q 'length' 2>/dev/null || echo "0")
+    existing=$(gh api "repos/$repo/rulesets" -q '[.[] | select(.name == "forge-main-protection")] | length' 2>/dev/null || echo "0")
     if [ "$existing" != "0" ]; then
         skip "$label"
         return
     fi
+    # Get the repo owner's admin role ID for bypass
+    local owner_id
+    owner_id=$(gh api user -q .id 2>/dev/null || echo "")
     gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
-        --input - <<'RULESET' 2>/dev/null || warn "Branch protection failed — you may need to set this up manually"
+        --input - <<RULESET 2>/dev/null || warn "Branch protection failed — you may need to set this up manually"
 {
   "name": "forge-main-protection",
   "target": "branch",
   "enforcement": "active",
+  "bypass_actors": [
+    {
+      "actor_id": 5,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
   "conditions": {
     "ref_name": {
       "include": ["refs/heads/main"],
@@ -364,10 +374,11 @@ step_21_branch_protection() {
     {
       "type": "pull_request",
       "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews_on_push": true,
         "require_code_owner_review": false,
-        "require_last_push_approval": false
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false
       }
     },
     {
@@ -380,10 +391,46 @@ step_21_branch_protection() {
           }
         ]
       }
+    },
+    {
+      "type": "non_fast_forward"
+    },
+    {
+      "type": "deletion"
     }
   ]
 }
 RULESET
+    ok "$label"
+}
+
+# Step 21b: Repository settings
+step_21b_repo_settings() {
+    local label="21b. Repository settings"
+    local repo
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$repo" ]; then
+        warn "Could not determine repository — skipping repo settings"
+        return
+    fi
+    # Check if already configured (delete_branch_on_merge is not a default)
+    local current
+    current=$(gh api "repos/$repo" -q .delete_branch_on_merge 2>/dev/null || echo "false")
+    if [ "$current" = "true" ]; then
+        skip "$label"
+        return
+    fi
+    gh api "repos/$repo" \
+        -X PATCH \
+        -H "Accept: application/vnd.github+json" \
+        --input - <<'SETTINGS' 2>/dev/null || warn "Repo settings update failed — you may need to configure manually"
+{
+  "delete_branch_on_merge": true,
+  "allow_update_branch": true,
+  "has_wiki": false,
+  "has_projects": false
+}
+SETTINGS
     ok "$label"
 }
 
@@ -465,6 +512,7 @@ step_18_copy_hooks
 step_19_copy_ci
 step_20_generate_claude_md
 step_21_branch_protection
+step_21b_repo_settings
 step_22_create_labels
 step_23_write_config
 
