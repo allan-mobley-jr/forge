@@ -1,4 +1,4 @@
-# Forge
+# ⚒ Forge
 
 <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview-under-1MB.png" alt="Forge — Autonomous Next.js Development" width="1280" />
 
