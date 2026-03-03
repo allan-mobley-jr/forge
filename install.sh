@@ -18,12 +18,14 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 echo ""
-echo -e "  ╭──────────────────────────────────────╮"
-echo -e "  │                                      │"
-echo -e "  │   ${YELLOW}⚒${NC}  ${BOLD}Forge${NC}                           │"
-echo -e "  │   Autonomous Next.js Development     │"
-echo -e "  │                                      │"
-echo -e "  ╰──────────────────────────────────────╯"
+echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
+echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
+echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
+echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
+echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
+echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
+echo ""
+echo "  Autonomous Next.js Development"
 echo ""
 
 # --- Step 1: Ensure git is available (install Apple CLT if needed) ---
@@ -78,6 +80,7 @@ FORGE_REPO="$HOME/.forge/repo"
 # Colors
 BOLD='\033[1m'
 YELLOW='\033[1;33m'
+DIM='\033[2m'
 NC='\033[0m'
 
 if [ ! -d "$FORGE_REPO" ]; then
@@ -88,13 +91,17 @@ fi
 
 case "${1:-}" in
     init)
+        FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
+
         echo ""
-        echo -e "  ╭──────────────────────────────────────╮"
-        echo -e "  │                                      │"
-        echo -e "  │   ${YELLOW}⚒${NC}  ${BOLD}Forge${NC}                           │"
-        echo -e "  │   Autonomous Next.js Development     │"
-        echo -e "  │                                      │"
-        echo -e "  ╰──────────────────────────────────────╯"
+        echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
+        echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
+        echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
+        echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
+        echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
+        echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
+        echo ""
+        echo -e "  Autonomous Next.js Development      ${DIM}${FORGE_VERSION}${NC}"
         echo ""
 
         if [ -d ".git" ]; then
@@ -162,7 +169,17 @@ case "${1:-}" in
         echo "Forge $(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)"
         ;;
     *)
-        echo "Forge — Autonomous Next.js Development"
+        FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
+
+        echo ""
+        echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
+        echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
+        echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
+        echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
+        echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
+        echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
+        echo ""
+        echo -e "  Autonomous Next.js Development      ${DIM}${FORGE_VERSION}${NC}"
         echo ""
         echo "Usage: forge <command>"
         echo ""
