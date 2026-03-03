@@ -62,16 +62,38 @@ fi
 
 case "${1:-}" in
     init)
-        if [ ! -f "PROMPT.md" ]; then
-            echo "Error: No PROMPT.md found in the current directory."
+        # Count files in the current directory (excluding hidden files)
+        local file_count
+        file_count=$(ls -1 2>/dev/null | wc -l | tr -d ' ')
+
+        if [ "$file_count" -eq 0 ]; then
+            # Empty directory — drop the template
+            cp "$FORGE_REPO/templates/PROMPT.md" PROMPT.md
+            echo "Created PROMPT.md from the starter template."
             echo ""
-            echo "Create a PROMPT.md describing your application, then run:"
-            echo "  forge init"
+            echo "  Open it in your editor and describe your application:"
             echo ""
-            echo "For an example, see:"
-            echo "  https://github.com/allan-mobley-jr/forge/blob/main/templates/PROMPT.md"
+            echo "    ${EDITOR:-nano} PROMPT.md"
+            echo ""
+            echo "  When you're done, run:"
+            echo ""
+            echo "    forge init"
+            exit 0
+        fi
+
+        if [ ! -f "PROMPT.md" ] || [ "$file_count" -gt 1 ]; then
+            echo "Error: forge init expects a clean directory with only a PROMPT.md."
+            echo ""
+            echo "  Quick start:"
+            echo ""
+            echo "    mkdir my-app && cd my-app"
+            echo "    forge init                  # creates a starter PROMPT.md"
+            echo "    \${EDITOR:-nano} PROMPT.md   # describe your app"
+            echo "    forge init                  # bootstrap the project"
+            echo "    claude                      # start building"
             exit 1
         fi
+
         exec "$FORGE_REPO/bootstrap/setup.sh"
         ;;
     update)

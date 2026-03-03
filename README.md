@@ -22,14 +22,9 @@ curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.
 
 # Create a project
 mkdir my-app && cd my-app
+forge init                   # creates a starter PROMPT.md
 
-# Describe your app
-cat > PROMPT.md << 'EOF'
-# My App
-A task management app with projects, due dates, and a clean dashboard.
-EOF
-
-# Bootstrap and start building
+# Describe your app in PROMPT.md, then bootstrap
 forge init
 claude
 ```
