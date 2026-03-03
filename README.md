@@ -79,8 +79,7 @@ forge/
 │   └── ask/SKILL.md        #   Human escalation
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
-│   ├── ci.yml              #   Lint + typecheck + build
-│   └── claude-review.yml   #   Optional Claude PR review
+│   └── ci.yml              #   Lint + typecheck + build
 └── templates/
     ├── CLAUDE.md.hbs       # Project CLAUDE.md template
     ├── PROMPT.md            # Example starter prompt
