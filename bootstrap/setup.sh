@@ -313,6 +313,19 @@ step_18_generate_claude_md() {
     ok "$label"
 }
 
+# Step 18b: Commit project configuration
+step_18b_commit_config() {
+    local label="18b. Project configuration committed"
+    if git log --oneline --grep="add Forge configuration" 2>/dev/null | grep -q .; then
+        skip "$label"
+        return
+    fi
+    git add CLAUDE.md .claude/ .github/
+    git commit -m "chore: add Forge configuration"
+    git push
+    ok "$label"
+}
+
 # Step 19: Branch protection
 step_19_branch_protection() {
     local label="19. Branch protection ruleset"
@@ -492,6 +505,7 @@ step_15_copy_skills
 step_16_copy_hooks
 step_17_copy_ci
 step_18_generate_claude_md
+step_18b_commit_config
 step_19_branch_protection
 step_19b_repo_settings
 step_20_create_labels
