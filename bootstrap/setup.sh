@@ -105,26 +105,32 @@ step_05_ssh_key() {
     ok "$label"
 }
 
-# Step 6: git config
+# Step 6: git config (identity + SSH signing)
 step_06_git_config() {
-    local label="6. git config (user.name, user.email)"
-    local name email
-    name=$(git config --global user.name 2>/dev/null || true)
-    email=$(git config --global user.email 2>/dev/null || true)
-    if [ -n "$name" ] && [ -n "$email" ]; then
+    local label="6. git config (identity, SSH signing)"
+    if git config --global user.name &>/dev/null \
+        && git config --global user.email &>/dev/null \
+        && git config --global commit.gpgsign &>/dev/null; then
         skip "$label"
         return
     fi
-    if [ -z "$name" ]; then
-        printf "  Enter your name for git commits: "
-        read -r name
-        git config --global user.name "$name"
+    # Pull identity from GitHub account
+    local name email
+    name=$(gh api user -q .name 2>/dev/null || true)
+    email=$(gh api user/emails -q '[.[] | select(.primary==true)] | .[0].email' 2>/dev/null || true)
+    if [ -z "$name" ] || [ -z "$email" ]; then
+        warn "Could not retrieve name/email from GitHub — set manually with:"
+        warn "  git config --global user.name \"Your Name\""
+        warn "  git config --global user.email \"you@example.com\""
+        return
     fi
-    if [ -z "$email" ]; then
-        printf "  Enter your email for git commits: "
-        read -r email
-        git config --global user.email "$email"
-    fi
+    git config --global user.name "$name"
+    git config --global user.email "$email"
+    # SSH commit signing
+    git config --global gpg.format ssh
+    git config --global user.signingkey ~/.ssh/id_ed25519.pub
+    git config --global commit.gpgsign true
+    git config --global tag.gpgsign true
     ok "$label"
 }
 
