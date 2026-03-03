@@ -79,36 +79,20 @@ fi
 
 case "${1:-}" in
     init)
-        # Count files in the current directory (excluding hidden files)
-        local file_count
-        file_count=$(ls -1 2>/dev/null | wc -l | tr -d ' ')
+        if [ -d ".git" ]; then
+            echo "Error: This directory is already a git repository."
+            echo "  forge init is for new projects only."
+            exit 1
+        fi
 
-        if [ "$file_count" -eq 0 ]; then
-            # Empty directory — drop the template
+        # Drop the starter template if no PROMPT.md exists
+        if [ ! -f "PROMPT.md" ]; then
             cp "$FORGE_REPO/templates/PROMPT.md" PROMPT.md
             echo "Created PROMPT.md from the starter template."
             echo ""
-            echo "  Open it in your editor and describe your application:"
+            echo "  NOTE: Edit PROMPT.md to describe your app before bootstrap"
+            echo "  completes. You'll have time while tools are being installed."
             echo ""
-            echo "    ${EDITOR:-nano} PROMPT.md"
-            echo ""
-            echo "  When you're done, run:"
-            echo ""
-            echo "    forge init"
-            exit 0
-        fi
-
-        if [ ! -f "PROMPT.md" ] || [ "$file_count" -gt 1 ]; then
-            echo "Error: forge init expects a clean directory with only a PROMPT.md."
-            echo ""
-            echo "  Quick start:"
-            echo ""
-            echo "    mkdir my-app && cd my-app"
-            echo "    forge init                  # creates a starter PROMPT.md"
-            echo "    \${EDITOR:-nano} PROMPT.md   # describe your app"
-            echo "    forge init                  # bootstrap the project"
-            echo "    claude                      # start building"
-            exit 1
         fi
 
         exec "$FORGE_REPO/bootstrap/setup.sh"
