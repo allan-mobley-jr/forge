@@ -91,6 +91,11 @@ fi
 
 case "${1:-}" in
     init)
+        FORGE_RESUME=false
+        if [ "${2:-}" = "--resume" ]; then
+            FORGE_RESUME=true
+        fi
+
         FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
 
         echo ""
@@ -105,9 +110,16 @@ case "${1:-}" in
         echo ""
 
         if [ -d ".git" ]; then
-            echo "Error: This directory is already a git repository."
-            echo "  forge init is for new projects only."
-            exit 1
+            if [ "$FORGE_RESUME" = true ]; then
+                echo "  Resuming bootstrap..."
+                echo ""
+            else
+                echo "Error: This directory is already a git repository."
+                echo "  forge init is for new projects only."
+                echo "  To resume a failed bootstrap, run:"
+                echo "    forge init --resume"
+                exit 1
+            fi
         fi
 
         # Drop the starter template if no PROMPT.md exists
@@ -127,38 +139,44 @@ case "${1:-}" in
         curl -fsSL https://claude.ai/install.sh | bash
         echo ""
 
-        # --- Check billing: API key vs subscription ---
-        if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-            echo "  ⚠  ANTHROPIC_API_KEY is set in your environment."
-            echo "     Forge will use the API key instead of your subscription."
-            echo "     API usage is billed per-token with no automatic spending cap."
-            echo "     Set a limit: https://console.anthropic.com/settings/limits"
-            echo ""
-            printf "  Continue with API key? (y/n) [n]: "
-            read -r use_api_key
-            use_api_key="${use_api_key:-n}"
-            if [ "$use_api_key" != "y" ] && [ "$use_api_key" != "Y" ]; then
-                echo "  Unset the key and re-run:"
-                echo "    unset ANTHROPIC_API_KEY"
-                exit 1
+        # --- Check billing: API key vs subscription (skip on resume) ---
+        if [ "$FORGE_RESUME" != true ]; then
+            if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+                echo "  ⚠  ANTHROPIC_API_KEY is set in your environment."
+                echo "     Forge will use the API key instead of your subscription."
+                echo "     API usage is billed per-token with no automatic spending cap."
+                echo "     Set a limit: https://console.anthropic.com/settings/limits"
+                echo ""
+                printf "  Continue with API key? (y/n) [n]: "
+                read -r use_api_key
+                use_api_key="${use_api_key:-n}"
+                if [ "$use_api_key" != "y" ] && [ "$use_api_key" != "Y" ]; then
+                    echo "  Unset the key and re-run:"
+                    echo "    unset ANTHROPIC_API_KEY"
+                    exit 1
+                fi
+            else
+                echo "  Forge works best with a Claude Max subscription."
+                echo "  A Pro subscription will burn through its daily limit quickly."
+                echo "  Learn more: https://claude.ai/upgrade"
+                echo ""
+                printf "  Do you have a Claude Max subscription? (y/n) [y]: "
+                read -r has_max
+                has_max="${has_max:-y}"
+                if [ "$has_max" != "y" ] && [ "$has_max" != "Y" ]; then
+                    echo "  A Max subscription is recommended for Forge."
+                    echo "  Sign up at https://claude.ai/upgrade then re-run forge init."
+                    exit 1
+                fi
             fi
-        else
-            echo "  Forge works best with a Claude Max subscription."
-            echo "  A Pro subscription will burn through its daily limit quickly."
-            echo "  Learn more: https://claude.ai/upgrade"
             echo ""
-            printf "  Do you have a Claude Max subscription? (y/n) [y]: "
-            read -r has_max
-            has_max="${has_max:-y}"
-            if [ "$has_max" != "y" ] && [ "$has_max" != "Y" ]; then
-                echo "  A Max subscription is recommended for Forge."
-                echo "  Sign up at https://claude.ai/upgrade then re-run forge init."
-                exit 1
-            fi
         fi
-        echo ""
 
-        exec "$FORGE_REPO/bootstrap/setup.sh"
+        if [ "$FORGE_RESUME" = true ]; then
+            exec "$FORGE_REPO/bootstrap/setup.sh" --resume
+        else
+            exec "$FORGE_REPO/bootstrap/setup.sh"
+        fi
         ;;
     update)
         echo "Updating Forge..."
@@ -184,9 +202,10 @@ case "${1:-}" in
         echo "Usage: forge <command>"
         echo ""
         echo "Commands:"
-        echo "  init      Bootstrap a new Forge project (requires PROMPT.md in current directory)"
-        echo "  update    Update Forge to the latest version"
-        echo "  version   Show installed version"
+        echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
+        echo "  init --resume    Resume a failed or interrupted bootstrap"
+        echo "  update           Update Forge to the latest version"
+        echo "  version          Show installed version"
         echo ""
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"

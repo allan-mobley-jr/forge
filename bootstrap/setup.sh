@@ -7,6 +7,11 @@ set -euo pipefail
 
 # --- Configuration ---
 
+FORGE_RESUME=false
+if [ "${1:-}" = "--resume" ]; then
+    FORGE_RESUME=true
+fi
+
 FORGE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="$(pwd)"
 FORGE_CONFIG_DIR="$HOME/.forge"
@@ -26,6 +31,24 @@ skip()  { printf "  ${GREEN}[x]${NC} %s ${YELLOW}(already done)${NC}\n" "$1"; }
 fail()  { printf "  ${RED}[!]${NC} %s\n" "$1"; }
 warn()  { printf "  ${YELLOW}[!]${NC} %s\n" "$1"; }
 
+# --- Error trap ---
+
+on_error() {
+    local exit_code=$?
+    # Restore PROMPT.md if stranded during scaffolding
+    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f /tmp/PROMPT.md.forge-bak ]; then
+        mv /tmp/PROMPT.md.forge-bak "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
+    fi
+    echo ""
+    fail "Bootstrap failed (exit code $exit_code)."
+    echo ""
+    echo "  To resume from where it stopped, run:"
+    echo "    forge init --resume"
+    echo ""
+    exit $exit_code
+}
+trap on_error ERR
+
 # --- Preflight ---
 
 if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
@@ -37,16 +60,22 @@ if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
 fi
 
 if [ -d "$PROJECT_DIR/.git" ]; then
-    fail "This directory is already a git repository."
-    echo ""
-    echo "  forge init is for new projects only."
-    echo "  If you want to re-run bootstrap on an existing Forge project, use:"
-    echo "    forge update"
-    exit 1
+    if [ "$FORGE_RESUME" != true ]; then
+        fail "This directory is already a git repository."
+        echo ""
+        echo "  forge init is for new projects only."
+        echo "  To resume a failed bootstrap, run:"
+        echo "    forge init --resume"
+        exit 1
+    fi
 fi
 
 echo ""
-info "=== Forge Bootstrap ==="
+if [ "$FORGE_RESUME" = true ]; then
+    info "=== Forge Bootstrap (resuming) ==="
+else
+    info "=== Forge Bootstrap ==="
+fi
 info "Project: $PROJECT_DIR"
 info "Forge:   $FORGE_REPO"
 echo ""
@@ -198,6 +227,10 @@ info "--- Setting up project ---"
 # Step 10: git init
 step_10_git_init() {
     local label="10. git initialized"
+    if [ -d .git ]; then
+        skip "$label"
+        return
+    fi
     git init
     ok "$label"
 }
@@ -205,6 +238,11 @@ step_10_git_init() {
 # Step 10b: Scaffold Next.js app
 step_10b_scaffold() {
     local label="10b. Next.js app scaffolded"
+    # Restore PROMPT.md if stranded by a previous interrupted run
+    if [ ! -f PROMPT.md ] && [ -f /tmp/PROMPT.md.forge-bak ]; then
+        mv /tmp/PROMPT.md.forge-bak PROMPT.md
+        warn "Restored PROMPT.md from previous interrupted run"
+    fi
     if [ -f package.json ]; then
         skip "$label"
         return
@@ -222,6 +260,10 @@ step_10b_scaffold() {
 # Step 11: Initial commit
 step_11_initial_commit() {
     local label="11. Initial commit"
+    if git rev-parse HEAD &>/dev/null; then
+        skip "$label"
+        return
+    fi
     git add .
     git commit -m "Initial commit: scaffold Next.js app with PROMPT.md"
     ok "$label"
@@ -230,6 +272,10 @@ step_11_initial_commit() {
 # Step 12: Create GitHub repo
 step_12_github_repo() {
     local label="12. GitHub repository"
+    if git remote get-url origin &>/dev/null; then
+        skip "$label"
+        return
+    fi
     # Prompt for repo name (default: folder name)
     local default_name
     default_name=$(basename "$PROJECT_DIR")
