@@ -35,6 +35,15 @@ if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
     exit 1
 fi
 
+if [ -d "$PROJECT_DIR/.git" ]; then
+    fail "This directory is already a git repository."
+    echo ""
+    echo "  forge init is for new projects only."
+    echo "  If you want to re-run bootstrap on an existing Forge project, use:"
+    echo "    forge update"
+    exit 1
+fi
+
 echo ""
 info "=== Forge Bootstrap ==="
 info "Project: $PROJECT_DIR"
@@ -198,60 +207,49 @@ step_11_api_key_check() {
 echo ""
 info "--- Setting up project ---"
 
-# Step 12: Create GitHub repo
-step_12_github_repo() {
-    local label="12. GitHub repository"
-    local repo_name
-    repo_name=$(basename "$PROJECT_DIR")
-    if gh repo view &>/dev/null 2>&1; then
-        skip "$label"
-        return
-    fi
-    # Initialize git first if needed
-    if [ ! -d .git ]; then
-        git init
-    fi
-    info "  Creating GitHub repository: $repo_name"
-    gh repo create "$repo_name" --public --source=. --push
-    ok "$label"
-}
-
-# Step 13: git init
-step_13_git_init() {
-    local label="13. git initialized"
-    if [ -d .git ]; then
-        skip "$label"
-        return
-    fi
+# Step 12: git init
+step_12_git_init() {
+    local label="12. git initialized"
     git init
     ok "$label"
 }
 
-# Step 14: Initial commit
-step_14_initial_commit() {
-    local label="14. Initial commit"
-    if git log --oneline -1 &>/dev/null 2>&1; then
-        skip "$label"
-        return
-    fi
+# Step 13: Initial commit
+step_13_initial_commit() {
+    local label="13. Initial commit"
     git add PROMPT.md
     git commit -m "Initial commit: add PROMPT.md"
     ok "$label"
 }
 
-# Step 15: Push to GitHub
+# Step 14: Create GitHub repo
+step_14_github_repo() {
+    local label="14. GitHub repository"
+    # Prompt for repo name (default: folder name)
+    local default_name
+    default_name=$(basename "$PROJECT_DIR")
+    printf "  Repository name [${default_name}]: "
+    read -r repo_name
+    repo_name="${repo_name:-$default_name}"
+    # Prompt for visibility (default: private)
+    printf "  Visibility (public/private) [private]: "
+    read -r visibility
+    visibility="${visibility:-private}"
+    if [ "$visibility" != "public" ] && [ "$visibility" != "private" ]; then
+        warn "Invalid choice '$visibility' — defaulting to private"
+        visibility="private"
+    fi
+    info "  Creating GitHub repository: $repo_name ($visibility)"
+    gh repo create "$repo_name" --"$visibility" --source=. --push
+    ok "$label"
+}
+
+# Step 15: Push to GitHub (fallback if step 14's --push didn't cover it)
 step_15_push() {
     local label="15. Pushed to GitHub"
-    if git remote get-url origin &>/dev/null 2>&1 && git rev-parse --verify origin/main &>/dev/null 2>&1; then
+    if git rev-parse --verify origin/main &>/dev/null 2>&1; then
         skip "$label"
         return
-    fi
-    if ! git remote get-url origin &>/dev/null 2>&1; then
-        local repo_name
-        repo_name=$(basename "$PROJECT_DIR")
-        local gh_user
-        gh_user=$(gh api user -q .login)
-        git remote add origin "git@github.com:${gh_user}/${repo_name}.git"
     fi
     git push -u origin main
     ok "$label"
@@ -502,9 +500,9 @@ step_09_claude
 step_10_claude_auth
 step_11_api_key_check
 
-step_12_github_repo
-step_13_git_init
-step_14_initial_commit
+step_12_git_init
+step_13_initial_commit
+step_14_github_repo
 step_15_push
 step_16_vercel_link
 step_17_copy_skills
