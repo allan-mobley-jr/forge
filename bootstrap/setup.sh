@@ -51,7 +51,7 @@ info "Forge:   $FORGE_REPO"
 echo ""
 
 # ============================================================
-# Phase 1: Tool Installation Checks (Steps 1-11)
+# Phase 1: Tool Installation Checks (Steps 1-12)
 # ============================================================
 
 info "--- Checking tools ---"
@@ -68,9 +68,31 @@ step_01_homebrew() {
     ok "$label"
 }
 
-# Step 2: gh CLI
-step_02_gh() {
-    local label="2. gh CLI installed"
+# Step 2: Node.js
+step_02_node() {
+    local label="2. Node.js installed"
+    if command -v node &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    brew install node
+    ok "$label"
+}
+
+# Step 3: pnpm
+step_03_pnpm() {
+    local label="3. pnpm installed"
+    if command -v pnpm &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    brew install pnpm
+    ok "$label"
+}
+
+# Step 4: gh CLI
+step_04_gh() {
+    local label="4. gh CLI installed"
     if command -v gh &>/dev/null; then
         skip "$label"
         return
@@ -79,9 +101,9 @@ step_02_gh() {
     ok "$label"
 }
 
-# Step 4: gh authenticated
-step_04_gh_auth() {
-    local label="4. gh authenticated"
+# Step 5: gh authenticated
+step_05_gh_auth() {
+    local label="5. gh authenticated"
     if gh auth status &>/dev/null; then
         skip "$label"
         return
@@ -91,9 +113,9 @@ step_04_gh_auth() {
     ok "$label"
 }
 
-# Step 5: SSH key
-step_05_ssh_key() {
-    local label="5. SSH key exists and added to GitHub"
+# Step 6: SSH key
+step_06_ssh_key() {
+    local label="6. SSH key exists and added to GitHub"
     if ls ~/.ssh/id_*.pub &>/dev/null; then
         skip "$label"
         return
@@ -105,9 +127,9 @@ step_05_ssh_key() {
     ok "$label"
 }
 
-# Step 6: git config (identity + SSH signing)
-step_06_git_config() {
-    local label="6. git config (identity, SSH signing)"
+# Step 7: git config (identity + SSH signing)
+step_07_git_config() {
+    local label="7. git config (identity, SSH signing)"
     if git config --global user.name &>/dev/null \
         && git config --global user.email &>/dev/null \
         && git config --global commit.gpgsign &>/dev/null; then
@@ -134,20 +156,20 @@ step_06_git_config() {
     ok "$label"
 }
 
-# Step 7: Vercel CLI
-step_07_vercel() {
-    local label="7. Vercel CLI installed"
+# Step 8: Vercel CLI
+step_08_vercel() {
+    local label="8. Vercel CLI installed"
     if command -v vercel &>/dev/null; then
         skip "$label"
         return
     fi
-    npm install -g vercel
+    pnpm add -g vercel
     ok "$label"
 }
 
-# Step 8: Vercel authenticated
-step_08_vercel_auth() {
-    local label="8. Vercel authenticated"
+# Step 9: Vercel authenticated
+step_09_vercel_auth() {
+    local label="9. Vercel authenticated"
     if vercel whoami &>/dev/null; then
         skip "$label"
         return
@@ -157,20 +179,20 @@ step_08_vercel_auth() {
     ok "$label"
 }
 
-# Step 9: Claude Code
-step_09_claude() {
-    local label="9. Claude Code installed"
+# Step 10: Claude Code
+step_10_claude() {
+    local label="10. Claude Code installed"
     if command -v claude &>/dev/null; then
         skip "$label"
         return
     fi
-    npm install -g @anthropic-ai/claude-code
+    pnpm add -g @anthropic-ai/claude-code
     ok "$label"
 }
 
-# Step 10: Claude authenticated
-step_10_claude_auth() {
-    local label="10. Claude Code authenticated"
+# Step 11: Claude authenticated
+step_11_claude_auth() {
+    local label="11. Claude Code authenticated"
     if claude --version &>/dev/null; then
         skip "$label"
         return
@@ -180,9 +202,9 @@ step_10_claude_auth() {
     ok "$label"
 }
 
-# Step 11: ANTHROPIC_API_KEY check
-step_11_api_key_check() {
-    local label="11. ANTHROPIC_API_KEY not set (uses Max subscription)"
+# Step 12: ANTHROPIC_API_KEY check
+step_12_api_key_check() {
+    local label="12. ANTHROPIC_API_KEY not set (uses Max subscription)"
     if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
         skip "$label"
         return
@@ -196,30 +218,30 @@ step_11_api_key_check() {
 }
 
 # ============================================================
-# Phase 2: Project Setup (Steps 12-23)
+# Phase 2: Project Setup (Steps 13-25)
 # ============================================================
 
 echo ""
 info "--- Setting up project ---"
 
-# Step 12: git init
-step_12_git_init() {
-    local label="12. git initialized"
+# Step 13: git init
+step_13_git_init() {
+    local label="13. git initialized"
     git init
     ok "$label"
 }
 
-# Step 13: Initial commit
-step_13_initial_commit() {
-    local label="13. Initial commit"
+# Step 14: Initial commit
+step_14_initial_commit() {
+    local label="14. Initial commit"
     git add PROMPT.md
     git commit -m "Initial commit: add PROMPT.md"
     ok "$label"
 }
 
-# Step 14: Create GitHub repo
-step_14_github_repo() {
-    local label="14. GitHub repository"
+# Step 15: Create GitHub repo
+step_15_github_repo() {
+    local label="15. GitHub repository"
     # Prompt for repo name (default: folder name)
     local default_name
     default_name=$(basename "$PROJECT_DIR")
@@ -239,9 +261,9 @@ step_14_github_repo() {
     ok "$label"
 }
 
-# Step 15: Push to GitHub (fallback if step 14's --push didn't cover it)
-step_15_push() {
-    local label="15. Pushed to GitHub"
+# Step 16: Push to GitHub (fallback if step 15's --push didn't cover it)
+step_16_push() {
+    local label="16. Pushed to GitHub"
     if git rev-parse --verify origin/main &>/dev/null 2>&1; then
         skip "$label"
         return
@@ -250,9 +272,9 @@ step_15_push() {
     ok "$label"
 }
 
-# Step 16: Vercel link
-step_16_vercel_link() {
-    local label="16. Vercel project linked"
+# Step 17: Vercel link
+step_17_vercel_link() {
+    local label="17. Vercel project linked"
     if [ -f .vercel/project.json ]; then
         skip "$label"
         return
@@ -262,9 +284,9 @@ step_16_vercel_link() {
     ok "$label"
 }
 
-# Step 17: Copy skills
-step_17_copy_skills() {
-    local label="17. Forge skills installed"
+# Step 18: Copy skills
+step_18_copy_skills() {
+    local label="18. Forge skills installed"
     if [ -f .claude/skills/forge/SKILL.md ]; then
         skip "$label"
         return
@@ -274,9 +296,9 @@ step_17_copy_skills() {
     ok "$label"
 }
 
-# Step 18: Copy hooks
-step_18_copy_hooks() {
-    local label="18. Hooks configuration"
+# Step 19: Copy hooks
+step_19_copy_hooks() {
+    local label="19. Hooks configuration"
     if [ -f .claude/settings.json ]; then
         skip "$label"
         return
@@ -286,9 +308,9 @@ step_18_copy_hooks() {
     ok "$label"
 }
 
-# Step 19: Copy CI workflow
-step_19_copy_ci() {
-    local label="19. CI workflow"
+# Step 20: Copy CI workflow
+step_20_copy_ci() {
+    local label="20. CI workflow"
     if [ -f .github/workflows/ci.yml ]; then
         skip "$label"
         return
@@ -298,9 +320,9 @@ step_19_copy_ci() {
     ok "$label"
 }
 
-# Step 20: Generate CLAUDE.md
-step_20_generate_claude_md() {
-    local label="20. CLAUDE.md generated"
+# Step 21: Generate CLAUDE.md
+step_21_generate_claude_md() {
+    local label="21. CLAUDE.md generated"
     if [ -f CLAUDE.md ]; then
         skip "$label"
         return
@@ -311,21 +333,17 @@ step_20_generate_claude_md() {
     description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1 || echo "A Forge project")
     created_date=$(date +%Y-%m-%d)
 
-    node -e "
-const fs = require('fs');
-let tmpl = fs.readFileSync('${FORGE_REPO}/templates/CLAUDE.md.hbs', 'utf8');
-tmpl = tmpl.replace(/\{\{project_name\}\}/g, '${project_name}');
-tmpl = tmpl.replace(/\{\{github_repo\}\}/g, '${github_repo}');
-tmpl = tmpl.replace(/\{\{description\}\}/g, process.argv[1]);
-tmpl = tmpl.replace(/\{\{created_date\}\}/g, '${created_date}');
-fs.writeFileSync('CLAUDE.md', tmpl);
-" "$description"
+    sed -e "s|{{project_name}}|${project_name}|g" \
+        -e "s|{{github_repo}}|${github_repo}|g" \
+        -e "s|{{description}}|${description}|g" \
+        -e "s|{{created_date}}|${created_date}|g" \
+        "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
     ok "$label"
 }
 
-# Step 21: Branch protection
-step_21_branch_protection() {
-    local label="21. Branch protection ruleset"
+# Step 22: Branch protection
+step_22_branch_protection() {
+    local label="22. Branch protection ruleset"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
@@ -397,9 +415,9 @@ RULESET
     ok "$label"
 }
 
-# Step 21b: Repository settings
-step_21b_repo_settings() {
-    local label="21b. Repository settings"
+# Step 22b: Repository settings
+step_22b_repo_settings() {
+    local label="22b. Repository settings"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
@@ -427,9 +445,9 @@ SETTINGS
     ok "$label"
 }
 
-# Step 22: Create labels
-step_22_create_labels() {
-    local label="22. GitHub label taxonomy"
+# Step 23: Create labels
+step_23_create_labels() {
+    local label="23. GitHub label taxonomy"
     # Check if forge labels already exist
     if gh label list --json name -q '.[].name' 2>/dev/null | grep -q "agent:ready"; then
         skip "$label"
@@ -452,9 +470,9 @@ step_22_create_labels() {
     ok "$label"
 }
 
-# Step 23: Write config
-step_23_write_config() {
-    local label="23. Forge config"
+# Step 24: Write config
+step_24_write_config() {
+    local label="24. Forge config"
     if [ -f "$FORGE_CONFIG_DIR/config.json" ]; then
         # Update existing config with this project
         skip "$label"
@@ -484,29 +502,31 @@ EOF
 # ============================================================
 
 step_01_homebrew
-step_02_gh
-step_04_gh_auth
-step_05_ssh_key
-step_06_git_config
-step_07_vercel
-step_08_vercel_auth
-step_09_claude
-step_10_claude_auth
-step_11_api_key_check
+step_02_node
+step_03_pnpm
+step_04_gh
+step_05_gh_auth
+step_06_ssh_key
+step_07_git_config
+step_08_vercel
+step_09_vercel_auth
+step_10_claude
+step_11_claude_auth
+step_12_api_key_check
 
-step_12_git_init
-step_13_initial_commit
-step_14_github_repo
-step_15_push
-step_16_vercel_link
-step_17_copy_skills
-step_18_copy_hooks
-step_19_copy_ci
-step_20_generate_claude_md
-step_21_branch_protection
-step_21b_repo_settings
-step_22_create_labels
-step_23_write_config
+step_13_git_init
+step_14_initial_commit
+step_15_github_repo
+step_16_push
+step_17_vercel_link
+step_18_copy_skills
+step_19_copy_hooks
+step_20_copy_ci
+step_21_generate_claude_md
+step_22_branch_protection
+step_22b_repo_settings
+step_23_create_labels
+step_24_write_config
 
 # ============================================================
 # Done
