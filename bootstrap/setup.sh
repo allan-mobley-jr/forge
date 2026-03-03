@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Forge Bootstrap — Idempotent project setup
-# Safe to re-run at any time. Each step checks if already done.
+# Forge Bootstrap — Project setup
+# Tool-check steps (1-9) are idempotent and safe to re-run.
+# Project steps (10+) run once during forge init.
 
 # --- Configuration ---
 
