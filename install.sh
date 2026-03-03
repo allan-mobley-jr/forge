@@ -18,8 +18,12 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 echo ""
-echo -e "${BOLD}  Forge${NC} — Autonomous Next.js Development"
-echo "  ────────────────────────────────────────"
+echo -e "  ╭──────────────────────────────────────╮"
+echo -e "  │                                      │"
+echo -e "  │   ${YELLOW}⚒${NC}  ${BOLD}Forge${NC}                           │"
+echo -e "  │   Autonomous Next.js Development     │"
+echo -e "  │                                      │"
+echo -e "  ╰──────────────────────────────────────╯"
 echo ""
 
 # --- Step 1: Ensure git is available (install Apple CLT if needed) ---
@@ -71,6 +75,11 @@ set -euo pipefail
 
 FORGE_REPO="$HOME/.forge/repo"
 
+# Colors
+BOLD='\033[1m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
 if [ ! -d "$FORGE_REPO" ]; then
     echo "Error: Forge is not installed. Run:"
     echo '  curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash'
@@ -79,6 +88,15 @@ fi
 
 case "${1:-}" in
     init)
+        echo ""
+        echo -e "  ╭──────────────────────────────────────╮"
+        echo -e "  │                                      │"
+        echo -e "  │   ${YELLOW}⚒${NC}  ${BOLD}Forge${NC}                           │"
+        echo -e "  │   Autonomous Next.js Development     │"
+        echo -e "  │                                      │"
+        echo -e "  ╰──────────────────────────────────────╯"
+        echo ""
+
         if [ -d ".git" ]; then
             echo "Error: This directory is already a git repository."
             echo "  forge init is for new projects only."
