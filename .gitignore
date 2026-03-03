@@ -3,3 +3,6 @@
 
 # Node (for development/testing)
 node_modules/
+
+# Local Claude Code config
+.claude/
