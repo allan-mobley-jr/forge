@@ -163,7 +163,7 @@ step_08_vercel() {
         skip "$label"
         return
     fi
-    pnpm add -g vercel
+    pnpm i -g vercel
     ok "$label"
 }
 
