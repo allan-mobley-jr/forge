@@ -93,11 +93,12 @@ forge/
 │   ├── forge/SKILL.md      #   Master orchestrator
 │   ├── plan/SKILL.md       #   Research & issue filing
 │   ├── build/SKILL.md      #   Issue → branch → PR
+│   │   └── references/     #   Sub-agent prompts (review, test, debug)
 │   ├── sync/SKILL.md       #   GitHub state reader
 │   └── ask/SKILL.md        #   Human escalation
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
-│   └── ci.yml              #   Lint + typecheck + build
+│   └── ci.yml              #   Lint + typecheck + test + build + E2E
 └── templates/
     ├── CLAUDE.md.hbs       # Project CLAUDE.md template
     ├── PROMPT.md            # Example starter prompt

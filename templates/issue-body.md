@@ -16,6 +16,7 @@
 - [ ] [Specific, testable criterion]
 - [ ] pnpm lint passes
 - [ ] pnpm tsc --noEmit passes
+- [ ] pnpm test passes
 - [ ] pnpm build completes without error
 
 ## Milestone

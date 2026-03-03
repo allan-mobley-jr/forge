@@ -17,7 +17,7 @@
 
 - GitHub Issues are the task queue. No issue means no work.
 - Every feature is implemented on a feature branch and submitted as a PR.
-- PRs require CI to pass (lint + typecheck + build) before merge.
+- PRs require CI to pass (lint + typecheck + test + build) before merge.
 - The human approves every PR before it's merged.
 - All project state lives in GitHub — nothing important is stored locally.
 
@@ -28,12 +28,14 @@
 - Use Tailwind CSS for styling. No custom CSS files unless absolutely necessary.
 - Follow the existing file and component naming patterns.
 - Every commit references the issue it closes: `feat: title (closes #N)`
+- Co-locate unit tests with source: `Component.tsx` -> `Component.test.tsx`
+- E2E tests go in the `e2e/` directory (Playwright, chromium only in CI)
 
 ## Do Not
 
 - Write to `.env` files directly — use `vercel env` for environment variables.
 - Modify `pnpm-lock.yaml` manually — let `pnpm install` handle it.
-- Skip quality checks — always run `pnpm lint && pnpm tsc --noEmit && pnpm build`.
+- Skip quality checks — always run `pnpm lint && pnpm tsc --noEmit && pnpm test && pnpm build`.
 - Work on code without a corresponding GitHub Issue.
 - Merge PRs without human approval.
 
