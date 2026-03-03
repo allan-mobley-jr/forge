@@ -3,15 +3,14 @@
     "allow": [
       "Bash(git *)",
       "Bash(gh *)",
-      "Bash(npm *)",
-      "Bash(npx *)",
+      "Bash(pnpm *)",
       "Bash(node *)"
     ],
     "deny": [
       "Bash(rm -rf *)",
       "Read(.env*)",
       "Write(.env*)",
-      "Write(package-lock.json)"
+      "Write(pnpm-lock.yaml)"
     ]
   },
   "hooks": {
@@ -21,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','package-lock.json','.vercel/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','pnpm-lock.yaml','.vercel/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
           }
         ]
       }

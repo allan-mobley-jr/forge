@@ -4,7 +4,7 @@ description: >
   Claim the next available GitHub Issue, implement it on a feature branch,
   and open a pull request. Used by the Forge orchestrator to drive the build
   loop. Invoke manually with /build to trigger a single work cycle.
-allowed-tools: Bash(gh *), Bash(git *), Bash(npm *), Bash(npx *), Read, Write, Edit, MultiEdit, Glob, Grep, Task
+allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task
 ---
 
 # /build — Issue to Branch to PR
@@ -67,19 +67,19 @@ This is where you write code. Follow these principles:
 
 1. **Read before writing.** Understand existing code before modifying it.
 2. **Follow existing patterns.** Match the style, naming conventions, and architecture of what's already there.
-3. **Install packages when needed.** `npm install {package}` for dependencies specified in the issue.
+3. **Install packages when needed.** `pnpm add {package}` for dependencies specified in the issue.
 4. **Use the Task tool for complex research.** If you need to understand an API or library, spawn a research sub-agent rather than guessing.
 5. **Work incrementally.** Make small, logical changes. Don't try to implement everything in one giant edit.
-6. **Test as you go.** Run the dev server (`npm run dev`) to verify changes work when practical.
+6. **Test as you go.** Run the dev server (`pnpm dev`) to verify changes work when practical.
 
 ### Step 7: Quality checks
 
 Run all three checks:
 
 ```bash
-npm run lint
-npx tsc --noEmit
-npm run build
+pnpm lint
+pnpm tsc --noEmit
+pnpm build
 ```
 
 **If all pass:** proceed to Step 8.
