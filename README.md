@@ -47,11 +47,29 @@ Each project gets:
 - A Vercel project with automatic preview deploys on PRs
 - A label taxonomy for tracking issue and agent state
 
+## Resuming Work
+
+**Coming back to a project:** Just open a terminal and start Claude Code. The `/forge` skill reads project state from GitHub — open issues, in-progress PRs, labels — and picks up where it left off. No local state to lose.
+
+```bash
+cd my-app
+claude
+```
+
+**If `forge init` was interrupted:** If bootstrap fails partway through (network error, auth timeout, etc.), resume from where it stopped:
+
+```bash
+forge init --resume
+```
+
+Every step checks whether it already completed, so resumed runs skip finished work and retry from the point of failure.
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
+| `forge init --resume` | Resume a failed or interrupted bootstrap |
 | `forge update` | Update Forge to the latest version |
 | `forge version` | Show installed version |
 
