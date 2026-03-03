@@ -202,11 +202,28 @@ step_10_git_init() {
     ok "$label"
 }
 
+# Step 10b: Scaffold Next.js app
+step_10b_scaffold() {
+    local label="10b. Next.js app scaffolded"
+    if [ -f package.json ]; then
+        skip "$label"
+        return
+    fi
+    info "  Scaffolding Next.js app..."
+    # create-next-app refuses non-empty directories — move PROMPT.md aside
+    mv PROMPT.md /tmp/PROMPT.md.forge-bak
+    pnpm dlx create-next-app@latest . \
+        --typescript --tailwind --eslint --app --src-dir \
+        --turbopack --use-pnpm --disable-git --yes
+    mv /tmp/PROMPT.md.forge-bak PROMPT.md
+    ok "$label"
+}
+
 # Step 11: Initial commit
 step_11_initial_commit() {
     local label="11. Initial commit"
-    git add PROMPT.md
-    git commit -m "Initial commit: add PROMPT.md"
+    git add .
+    git commit -m "Initial commit: scaffold Next.js app with PROMPT.md"
     ok "$label"
 }
 
@@ -498,6 +515,7 @@ step_08_vercel
 step_09_vercel_auth
 
 step_10_git_init
+step_10b_scaffold
 step_11_initial_commit
 step_12_github_repo
 step_13_push
