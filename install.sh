@@ -95,6 +95,42 @@ case "${1:-}" in
             echo ""
         fi
 
+        # --- Install / update Claude Code (native binary) ---
+        echo "Installing Claude Code..."
+        curl -fsSL https://claude.ai/install.sh | bash
+        echo ""
+
+        # --- Check billing: API key vs subscription ---
+        if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "  ⚠  ANTHROPIC_API_KEY is set in your environment."
+            echo "     Forge will use the API key instead of your subscription."
+            echo "     API usage is billed per-token with no automatic spending cap."
+            echo "     Set a limit: https://console.anthropic.com/settings/limits"
+            echo ""
+            printf "  Continue with API key? (y/n) [n]: "
+            read -r use_api_key
+            use_api_key="${use_api_key:-n}"
+            if [ "$use_api_key" != "y" ] && [ "$use_api_key" != "Y" ]; then
+                echo "  Unset the key and re-run:"
+                echo "    unset ANTHROPIC_API_KEY"
+                exit 1
+            fi
+        else
+            echo "  Forge works best with a Claude Max subscription."
+            echo "  A Pro subscription will burn through its daily limit quickly."
+            echo "  Learn more: https://claude.ai/upgrade"
+            echo ""
+            printf "  Do you have a Claude Max subscription? (y/n) [y]: "
+            read -r has_max
+            has_max="${has_max:-y}"
+            if [ "$has_max" != "y" ] && [ "$has_max" != "Y" ]; then
+                echo "  A Max subscription is recommended for Forge."
+                echo "  Sign up at https://claude.ai/upgrade then re-run forge init."
+                exit 1
+            fi
+        fi
+        echo ""
+
         exec "$FORGE_REPO/bootstrap/setup.sh"
         ;;
     update)
