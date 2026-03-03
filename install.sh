@@ -22,13 +22,30 @@ echo -e "${BOLD}  Forge${NC} — Autonomous Next.js Development"
 echo "  ────────────────────────────────────────"
 echo ""
 
-# --- Step 1: Ensure git is available ---
+# --- Step 1: Ensure git is available (install Apple CLT if needed) ---
 
 if ! command -v git &>/dev/null; then
-    echo -e "${RED}Error:${NC} git is not installed."
-    echo "  Install git first: https://git-scm.com/downloads"
-    echo "  On macOS: xcode-select --install"
-    exit 1
+    echo -e "${BLUE}Installing Apple Command Line Tools (includes git)...${NC}"
+    xcode-select --install 2>/dev/null
+    echo ""
+    echo "  A system dialog should have appeared."
+    echo "  Click ${BOLD}Install${NC} and wait for it to finish."
+    echo ""
+
+    timeout=300
+    elapsed=0
+    while ! xcode-select -p &>/dev/null; do
+        sleep 5
+        elapsed=$((elapsed + 5))
+        if [ "$elapsed" -ge "$timeout" ]; then
+            echo -e "${RED}Error:${NC} Timed out waiting for Command Line Tools."
+            echo "  Install manually: xcode-select --install"
+            echo "  Then re-run this installer."
+            exit 1
+        fi
+    done
+
+    echo -e "${GREEN}Command Line Tools installed.${NC}"
 fi
 
 # --- Step 2: Clone or update the Forge repository ---
