@@ -143,23 +143,18 @@ if [ -n "$SHELL_RC" ]; then
     fi
 fi
 
-# --- Step 5: Run bootstrap if in a project directory ---
+# --- Done ---
 
 echo ""
-if [ -f "PROMPT.md" ]; then
-    echo -e "${BLUE}PROMPT.md found. Running bootstrap...${NC}"
-    echo ""
-    exec "$FORGE_REPO/bootstrap/setup.sh"
-else
-    echo -e "${GREEN}Forge is installed.${NC}"
-    echo ""
-    echo "  To start a new project:"
-    echo ""
-    echo "    mkdir my-app && cd my-app"
-    echo "    # Write a PROMPT.md describing your application"
-    echo "    forge init"
-    echo "    claude"
-    echo ""
+echo -e "${GREEN}Forge is installed.${NC}"
+echo ""
+echo "  To start a new project:"
+echo ""
+echo "    mkdir my-app && cd my-app"
+echo "    forge init"
+echo "    claude"
+echo ""
+if [ -n "$SHELL_RC" ]; then
     echo -e "  ${YELLOW}Note:${NC} Restart your terminal or run ${BOLD}source $SHELL_RC${NC} to use the forge command."
     echo ""
 fi
