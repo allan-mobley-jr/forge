@@ -1,0 +1,46 @@
+# Optional: Claude Code PR Review
+#
+# This workflow uses Claude Code in headless mode to review pull requests.
+# It requires an ANTHROPIC_API_KEY secret to be configured in the repository.
+#
+# To enable:
+# 1. Add your ANTHROPIC_API_KEY as a repository secret
+# 2. Remove the `if: false` condition below
+#
+# Note: This is separate from the CI quality checks workflow.
+# CI must pass for PRs to be mergeable. This review is advisory.
+
+name: Claude PR Review
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    name: Claude Review
+    runs-on: ubuntu-latest
+    if: false  # Disabled by default — remove this line to enable
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Review PR
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          DIFF=$(git diff origin/main...HEAD)
+          claude -p "Review this pull request diff. Focus on bugs, security issues, and logic errors. Be concise. If the code looks good, say so briefly.
+
+          $DIFF" > review.txt
+          gh pr comment ${{ github.event.pull_request.number }} --body "$(cat review.txt)"
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,51 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Read(.env*)",
+      "Write(.env*)",
+      "Write(package-lock.json)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','package-lock.json','.vercel/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); f=open('/tmp/forge-session.log','a'); f.write(p+'\\n') if p else None; f.close()\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -f /tmp/forge-session.log ] && [ -f /tmp/forge-current-issue ]; then ISSUE=$(cat /tmp/forge-current-issue); gh issue comment \"$ISSUE\" --body \"Session ended. Files modified during this session:\\n\\n$(sort -u /tmp/forge-session.log | sed 's/^/- /')\" 2>/dev/null; fi; rm -f /tmp/forge-session.log /tmp/forge-current-issue"
+          }
+        ]
+      }
+    ]
+  }
+}

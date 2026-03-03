@@ -1,0 +1,5 @@
+# macOS
+.DS_Store
+
+# Node (for development/testing)
+node_modules/
