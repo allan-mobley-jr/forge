@@ -136,23 +136,31 @@ step_07_git_config() {
         skip "$label"
         return
     fi
-    # Pull identity from GitHub account
-    local name email
-    name=$(gh api user -q .name 2>/dev/null || true)
-    email=$(gh api user/emails -q '[.[] | select(.primary==true)] | .[0].email' 2>/dev/null || true)
-    if [ -z "$name" ] || [ -z "$email" ]; then
-        warn "Could not retrieve name/email from GitHub — set manually with:"
-        warn "  git config --global user.name \"Your Name\""
-        warn "  git config --global user.email \"you@example.com\""
-        return
+    # Set identity from GitHub if missing
+    if ! git config --global user.name &>/dev/null || ! git config --global user.email &>/dev/null; then
+        local name email
+        name=$(gh api user -q .name 2>/dev/null || true)
+        email=$(gh api user/emails -q '[.[] | select(.primary==true)] | .[0].email' 2>/dev/null || true)
+        if [ -z "$name" ] || [ -z "$email" ]; then
+            warn "Could not retrieve name/email from GitHub — set manually with:"
+            warn "  git config --global user.name \"Your Name\""
+            warn "  git config --global user.email \"you@example.com\""
+            return
+        fi
+        git config --global user.name "$name"
+        git config --global user.email "$email"
     fi
-    git config --global user.name "$name"
-    git config --global user.email "$email"
-    # SSH commit signing
-    git config --global gpg.format ssh
-    git config --global user.signingkey ~/.ssh/id_ed25519.pub
-    git config --global commit.gpgsign true
-    git config --global tag.gpgsign true
+    # SSH commit signing — use whichever key exists
+    local signing_key
+    signing_key=$(ls ~/.ssh/id_ed25519.pub ~/.ssh/id_rsa.pub ~/.ssh/id_ecdsa.pub 2>/dev/null | head -1)
+    if [ -n "$signing_key" ]; then
+        git config --global gpg.format ssh
+        git config --global user.signingkey "$signing_key"
+        git config --global commit.gpgsign true
+        git config --global tag.gpgsign true
+    else
+        warn "No SSH public key found — skipping commit signing"
+    fi
     ok "$label"
 }
 
