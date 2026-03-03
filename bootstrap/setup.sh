@@ -257,6 +257,104 @@ step_10b_scaffold() {
     ok "$label"
 }
 
+# Step 10c: Install test dependencies
+step_10c_test_deps() {
+    local label="10c. Test dependencies installed"
+    if pnpm list vitest &>/dev/null 2>&1; then
+        skip "$label"
+        return
+    fi
+    info "  Installing test dependencies..."
+    pnpm add -D vitest @vitejs/plugin-react jsdom \
+        @testing-library/react @testing-library/jest-dom @testing-library/user-event \
+        @playwright/test
+    ok "$label"
+}
+
+# Step 10d: Test configuration files
+step_10d_test_config() {
+    local label="10d. Test configuration"
+    if [ -f vitest.config.ts ]; then
+        skip "$label"
+        return
+    fi
+    info "  Writing test configuration..."
+
+    # vitest.config.ts
+    cat > vitest.config.ts <<'VITEST'
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
+    globals: true,
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+})
+VITEST
+
+    # vitest.setup.ts
+    cat > vitest.setup.ts <<'SETUP'
+import '@testing-library/jest-dom/vitest'
+SETUP
+
+    # playwright.config.ts
+    cat > playwright.config.ts <<'PLAYWRIGHT'
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://localhost:3000',
+    reuseExistingServer: !process.env.CI,
+  },
+})
+PLAYWRIGHT
+
+    # Create e2e directory
+    mkdir -p e2e
+
+    # Add test scripts to package.json
+    local tmp_pkg
+    tmp_pkg=$(mktemp)
+    node -e "
+      const pkg = require('./package.json');
+      pkg.scripts = pkg.scripts || {};
+      pkg.scripts.test = 'vitest run';
+      pkg.scripts['test:watch'] = 'vitest';
+      pkg.scripts['test:e2e'] = 'playwright test';
+      require('fs').writeFileSync('$tmp_pkg', JSON.stringify(pkg, null, 2) + '\n');
+    "
+    mv "$tmp_pkg" package.json
+
+    ok "$label"
+}
+
 # Step 11: Initial commit
 step_11_initial_commit() {
     local label="11. Initial commit"
@@ -562,6 +660,8 @@ step_09_vercel_auth
 
 step_10_git_init
 step_10b_scaffold
+step_10c_test_deps
+step_10d_test_config
 step_11_initial_commit
 step_12_github_repo
 step_13_push
