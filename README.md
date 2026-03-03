@@ -17,16 +17,15 @@ GitHub is the single source of truth. Issues are the task queue. PRs are the uni
 ## Quick Start
 
 ```bash
-# Install Forge
+# Install Forge (one-time)
 curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
 
-# Create a project
+# Start a new project
 mkdir my-app && cd my-app
 forge init                   # creates a starter PROMPT.md
-
-# Describe your app in PROMPT.md, then bootstrap
-forge init
-claude
+# Edit PROMPT.md to describe your app
+forge init                   # bootstraps the project
+claude                       # start building
 ```
 
 The `/forge` skill auto-invokes when Claude Code starts, reads the project state from GitHub, and begins the plan-build loop.
