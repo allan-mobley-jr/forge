@@ -68,20 +68,9 @@ step_01_homebrew() {
     ok "$label"
 }
 
-# Step 2: git
-step_02_git() {
-    local label="2. git installed"
-    if command -v git &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    brew install git
-    ok "$label"
-}
-
-# Step 3: gh CLI
-step_03_gh() {
-    local label="3. gh CLI installed"
+# Step 2: gh CLI
+step_02_gh() {
+    local label="2. gh CLI installed"
     if command -v gh &>/dev/null; then
         skip "$label"
         return
@@ -489,8 +478,7 @@ EOF
 # ============================================================
 
 step_01_homebrew
-step_02_git
-step_03_gh
+step_02_gh
 step_04_gh_auth
 step_05_ssh_key
 step_06_git_config
