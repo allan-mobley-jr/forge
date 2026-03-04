@@ -9,6 +9,7 @@ skills/          — Claude Code skill definitions (SKILL.md files)
   forge/         — Master orchestrator (/forge)
   plan/          — Research & issue filing (/plan) + sub-agent references
   build/         — Issue to branch to PR (/build)
+  revise/        — Address PR review feedback (/revise)
   sync/          — GitHub state reader (/sync)
   ask/           — Human escalation (/ask)
 hooks/           — .claude/settings.json template for projects

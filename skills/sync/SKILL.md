@@ -30,8 +30,8 @@ gh issue list --state closed --json number,title -L 100
 # All open issues in one query — filter by label locally
 OPEN_ISSUES=$(gh issue list --state open --json number,title,labels,body,comments -L 200)
 
-# Open PRs
-gh pr list --state open --json number,title,statusCheckRollup,url
+# Open PRs (includes review state for revision detection)
+OPEN_PRS=$(gh pr list --state open --json number,title,statusCheckRollup,url,reviewDecision,headRefName)
 ```
 
 Filter the `OPEN_ISSUES` JSON locally using `jq` or `--jq`:
@@ -42,6 +42,7 @@ echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:in-p
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:blocked"))]'
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:needs-human"))]'
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:done"))]'
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:revision-needed"))]'
 
 # Triage issues (human handoff — awaiting classification)
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("triage"))]'
@@ -117,6 +118,24 @@ gh issue edit {N} --remove-label "agent:done" --add-label "agent:ready"
 sleep 1
 ```
 
+### 3d. Detect PRs needing revision
+
+For any issue labeled `agent:done`, check if its linked PR has `reviewDecision == "CHANGES_REQUESTED"`. Cross-reference using the branch naming convention and the `$OPEN_PRS` data already fetched in step 2:
+
+```bash
+DONE_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:done"))] | .[].number')
+
+for ISSUE_NUM in $DONE_ISSUES; do
+  PR_REVIEW=$(echo "$OPEN_PRS" | jq -r ".[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | .reviewDecision")
+  if [ "$PR_REVIEW" = "CHANGES_REQUESTED" ]; then
+    gh issue edit "$ISSUE_NUM" --remove-label "agent:done" --add-label "agent:revision-needed"
+    sleep 1
+  fi
+done
+```
+
+This uses data already in memory — no additional API calls for detection. Only the label mutation costs an API call per affected issue.
+
 ### 4. Produce the summary
 
 Output a structured summary in this exact format:
@@ -124,10 +143,11 @@ Output a structured summary in this exact format:
 ```
 Forge Project State — {repo name}
 ------------------------------------
-Closed issues:   {count}
-Awaiting merge:  {count}  ({issues with agent:done label and open PRs})
-In progress:     {count}  ({issue list if any})
-Ready to build:  {count}  ({issue list if any})
+Closed issues:      {count}
+Awaiting merge:     {count}  ({issues with agent:done label and open PRs})
+Revision needed:    {count}  ({issues needing PR revision})
+In progress:        {count}  ({issue list if any})
+Ready to build:     {count}  ({issue list if any})
 Blocked:         {count}  ({issue list with what they're waiting on})
 Needs human:     {count}  ({issue list with brief summary})
 Open PRs:        {count}  ({PR list with review status})
@@ -138,8 +158,9 @@ Next action: {one of the following}
 
 **Next action** should be one of:
 - `Plan needed` — zero issues exist
-- `Build Issue #{N} — {title}` — issues are ready to build (pick the lowest-numbered ready issue)
 - `Surface blocking questions` — issues need human input
+- `Revise Issue #{N} — {title}` — PRs need revision (pick the lowest-numbered revision-needed issue)
+- `Build Issue #{N} — {title}` — issues are ready to build (pick the lowest-numbered ready issue)
 - `Review PRs` — PRs are open and awaiting review
 - `All complete — {total} issues closed` — all issues are closed
 
@@ -148,7 +169,7 @@ Next action: {one of the following}
 - **No issues at all**: Report "Plan needed" as next action
 - **No ready issues but blocked ones exist**: Check dependencies first (step 3), then report remaining state
 - **Multiple needs-human issues**: List all of them with their question summaries
-- **Mix of states**: Prioritize in this order: needs-human (surface first), then ready (build next), then blocked (informational)
+- **Mix of states**: Prioritize in this order: needs-human (surface first), then revision-needed (revise next), then ready (build next), then blocked (informational)
 
 ## Rate Limit Notes
 

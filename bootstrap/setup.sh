@@ -635,8 +635,9 @@ step_20_create_labels() {
     info "  Creating labels..."
     gh label create "agent:ready"        --color "0E8A16" --description "Available — all deps met"           --force 2>/dev/null || failed=1
     gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"             --force 2>/dev/null || failed=1
-    gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"         --force 2>/dev/null || failed=1
-    gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"          --force 2>/dev/null || failed=1
+    gh label create "agent:done"              --color "6F42C1" --description "PR opened, awaiting review"         --force 2>/dev/null || failed=1
+    gh label create "agent:revision-needed"  --color "D876E3" --description "PR has review comments to address"  --force 2>/dev/null || failed=1
+    gh label create "agent:needs-human"      --color "E4E669" --description "Blocked on human decision"          --force 2>/dev/null || failed=1
     gh label create "agent:blocked"      --color "D93F0B" --description "Deps not yet closed"                --force 2>/dev/null || failed=1
     gh label create "type:feature"       --color "A2EEEF" --description "New feature"                        --force 2>/dev/null || failed=1
     gh label create "type:config"        --color "D4C5F9" --description "Config / infrastructure"            --force 2>/dev/null || failed=1
