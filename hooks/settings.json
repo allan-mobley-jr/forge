@@ -38,6 +38,16 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '--- FORGE CONTEXT RECOVERY ---'; echo 'You are the Forge orchestrator in a build loop.'; if [ -f .forge-status.json ]; then echo 'Current progress:'; cat .forge-status.json; fi; if [ -f .forge-current-issue ]; then echo \"Currently working on issue #$(cat .forge-current-issue)\"; fi; echo 'After compaction, re-run /forge to sync state and continue.'; echo '--- END RECOVERY ---'"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
