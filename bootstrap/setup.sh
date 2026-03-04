@@ -511,7 +511,11 @@ step_18b_commit_config() {
         skip "$label"
         return
     fi
-    git add CLAUDE.md .claude/ .github/
+    # Ensure Forge temp files are gitignored
+    if ! grep -q '.forge-session.log' .gitignore 2>/dev/null; then
+        printf '\n# Forge session temp files\n.forge-current-issue\n.forge-session.log\n' >> .gitignore
+    fi
+    git add CLAUDE.md .claude/ .github/ .gitignore
     git commit -m "chore: add Forge configuration"
     git push
     ok "$label"
