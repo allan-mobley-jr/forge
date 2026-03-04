@@ -16,6 +16,7 @@ workflows/       — GitHub Actions CI templates
 templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
 bootstrap/       — setup.sh (23-step idempotent project bootstrap)
 install.sh       — curl | bash installer
+research/        — ad-hoc research notes and scratchpad (not committed)
 ```
 
 ## Conventions
