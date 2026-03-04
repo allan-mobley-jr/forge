@@ -5,7 +5,6 @@
       "Bash(gh *)",
       "Bash(pnpm *)",
       "Bash(node *)",
-      "Bash(npx *)",
       "Bash(vercel *)",
       "Read",
       "Write",
@@ -28,7 +27,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Read|Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",
