@@ -21,7 +21,7 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 
 ### 2. Gather state from GitHub
 
-Fetch all open issues in a **single API call**, then filter locally by label. This reduces 6 separate API requests to 2 (one for open, one for closed), saving API budget across the build loop.
+Fetch all open issues in a **single API call**, then filter locally by label. This reduces 7 separate API requests to 3 (one for closed issues, one for open issues, one for open PRs), saving API budget across the build loop.
 
 ```bash
 # Closed issues (completed work)
@@ -97,7 +97,12 @@ For any issue labeled `triage`, classify it and promote it into the agent workfl
 4. **Apply labels and remove `triage`:**
 
 ```bash
+# If dependencies are met (or none referenced):
 gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:ready"
+sleep 1
+
+# If dependencies are still open:
+gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:blocked"
 sleep 1
 ```
 

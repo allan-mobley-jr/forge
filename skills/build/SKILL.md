@@ -201,6 +201,7 @@ gh issue comment $ISSUE --body "$(cat <<'EOF'
 **Branch:** `agent/issue-{N}-{slug}` (pushed with current state)
 EOF
 )"
+sleep 1
 ```
 
 ### Step 10: Return to orchestrator
