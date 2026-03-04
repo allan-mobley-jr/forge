@@ -36,6 +36,7 @@ If any dependency is still `OPEN`, skip this issue and try the next ready one. I
 ```bash
 ISSUE={number}
 gh issue edit $ISSUE --remove-label "agent:ready" --add-label "agent:in-progress"
+sleep 1
 echo $ISSUE > .forge-current-issue
 ```
 
@@ -163,7 +164,9 @@ Update the issue:
 ```bash
 PR_URL=$(gh pr view --json url -q .url)
 gh issue comment $ISSUE --body "PR opened: $PR_URL"
+sleep 1
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:done"
+sleep 1
 ```
 
 ### Step 9: On failure — escalate
@@ -181,6 +184,7 @@ git push -u origin agent/issue-{N}-{slug}
 
 # Escalate
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
+sleep 1
 gh issue comment $ISSUE --body "$(cat <<'EOF'
 ## Build Failed
 
