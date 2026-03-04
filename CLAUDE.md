@@ -31,7 +31,15 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 
 ### Atomic commits
 
-Commit early and often. Each commit should be a single logical change (one fix, one feature, one refactor). Don't bundle unrelated changes into a single commit. Write a short "why" summary on the first line, add detail in the body if needed.
+**Every commit must be exactly one logical change.** This is non-negotiable.
+
+- One fix per commit. One feature per commit. One refactor per commit.
+- If you changed a skill file AND updated docs AND fixed a bootstrap bug, that's three commits — not one.
+- If you're about to `git add` files from different concerns, stop and split them.
+- Commit early and often. Small commits are easier to review, revert, and bisect.
+- Write a short "why" summary on the first line, add detail in the body if needed.
+
+**Test:** Before committing, review the staged diff. Can you describe the change in a single short sentence without "and"? If not, split it.
 
 ### After a PR is merged
 
