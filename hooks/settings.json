@@ -4,7 +4,18 @@
       "Bash(git *)",
       "Bash(gh *)",
       "Bash(pnpm *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(vercel *)",
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Glob",
+      "Grep",
+      "Task",
+      "WebFetch",
+      "WebSearch",
+      "TodoWrite"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -16,7 +27,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Write|Edit|MultiEdit",
+        "matcher": "Read|Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",

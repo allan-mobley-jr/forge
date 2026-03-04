@@ -31,7 +31,7 @@ The `/forge` skill auto-invokes when Claude Code starts, reads the project state
 ## Requirements
 
 - macOS with Homebrew
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Max subscription
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Max subscription or API key
 - GitHub account
 - Vercel account
 
@@ -64,6 +64,62 @@ forge init --resume
 
 Every step checks whether it already completed, so resumed runs skip finished work and retry from the point of failure.
 
+## Running Autonomously
+
+Forge supports two levels of autonomous operation.
+
+### Semi-autonomous (interactive)
+
+```bash
+claude
+```
+
+Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. You may occasionally be asked to approve an edge-case operation. Best for Max subscription users who want visibility into the build loop.
+
+### Fully autonomous (headless)
+
+```bash
+claude -p "/forge"
+```
+
+Runs headless with no user interaction. Unapproved tools are denied automatically (no prompt), but Forge's `settings.json` pre-approves everything needed so the loop runs uninterrupted.
+
+**API key users:** This works out of the box.
+
+**Max subscription users:** OAuth tokens expire after ~10 minutes in headless mode. To work around this, generate a long-lived token (valid 1 year):
+
+```bash
+# 1. Generate a long-lived token (one-time, on a machine with a browser)
+claude setup-token
+
+# 2. Copy the token from the output now — nano will fill the screen
+#    and you won't be able to see it.
+
+# 3. Open your shell profile in the nano editor
+nano ~/.zshrc
+
+# 4. Scroll to the bottom and type this line (replace <token> with the token you copied in step 2):
+#
+#      export CLAUDE_CODE_OAUTH_TOKEN="<token>"
+#
+# 5. Save the file:  press Ctrl+O, then Enter
+# 6. Exit nano:      press Ctrl+X
+# 7. Load the change in your current terminal
+source ~/.zshrc
+
+# 8. Run Forge headless
+claude -p "/forge"
+```
+
+### Escape hatch
+
+If you encounter unexpected permission prompts in either mode, `--dangerouslySkipPermissions` bypasses all permission checks including deny rules. PreToolUse hooks still fire and block reads and writes to sensitive paths (`.env`, `.git/`, `CLAUDE.md`, etc.), but `Bash`, `Glob`, and `Grep` calls are not covered by the hook.
+
+```bash
+claude --dangerouslySkipPermissions           # interactive
+claude -p "/forge" --dangerouslySkipPermissions  # headless
+```
+
 ## Commands
 
 | Command | Description |
@@ -79,7 +135,7 @@ Every step checks whether it already completed, so resumed runs skip finished wo
 
 **GitHub is the state machine.** No local state files. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off.
 
-**Interactive, not headless.** Forge runs as a single long-lived Claude Code session — observable, interruptible, and compatible with Max subscription OAuth.
+**Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions compatible with Max subscription OAuth. Fully autonomous (`claude -p`) for headless operation with API keys or long-lived subscription tokens.
 
 **Human-in-the-loop by PR.** Nothing merges without your approval. CI must pass on every PR. The agent escalates when it's stuck instead of guessing.
 
