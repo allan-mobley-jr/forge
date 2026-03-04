@@ -170,7 +170,7 @@ step_05_gh_auth() {
 
 # Step 6: SSH key
 step_06_ssh_key() {
-    local label="6. SSH key exists and added to GitHub"
+    local label="6. SSH key exists"
     if ls ~/.ssh/id_*.pub &>/dev/null; then
         skip "$label"
         return
