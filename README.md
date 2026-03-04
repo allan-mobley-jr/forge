@@ -31,7 +31,7 @@ The `/forge` skill auto-invokes when Claude Code starts, reads the project state
 ## Requirements
 
 - macOS with Homebrew
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Max subscription
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Max subscription or API key
 - GitHub account
 - Vercel account
 
@@ -64,6 +64,30 @@ forge init --resume
 
 Every step checks whether it already completed, so resumed runs skip finished work and retry from the point of failure.
 
+## Running Autonomously
+
+Forge is designed to run as an interactive `claude` session that operates autonomously. The default `settings.json` pre-approves all tools the forge loop needs while maintaining safety through PreToolUse hooks that block writes to protected files.
+
+```bash
+claude
+```
+
+The `/forge` skill auto-invokes and drives the build loop. No permission prompts will interrupt the cycle.
+
+**API key users: Headless mode.** If you're authenticating with an API key (not a Max subscription), you can run Forge in fully headless mode:
+
+```bash
+claude -p "/forge"
+```
+
+**Alternative: Skip all permission prompts.** If you encounter any remaining permission prompts, you can bypass them entirely:
+
+```bash
+claude --dangerouslySkipPermissions
+```
+
+This disables all permission checks. The PreToolUse hooks still fire and protect sensitive files, but no deny rules are enforced. Use at your own discretion.
+
 ## Commands
 
 | Command | Description |
@@ -79,7 +103,7 @@ Every step checks whether it already completed, so resumed runs skip finished wo
 
 **GitHub is the state machine.** No local state files. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off.
 
-**Interactive, not headless.** Forge runs as a single long-lived Claude Code session — observable, interruptible, and compatible with Max subscription OAuth.
+**Interactive by default.** Forge runs as a single long-lived Claude Code session — observable, interruptible, and compatible with Max subscription OAuth. API key users can also run headless with `claude -p "/forge"`.
 
 **Human-in-the-loop by PR.** Nothing merges without your approval. CI must pass on every PR. The agent escalates when it's stuck instead of guessing.
 
