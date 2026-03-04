@@ -89,15 +89,25 @@ Runs headless with no user interaction. Unapproved tools are denied automaticall
 **Max subscription users:** OAuth tokens expire after ~10 minutes in headless mode. To work around this, generate a long-lived token (valid 1 year):
 
 ```bash
-# Generate a long-lived token (one-time, on a machine with a browser)
+# 1. Generate a long-lived token (one-time, on a machine with a browser)
 claude setup-token
 
-# Copy the token from the output, then add it to your shell profile.
-# Use an editor — don't paste the token directly on the command line.
-nano ~/.zshrc
-# Add: export CLAUDE_CODE_OAUTH_TOKEN="<paste token here>"
-# Save, exit, then open a new terminal.
+# 2. Copy the token from the output now — nano will fill the screen
+#    and you won't be able to see it.
 
+# 3. Open your shell profile in the nano editor
+nano ~/.zshrc
+
+# 4. Scroll to the bottom and type this line (replace <token> with the token you copied in step 2):
+#
+#      export CLAUDE_CODE_OAUTH_TOKEN="<token>"
+#
+# 5. Save the file:  press Ctrl+O, then Enter
+# 6. Exit nano:      press Ctrl+X
+# 7. Load the change in your current terminal
+source ~/.zshrc
+
+# 8. Run Forge headless
 claude -p "/forge"
 ```
 
