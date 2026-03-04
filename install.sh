@@ -209,7 +209,7 @@ case "${1:-}" in
         echo -e "  Backed up to ${BOLD}${BACKUP_DIR}/${NC}"
 
         # 3. Add backup and session patterns to .gitignore
-        for pattern in '.forge-backup-*' '.forge-current-issue' '.forge-session.log'; do
+        for pattern in '.forge-backup-*' '.forge-current-issue' '.forge-session.log' '.forge-status.json' '.forge-exit-status'; do
             if ! grep -Fq "$pattern" .gitignore 2>/dev/null; then
                 echo "$pattern" >> .gitignore
             fi
