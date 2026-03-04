@@ -6,6 +6,7 @@
       "Bash(pnpm *)",
       "Bash(node *)",
       "Bash(vercel *)",
+      "Bash(sleep *)",
       "Read",
       "Write",
       "Edit",
@@ -13,6 +14,7 @@
       "Glob",
       "Grep",
       "Task",
+      "Skill",
       "WebFetch",
       "WebSearch",
       "TodoWrite"
