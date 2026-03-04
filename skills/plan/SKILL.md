@@ -23,12 +23,14 @@ Also read `CLAUDE.md` for any project conventions already established.
 
 Read the four reference files and spawn sub-agents via the **Task tool**, running them **in parallel** since they are independent:
 
-1. Read `skills/plan/references/architecture-agent.md` — spawn a Task with its contents as the prompt, appending the full text of PROMPT.md as context.
-2. Read `skills/plan/references/stack-agent.md` — spawn a Task the same way.
-3. Read `skills/plan/references/design-agent.md` — spawn a Task the same way.
-4. Read `skills/plan/references/risk-agent.md` — spawn a Task the same way.
+1. Read `.claude/skills/plan/references/architecture-agent.md` — spawn a Task with its contents as the prompt, appending the full text of PROMPT.md as context.
+2. Read `.claude/skills/plan/references/stack-agent.md` — spawn a Task the same way.
+3. Read `.claude/skills/plan/references/design-agent.md` — spawn a Task the same way.
+4. Read `.claude/skills/plan/references/risk-agent.md` — spawn a Task the same way.
 
-Each agent will return a structured analysis. Wait for all four to complete.
+**Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data (PROMPT.md) as a context section at the end → spawn the Task. Sub-agents are read-only advisors — they return structured text, they do not write files or run commands.
+
+Each agent will return a structured analysis. Wait for all four to complete. If a sub-agent returns empty or incoherent output, re-spawn it once with the same prompt. If it fails again, proceed with the remaining agents' output and note the gap in the synthesis.
 
 ### Step 3: Synthesize the research
 

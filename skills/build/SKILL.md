@@ -36,7 +36,7 @@ If any dependency is still `OPEN`, skip this issue and try the next ready one. I
 ```bash
 ISSUE={number}
 gh issue edit $ISSUE --remove-label "agent:ready" --add-label "agent:in-progress"
-echo $ISSUE > /tmp/forge-current-issue
+echo $ISSUE > .forge-current-issue
 ```
 
 ### Step 4: Prepare the branch
@@ -76,11 +76,11 @@ This is where you write code. Follow these principles:
 
 After implementation is complete, spawn two sub-agents **in parallel** via the Task tool:
 
-1. **Review agent** — Read `skills/build/references/review-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the list of files changed (with contents), and the project's CLAUDE.md as context.
+1. **Review agent** — Read `.claude/skills/build/references/review-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the list of files changed (with contents), and the project's CLAUDE.md as context.
 
-2. **Test agent** — Read `skills/build/references/test-agent.md` and spawn a Task the same way. Include the issue labels so it can determine whether to skip (e.g., `type:config`).
+2. **Test agent** — Read `.claude/skills/build/references/test-agent.md` and spawn a Task the same way. Include the issue labels so it can determine whether to skip (e.g., `type:config`).
 
-Both agents are read-only advisors. They return structured output — they do not write files.
+**Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data as a context section at the end → spawn the Task. Both agents are read-only advisors — they return structured text output. They do not write files, run commands, or modify the project. You (the build agent) interpret their output and act on it.
 
 ### Step 6c: Apply review feedback and write tests
 
@@ -108,13 +108,14 @@ pnpm build
 
 **If all pass:** proceed to Step 8.
 
-**If any fail:** spawn the **debug agent**. Read `skills/build/references/debug-agent.md` and spawn a Task with its contents as the prompt. Append the full error output, the list of files changed, and the issue body. The debug agent returns a prioritized list of fixes — apply them in order, then re-run all four checks. You get **2 total attempts** (the initial run + one retry after the debug agent's fixes).
+**If any fail:** spawn the **debug agent**. Read `.claude/skills/build/references/debug-agent.md` and spawn a Task with its contents as the prompt. Append the full error output, the list of files changed, and the issue body. The debug agent returns a prioritized list of fixes — apply them in order, then re-run all four checks. You get **2 total attempts** (the initial run + one retry after the debug agent's fixes).
 
 ### Step 8: On success — commit and open PR
 
 ```bash
-# Stage all changes
-git add -A
+# Stage only the files you created or modified for this issue.
+# Do NOT use git add -A or git add . — this can stage unintended files.
+git add <specific files>
 
 # Commit with conventional commit format
 git commit -m "feat: {issue title} (closes #{N})"
@@ -211,7 +212,7 @@ After completing (success or failure), end with:
 - **Always push before opening a PR.** The branch must exist on the remote.
 - **Commit message format:** `feat: {title} (closes #{N})` for features, `fix:` for bugfixes, `chore:` for config.
 - **PR body must reference the issue** with `Closes #{N}`.
-- **Write `/tmp/forge-current-issue`** so the Stop hook knows which issue to comment on.
+- **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
 - **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for.
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.

@@ -31,13 +31,38 @@ skip()  { printf "  ${GREEN}[x]${NC} %s ${YELLOW}(already done)${NC}\n" "$1"; }
 fail()  { printf "  ${RED}[!]${NC} %s\n" "$1"; }
 warn()  { printf "  ${YELLOW}[!]${NC} %s\n" "$1"; }
 
+# --- Warning collection ---
+
+WARNINGS=()
+
+add_warning() {
+    local msg="$1"
+    WARNINGS+=("$msg")
+    warn "$msg"
+}
+
+print_summary() {
+    echo ""
+    if [ ${#WARNINGS[@]} -eq 0 ]; then
+        info "=== Bootstrap complete ==="
+    else
+        info "=== Bootstrap completed with warnings ==="
+        echo ""
+        echo "  The following non-critical steps need manual follow-up:"
+        echo ""
+        for w in "${WARNINGS[@]}"; do
+            printf "  ${YELLOW}•${NC} %s\n" "$w"
+        done
+    fi
+}
+
 # --- Error trap ---
 
 on_error() {
     local exit_code=$?
     # Restore PROMPT.md if stranded during scaffolding
-    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f /tmp/PROMPT.md.forge-bak ]; then
-        mv /tmp/PROMPT.md.forge-bak "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
+    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f "$PROJECT_DIR/.forge-prompt-backup" ]; then
+        mv "$PROJECT_DIR/.forge-prompt-backup" "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
     fi
     echo ""
     fail "Bootstrap failed (exit code $exit_code)."
@@ -145,7 +170,7 @@ step_05_gh_auth() {
 
 # Step 6: SSH key
 step_06_ssh_key() {
-    local label="6. SSH key exists and added to GitHub"
+    local label="6. SSH key exists"
     if ls ~/.ssh/id_*.pub &>/dev/null; then
         skip "$label"
         return
@@ -239,8 +264,8 @@ step_10_git_init() {
 step_10b_scaffold() {
     local label="10b. Next.js app scaffolded"
     # Restore PROMPT.md if stranded by a previous interrupted run
-    if [ ! -f PROMPT.md ] && [ -f /tmp/PROMPT.md.forge-bak ]; then
-        mv /tmp/PROMPT.md.forge-bak PROMPT.md
+    if [ ! -f PROMPT.md ] && [ -f .forge-prompt-backup ]; then
+        mv .forge-prompt-backup PROMPT.md
         warn "Restored PROMPT.md from previous interrupted run"
     fi
     if [ -f package.json ]; then
@@ -249,11 +274,11 @@ step_10b_scaffold() {
     fi
     info "  Scaffolding Next.js app..."
     # create-next-app refuses non-empty directories — move PROMPT.md aside
-    mv PROMPT.md /tmp/PROMPT.md.forge-bak
+    mv PROMPT.md .forge-prompt-backup
     pnpm dlx create-next-app@latest . \
         --typescript --tailwind --eslint --app --src-dir \
         --turbopack --use-pnpm --disable-git --yes
-    mv /tmp/PROMPT.md.forge-bak PROMPT.md
+    mv .forge-prompt-backup PROMPT.md
     ok "$label"
 }
 
@@ -486,19 +511,23 @@ step_18b_commit_config() {
         skip "$label"
         return
     fi
-    git add CLAUDE.md .claude/ .github/
+    # Ensure Forge temp files are gitignored
+    if ! grep -Fq '.forge-session.log' .gitignore 2>/dev/null; then
+        printf '\n# Forge session temp files\n.forge-current-issue\n.forge-session.log\n' >> .gitignore
+    fi
+    git add CLAUDE.md .claude/ .github/ .gitignore
     git commit -m "chore: add Forge configuration"
     git push
     ok "$label"
 }
 
-# Step 19: Branch protection
+# Step 19: Branch protection (non-critical)
 step_19_branch_protection() {
     local label="19. Branch protection ruleset"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
-        warn "Could not determine repository — skipping branch protection"
+        add_warning "Branch protection: could not determine repository. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
         return
     fi
     # Check if a forge ruleset already exists
@@ -508,10 +537,10 @@ step_19_branch_protection() {
         skip "$label"
         return
     fi
-    gh api "repos/$repo/rulesets" \
+    if ! gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
-        --input - <<RULESET 2>/dev/null || warn "Branch protection failed — you may need to set this up manually"
+        --input - <<RULESET 2>/dev/null; then
 {
   "name": "forge-main-protection",
   "target": "branch",
@@ -560,16 +589,19 @@ step_19_branch_protection() {
   ]
 }
 RULESET
+        add_warning "Branch protection failed. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
+        return
+    fi
     ok "$label"
 }
 
-# Step 19b: Repository settings
+# Step 19b: Repository settings (non-critical)
 step_19b_repo_settings() {
     local label="19b. Repository settings"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
-        warn "Could not determine repository — skipping repo settings"
+        add_warning "Repo settings: could not determine repository. Run manually: gh repo edit --delete-branch-on-merge --enable-auto-merge"
         return
     fi
     # Check if already configured (delete_branch_on_merge is not a default)
@@ -579,10 +611,10 @@ step_19b_repo_settings() {
         skip "$label"
         return
     fi
-    gh api "repos/$repo" \
+    if ! gh api "repos/$repo" \
         -X PATCH \
         -H "Accept: application/vnd.github+json" \
-        --input - <<'SETTINGS' 2>/dev/null || warn "Repo settings update failed — you may need to configure manually"
+        --input - <<'SETTINGS' 2>/dev/null; then
 {
   "delete_branch_on_merge": true,
   "allow_update_branch": true,
@@ -590,39 +622,41 @@ step_19b_repo_settings() {
   "has_projects": false
 }
 SETTINGS
-    ok "$label"
-}
-
-# Step 20: Create labels
-step_20_create_labels() {
-    local label="20. GitHub label taxonomy"
-    # Check if forge labels already exist
-    if gh label list --json name -q '.[].name' 2>/dev/null | grep -q "agent:ready"; then
-        skip "$label"
+        add_warning "Repo settings failed. Run manually: gh repo edit --delete-branch-on-merge --enable-auto-merge"
         return
     fi
-    info "  Creating labels..."
-    gh label create "agent:ready"        --color "0E8A16" --description "Available — all deps met"           --force 2>/dev/null || true
-    gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"             --force 2>/dev/null || true
-    gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"         --force 2>/dev/null || true
-    gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"          --force 2>/dev/null || true
-    gh label create "agent:blocked"      --color "D93F0B" --description "Deps not yet closed"                --force 2>/dev/null || true
-    gh label create "type:feature"       --color "A2EEEF" --description "New feature"                        --force 2>/dev/null || true
-    gh label create "type:config"        --color "D4C5F9" --description "Config / infrastructure"            --force 2>/dev/null || true
-    gh label create "type:bugfix"        --color "D73A4A" --description "Bug discovered during build"        --force 2>/dev/null || true
-    gh label create "type:design"        --color "F9D0C4" --description "Visual / UX work"                   --force 2>/dev/null || true
-    gh label create "priority:high"      --color "B60205" --description "Build first within milestone"       --force 2>/dev/null || true
-    gh label create "priority:medium"    --color "FBCA04" --description "Normal"                             --force 2>/dev/null || true
-    gh label create "priority:low"       --color "C5DEF5" --description "Last in milestone"                  --force 2>/dev/null || true
-    gh label create "ai-generated"       --color "EEEEEE" --description "PR or issue filed by agent"         --force 2>/dev/null || true
     ok "$label"
 }
 
-# Step 21: Write config
+# Step 20: Create labels (non-critical, --force makes it idempotent)
+step_20_create_labels() {
+    local label="20. GitHub label taxonomy"
+    local failed=0
+    info "  Creating labels..."
+    gh label create "agent:ready"        --color "0E8A16" --description "Available — all deps met"           --force 2>/dev/null || failed=1
+    gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"             --force 2>/dev/null || failed=1
+    gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"         --force 2>/dev/null || failed=1
+    gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"          --force 2>/dev/null || failed=1
+    gh label create "agent:blocked"      --color "D93F0B" --description "Deps not yet closed"                --force 2>/dev/null || failed=1
+    gh label create "type:feature"       --color "A2EEEF" --description "New feature"                        --force 2>/dev/null || failed=1
+    gh label create "type:config"        --color "D4C5F9" --description "Config / infrastructure"            --force 2>/dev/null || failed=1
+    gh label create "type:bugfix"        --color "D73A4A" --description "Bug discovered during build"        --force 2>/dev/null || failed=1
+    gh label create "type:design"        --color "F9D0C4" --description "Visual / UX work"                   --force 2>/dev/null || failed=1
+    gh label create "priority:high"      --color "B60205" --description "Build first within milestone"       --force 2>/dev/null || failed=1
+    gh label create "priority:medium"    --color "FBCA04" --description "Normal"                             --force 2>/dev/null || failed=1
+    gh label create "priority:low"       --color "C5DEF5" --description "Last in milestone"                  --force 2>/dev/null || failed=1
+    gh label create "ai-generated"       --color "EEEEEE" --description "PR or issue filed by agent"         --force 2>/dev/null || failed=1
+    if [ "$failed" -eq 1 ]; then
+        add_warning "Some labels failed to create. Run manually: gh label list"
+        return
+    fi
+    ok "$label"
+}
+
+# Step 21: Write config (non-critical, skipped if config already exists)
 step_21_write_config() {
     local label="21. Forge config"
     if [ -f "$FORGE_CONFIG_DIR/config.json" ]; then
-        # Update existing config with this project
         skip "$label"
         return
     fi
@@ -672,17 +706,17 @@ step_16_copy_hooks
 step_17_copy_ci
 step_18_generate_claude_md
 step_18b_commit_config
+# Non-critical steps — failures are captured as warnings, not fatal
 step_19_branch_protection
 step_19b_repo_settings
 step_20_create_labels
-step_21_write_config
+step_21_write_config || add_warning "Forge config write failed. Not critical — bootstrap metadata only."
 
 # ============================================================
 # Done
 # ============================================================
 
-echo ""
-info "=== Bootstrap complete ==="
+print_summary
 echo ""
 echo "  Your Forge project is ready. Run:"
 echo ""

@@ -9,6 +9,55 @@
 **Repository:** {{github_repo}}
 **Stack:** Next.js + Tailwind CSS + TypeScript, deployed on Vercel
 
+## Forge System
+
+This project is managed by the **Forge** autonomous development system. The main Claude Code session acts as the orchestrator, routing work through skills and spawning specialized sub-agents via the Task tool.
+
+- Skills (`/forge`, `/plan`, `/build`, `/sync`, `/ask`) define the orchestration workflow.
+- Sub-agents (spawned via Task) handle research, review, testing, and debugging.
+- GitHub Issues and PRs are the sole state machine — no local state files.
+
+If you are the main session, run `/forge` to begin. If you were spawned as a sub-agent, follow your task prompt — the rest of this document is shared project context.
+
+### Architecture
+
+```
+Main session → /forge (orchestrator skill)
+  ├── /sync   — reads GitHub issue/PR state, returns structured summary
+  ├── /plan   — spawns 4 research sub-agents in parallel, files GitHub Issues
+  ├── /build  — claims one issue, implements, spawns review+test+debug sub-agents, opens PR
+  └── /ask    — escalates blocking questions to human via GitHub comments
+```
+
+The loop: `/forge` → `/sync` → route to `/plan` or `/build` → back to `/forge` → repeat until all issues are closed or a human decision is needed.
+
+### State Machine
+
+All project state is encoded in GitHub Issue labels:
+
+| Label | Meaning |
+|-------|---------|
+| `agent:ready` | Dependencies met, available for an agent to claim |
+| `agent:in-progress` | An agent is actively working on this issue |
+| `agent:done` | PR opened, awaiting human review and merge |
+| `agent:blocked` | Waiting on other issues to close first |
+| `agent:needs-human` | Blocked on a decision only a human can make |
+
+`/sync` checks blocked issues and promotes them to ready when their dependencies close.
+
+### Resumability
+
+There is no local state to lose. If a session ends mid-work:
+
+- GitHub Issues and labels reflect the last known state
+- Any in-progress branch has been pushed (or can be abandoned)
+- Starting a new `claude` session and running `/forge` picks up exactly where it stopped
+- `/sync` detects stale `agent:in-progress` labels and recovers them
+
+### Context Management
+
+After `/plan` completes, use `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub. Do not `/clear` between individual `/build` cycles. Sub-agents spawned via Task have their own context windows and do not consume the main session's.
+
 ## Session Start
 
 **At the start of every session, run the `/forge` skill.** This reads the current GitHub state and determines what to do next — plan, build, or surface questions.
@@ -38,9 +87,10 @@
 - Skip quality checks — always run `pnpm lint && pnpm tsc --noEmit && pnpm test && pnpm build`.
 - Work on code without a corresponding GitHub Issue.
 - Merge PRs without human approval.
+- Modify `CLAUDE.md`, `PROMPT.md`, or files in `.claude/skills/`.
 
 ## Reference
 
 - `PROMPT.md` — the original application description
-- `.claude/skills/` — Forge skill definitions
+- `.claude/skills/` — Forge skill definitions (5 skills + 7 sub-agent references)
 - `.claude/settings.json` — hooks and permissions

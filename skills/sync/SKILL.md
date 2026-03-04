@@ -32,14 +32,27 @@ gh issue list --state open --label "agent:ready" --json number,title
 gh issue list --state open --label "agent:in-progress" --json number,title
 gh issue list --state open --label "agent:blocked" --json number,title
 gh issue list --state open --label "agent:needs-human" --json number,title,comments
+gh issue list --state open --label "agent:done" --json number,title
 
 # Open PRs
 gh pr list --state open --json number,title,statusCheckRollup,url
 ```
 
-### 3. Check for dependency updates
+### 3. Check for stale and blocked issues
 
-For any issue labeled `agent:blocked`, read its body to find dependency references:
+**Stale in-progress issues:** For any issue labeled `agent:in-progress`, check if there's a corresponding open PR or active branch:
+
+```bash
+gh pr list --state open --json headRefName --jq '.[] | select(.headRefName | startswith("agent/issue-{N}-")) | .headRefName'
+```
+
+If no PR or branch exists, the issue was likely abandoned by a crashed session. Relabel it:
+
+```bash
+gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:ready"
+```
+
+**Blocked issues with met dependencies:** For any issue labeled `agent:blocked`, read its body to find dependency references:
 
 ```bash
 gh issue view {N} --json body -q .body
@@ -58,12 +71,13 @@ Output a structured summary in this exact format:
 ```
 Forge Project State — {repo name}
 ------------------------------------
-Closed issues:  {count}
-In progress:    {count}  ({issue list if any})
-Ready to build: {count}  ({issue list if any})
-Blocked:        {count}  ({issue list with what they're waiting on})
-Needs human:    {count}  ({issue list with brief summary})
-Open PRs:       {count}  ({PR list with review status})
+Closed issues:   {count}
+Awaiting merge:  {count}  ({issues with agent:done label and open PRs})
+In progress:     {count}  ({issue list if any})
+Ready to build:  {count}  ({issue list if any})
+Blocked:         {count}  ({issue list with what they're waiting on})
+Needs human:     {count}  ({issue list with brief summary})
+Open PRs:        {count}  ({PR list with review status})
 ------------------------------------
 Next action: {one of the following}
 ```

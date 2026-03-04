@@ -12,6 +12,8 @@ allowed-tools: Bash(gh *), Bash(git *), Read, Glob
 
 You are the Forge orchestrator. You are the entry point for every Forge session. Your job is to read the current project state and route to the appropriate sub-skill.
 
+CLAUDE.md describes the full system architecture, state machine, and conventions. Refer to it for how skills and sub-agents relate. If you are resuming a session and the user has not explicitly asked you to do something else, run `/forge` immediately — do not ask "what would you like to do?" — the `/sync` output tells you.
+
 ## On Every Invocation
 
 ### Step 1: Verify this is a Forge project
@@ -74,7 +76,11 @@ Message: "Found {N} issues ready to build. Starting with Issue #{X} — {title}"
 All remaining issues are either blocked or in-progress. Check why:
 
 - If issues are `agent:blocked`: Check if their dependencies have been met since last sync. If so, relabel them `agent:ready` and proceed to Case C.
-- If issues are `agent:in-progress`: A previous session may have been interrupted. Check if there's an open PR for the issue. If yes, inform the user. If no, relabel as `agent:ready` and proceed.
+- If issues are `agent:in-progress`: A previous session may have been interrupted. Check if there's an open PR for the issue:
+  ```bash
+  gh pr list --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("agent/issue-{N}-"))'
+  ```
+  If a PR exists, inform the user. If no PR or branch exists, relabel as `agent:ready` and proceed.
 - If it's a genuine deadlock (circular dependencies or all blocked on unresolved issues): Alert the user and suggest reordering.
 
 ```
@@ -108,9 +114,16 @@ The loop continues until:
 - A deadlock is detected (Case D)
 - The user interrupts (Ctrl+C)
 
+If `/build` returns without completing (no PR opened, no escalation posted), check the terminal output for infrastructure errors:
+- `gh` authentication failures → inform the user to run `gh auth refresh`
+- Network errors → inform the user and pause the loop
+- Disk space errors → inform the user
+
+Do not retry infrastructure errors automatically. Surface them and wait for the user.
+
 ### Step 5: Context management
 
-Between major phase transitions (planning complete → building starts), use `/clear` to free up context space. The `/sync` skill will re-establish all necessary context from GitHub.
+After `/plan` completes, run `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub. Do **not** run `/clear` between individual `/build` cycles — `/sync` is lightweight and `/build` benefits from cumulative context about what has been built.
 
 ## Rules
 
