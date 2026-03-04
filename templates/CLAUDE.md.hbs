@@ -13,7 +13,7 @@
 
 This project is managed by the **Forge** autonomous development system. The main Claude Code session acts as the orchestrator, routing work through skills and spawning specialized sub-agents via the Task tool.
 
-- Skills (`/forge`, `/plan`, `/build`, `/sync`, `/ask`) define the orchestration workflow.
+- Skills (`/forge`, `/plan`, `/build`, `/revise`, `/sync`, `/ask`) define the orchestration workflow.
 - Sub-agents (spawned via Task) handle research, review, testing, and debugging.
 - GitHub Issues and PRs are the sole state machine — no local state files.
 
@@ -26,10 +26,11 @@ Main session → /forge (orchestrator skill)
   ├── /sync   — reads GitHub issue/PR state, returns structured summary
   ├── /plan   — spawns 4 research sub-agents in parallel, files GitHub Issues
   ├── /build  — claims one issue, implements, spawns review+test+debug sub-agents, opens PR
+  ├── /revise — addresses PR review comments, pushes fixes to existing branch
   └── /ask    — escalates blocking questions to human via GitHub comments
 ```
 
-The loop: `/forge` → `/sync` → route to `/plan` or `/build` → back to `/forge` → repeat until all issues are closed or a human decision is needed.
+The loop: `/forge` → `/sync` → route to `/plan`, `/build`, or `/revise` → back to `/forge` → repeat until all issues are closed or a human decision is needed.
 
 ### State Machine
 
@@ -40,11 +41,12 @@ All project state is encoded in GitHub Issue labels:
 | `agent:ready` | Dependencies met, available for an agent to claim |
 | `agent:in-progress` | An agent is actively working on this issue |
 | `agent:done` | PR opened, awaiting human review and merge |
+| `agent:revision-needed` | PR has review comments the agent will address on the next cycle |
 | `agent:blocked` | Waiting on other issues to close first |
 | `agent:needs-human` | Blocked on a decision only a human can make |
 | `triage` | Human-filed issue, awaiting agent classification on next `/sync` |
 
-`/sync` checks blocked issues and promotes them to ready when their dependencies close. It also classifies `triage` issues, detects stuck `agent:done` issues with no open PR, and reports unlabeled orphan issues.
+`/sync` checks blocked issues and promotes them to ready when their dependencies close. It also classifies `triage` issues, detects stuck `agent:done` issues with no open PR, promotes `agent:done` issues to `agent:revision-needed` when their PR has changes requested, and reports unlabeled orphan issues.
 
 ### Filing Issues
 
@@ -97,5 +99,5 @@ After `/plan` completes, use `/clear` before starting the build loop — `/sync`
 ## Reference
 
 - `PROMPT.md` — the original application description
-- `.claude/skills/` — Forge skill definitions (5 skills + 7 sub-agent references)
+- `.claude/skills/` — Forge skill definitions (6 skills + 7 sub-agent references)
 - `.claude/settings.json` — hooks and permissions

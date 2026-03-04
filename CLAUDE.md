@@ -9,6 +9,7 @@ skills/          — Claude Code skill definitions (SKILL.md files)
   forge/         — Master orchestrator (/forge)
   plan/          — Research & issue filing (/plan) + sub-agent references
   build/         — Issue to branch to PR (/build)
+  revise/        — Address PR review feedback (/revise)
   sync/          — GitHub state reader (/sync)
   ask/           — Human escalation (/ask)
 hooks/           — .claude/settings.json template for projects
@@ -16,6 +17,7 @@ workflows/       — GitHub Actions CI templates
 templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
 bootstrap/       — setup.sh (23-step idempotent project bootstrap)
 install.sh       — curl | bash installer
+research/        — ad-hoc research notes and scratchpad (not committed)
 ```
 
 ## Conventions

@@ -44,6 +44,7 @@ Run `/sync` to read the current GitHub state. This produces a structured summary
 - Closed issues (completed work)
 - In-progress issues
 - Ready-to-build issues
+- Revision-needed issues (PRs with review feedback)
 - Blocked issues
 - Issues needing human input
 - Open PRs
@@ -86,6 +87,14 @@ Message: "These issues are not in the agent workflow: #X, #Y.
 ```
 
 Do not block on this — inform the user and proceed to the next applicable case.
+
+#### Case B3: Issues with `agent:revision-needed` label
+A PR has review comments that need to be addressed. This takes priority over building new issues because revising existing work gets PRs closer to merge.
+
+```
+Action: Run /revise
+Message: "Found {N} issues needing PR revision. Starting with Issue #{X} — {title}"
+```
 
 #### Case C: Open issues with `agent:ready` label
 Issues are ready to be built.

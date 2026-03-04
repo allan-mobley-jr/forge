@@ -42,7 +42,7 @@ The bootstrap handles installing and configuring everything else.
 Each project gets:
 
 - A GitHub repo with branch protection and CI
-- Claude Code skills that drive the autonomous loop (`/forge`, `/plan`, `/build`, `/sync`, `/ask`)
+- Claude Code skills that drive the autonomous loop (`/forge`, `/plan`, `/build`, `/revise`, `/sync`, `/ask`)
 - Hooks that guard protected files and log modifications
 - A Vercel project with automatic preview deploys on PRs
 - A label taxonomy for tracking issue and agent state
@@ -63,6 +63,7 @@ Every issue gets labels from three categories:
 | `agent:ready` | The issue is ready to be built. The agent will claim it next. |
 | `agent:in-progress` | The agent is actively working on this issue right now. |
 | `agent:done` | The agent finished and opened a PR. Waiting for you to review and merge. |
+| `agent:revision-needed` | You requested changes on the PR. The agent will address your review comments on the next cycle. |
 | `agent:blocked` | This issue depends on another issue that hasn't been completed yet. The agent will automatically unblock it when dependencies close. |
 | `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
 
@@ -214,6 +215,7 @@ forge/
 │   ├── plan/SKILL.md       #   Research & issue filing
 │   ├── build/SKILL.md      #   Issue → branch → PR
 │   │   └── references/     #   Sub-agent prompts (review, test, debug)
+│   ├── revise/SKILL.md     #   Address PR review feedback
 │   ├── sync/SKILL.md       #   GitHub state reader
 │   └── ask/SKILL.md        #   Human escalation
 ├── hooks/settings.json     # Permissions and hook definitions
