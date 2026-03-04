@@ -31,7 +31,7 @@ Do NOT escalate when:
 Read `/tmp/forge-current-issue` to get the current issue number, or accept it from the calling context.
 
 ```bash
-ISSUE=$(cat /tmp/forge-current-issue 2>/dev/null)
+ISSUE=$(cat .forge-current-issue 2>/dev/null)
 ```
 
 ### 2. Post the structured question
