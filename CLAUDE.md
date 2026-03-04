@@ -24,3 +24,15 @@ install.sh       — curl | bash installer
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
 - GitHub is the sole state machine — no local state files
 - Shell scripts target macOS (zsh) with Homebrew assumed
+
+## Git Workflow
+
+### Atomic commits
+
+Commit early and often. Each commit should be a single logical change (one fix, one feature, one refactor). Don't bundle unrelated changes into a single commit. Write a short "why" summary on the first line, add detail in the body if needed.
+
+### After a PR is merged
+
+1. `git checkout main && git pull` — switch to main and pull the merge commit
+2. `git branch -d <branch>` — delete the local feature branch
+3. `git remote prune origin` — remove the stale remote-tracking ref (GitHub auto-deletes the remote branch on merge)
