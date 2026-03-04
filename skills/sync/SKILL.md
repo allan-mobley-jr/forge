@@ -42,6 +42,12 @@ echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:in-p
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:blocked"))]'
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:needs-human"))]'
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:done"))]'
+
+# Triage issues (human handoff — awaiting classification)
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("triage"))]'
+
+# Orphan issues (no agent:* label and no triage label)
+echo "$OPEN_ISSUES" | jq '[.[] | select((.labels | map(.name) | map(select(startswith("agent:"))) | length) == 0 and (.labels | map(.name) | index("triage") | not))]'
 ```
 
 These `jq` filters run locally and cost zero API calls.
@@ -74,6 +80,38 @@ gh issue edit {N} --remove-label "agent:blocked" --add-label "agent:ready"
 sleep 1
 ```
 
+### 3b. Process triage issues
+
+For any issue labeled `triage`, classify it and promote it into the agent workflow. Read the issue title and body (already in `$OPEN_ISSUES`) and infer labels:
+
+1. **Infer type** from title and body keywords:
+   - Contains "bug", "fix", "broken", "error", "crash", "regression" → `type:bugfix`
+   - Contains "config", "setup", "deploy", "env", "CI", "infrastructure" → `type:config`
+   - Contains "design", "UI", "UX", "layout", "style", "visual" → `type:design`
+   - Otherwise → `type:feature`
+
+2. **Set priority** to `priority:medium` (safe default).
+
+3. **Check for dependency references** (`#N` patterns in the body). If referenced issues are still open → `agent:blocked`. Otherwise → `agent:ready`.
+
+4. **Apply labels and remove `triage`:**
+
+```bash
+gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:ready"
+sleep 1
+```
+
+### 3c. Detect stuck `agent:done` issues
+
+For any issue labeled `agent:done`, verify that an open PR still references it. Cross-reference with the open PRs already fetched in step 2.
+
+If no open PR exists for an `agent:done` issue (the PR was closed without merging), relabel it so the agent can retry:
+
+```bash
+gh issue edit {N} --remove-label "agent:done" --add-label "agent:ready"
+sleep 1
+```
+
 ### 4. Produce the summary
 
 Output a structured summary in this exact format:
@@ -88,6 +126,7 @@ Ready to build:  {count}  ({issue list if any})
 Blocked:         {count}  ({issue list with what they're waiting on})
 Needs human:     {count}  ({issue list with brief summary})
 Open PRs:        {count}  ({PR list with review status})
+Unlabeled:       {count}  ({issue list — not in agent workflow})
 ------------------------------------
 Next action: {one of the following}
 ```
@@ -114,4 +153,4 @@ Next action: {one of the following}
 
 ## Output only
 
-This skill produces output. It does not modify any code or create any files. It only reads GitHub state and potentially relabels blocked issues whose dependencies are now met.
+This skill produces output. It does not modify any code or create any files. It only reads GitHub state and relabels issues when needed: promoting blocked issues whose dependencies are met, recovering stale in-progress issues, classifying triage issues, and resetting stuck done issues.

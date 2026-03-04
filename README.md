@@ -47,6 +47,68 @@ Each project gets:
 - A Vercel project with automatic preview deploys on PRs
 - A label taxonomy for tracking issue and agent state
 
+## Label System
+
+Forge tracks all project state through GitHub Issue labels. There are no databases or local files — if you can see the labels on an issue, you know exactly where it stands.
+
+### How Labels Work
+
+Every issue gets labels from three categories:
+
+**State** — Where the issue is in the workflow:
+
+| Label | What it means |
+|-------|---------------|
+| `triage` | You filed this issue and want the agent to work on it. The agent will classify it and pick it up on the next cycle. |
+| `agent:ready` | The issue is ready to be built. The agent will claim it next. |
+| `agent:in-progress` | The agent is actively working on this issue right now. |
+| `agent:done` | The agent finished and opened a PR. Waiting for you to review and merge. |
+| `agent:blocked` | This issue depends on another issue that hasn't been completed yet. The agent will automatically unblock it when dependencies close. |
+| `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
+
+**Type** — What kind of work this is:
+
+| Label | What it means |
+|-------|---------------|
+| `type:feature` | New functionality |
+| `type:bugfix` | Fixing something broken |
+| `type:config` | Infrastructure, configuration, deployment |
+| `type:design` | Visual or UX changes |
+
+**Priority** — How urgent (informational, does not change build order):
+
+| Label | What it means |
+|-------|---------------|
+| `priority:high` | Important — should be addressed first |
+| `priority:medium` | Normal priority (default) |
+| `priority:low` | Can wait |
+
+There is also an `ai-generated` label that the agent adds to every issue and PR it creates, so you can tell at a glance what the agent filed vs. what you filed.
+
+### Filing Issues for the Agent
+
+When the agent plans a project, it creates issues with all the right labels automatically. But if you want to file an issue yourself and have the agent work on it:
+
+1. Create the issue on GitHub as you normally would
+2. Add the **`triage`** label — that's it
+
+The agent picks up `triage` issues on its next sync cycle, classifies them (adds type and priority labels), and promotes them to `agent:ready` so they enter the build queue.
+
+If you file an issue without any labels, the agent will notice and remind you — but it won't assume you want it to work on every issue you create. The `triage` label is your explicit "agent, handle this" signal.
+
+### Labels You Can Use Freely
+
+These labels are for your own organization and the agent ignores them:
+
+- `documentation`, `duplicate`, `invalid`, `wontfix` — standard GitHub triage labels
+- Any custom label you create without the `agent:` prefix
+
+### What Not to Do
+
+- **Don't add `agent:ready` manually** — use `triage` instead, which handles classification for you
+- **Don't remove `agent:in-progress`** while the agent is working — let `/sync` handle stale issues
+- **Don't create labels starting with `agent:`** — that namespace is reserved for the agent's state machine
+
 ## Resuming Work
 
 **Coming back to a project:** Just open a terminal and start Claude Code. The `/forge` skill reads project state from GitHub — open issues, in-progress PRs, labels — and picks up where it left off. No local state to lose.

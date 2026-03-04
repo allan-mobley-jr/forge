@@ -640,16 +640,27 @@ step_20_create_labels() {
     gh label create "agent:blocked"      --color "D93F0B" --description "Deps not yet closed"                --force 2>/dev/null || failed=1
     gh label create "type:feature"       --color "A2EEEF" --description "New feature"                        --force 2>/dev/null || failed=1
     gh label create "type:config"        --color "D4C5F9" --description "Config / infrastructure"            --force 2>/dev/null || failed=1
-    gh label create "type:bugfix"        --color "D73A4A" --description "Bug discovered during build"        --force 2>/dev/null || failed=1
+    gh label create "type:bugfix"        --color "D73A4A" --description "Bug fix"                            --force 2>/dev/null || failed=1
     gh label create "type:design"        --color "F9D0C4" --description "Visual / UX work"                   --force 2>/dev/null || failed=1
     gh label create "priority:high"      --color "B60205" --description "Build first within milestone"       --force 2>/dev/null || failed=1
     gh label create "priority:medium"    --color "FBCA04" --description "Normal"                             --force 2>/dev/null || failed=1
     gh label create "priority:low"       --color "C5DEF5" --description "Last in milestone"                  --force 2>/dev/null || failed=1
     gh label create "ai-generated"       --color "EEEEEE" --description "PR or issue filed by agent"         --force 2>/dev/null || failed=1
+    gh label create "triage"             --color "C2E0C6" --description "Needs classification — agent picks up on next sync" --force 2>/dev/null || failed=1
     if [ "$failed" -eq 1 ]; then
         add_warning "Some labels failed to create. Run manually: gh label list"
         return
     fi
+    ok "$label"
+}
+
+# Step 20b: Remove overlapping default labels (non-critical, idempotent)
+step_20b_cleanup_default_labels() {
+    local label="20b. Remove overlapping default labels"
+    info "  Cleaning up default labels..."
+    for name in "bug" "enhancement" "help wanted" "question"; do
+        gh label delete "$name" --yes 2>/dev/null || true
+    done
     ok "$label"
 }
 
@@ -710,6 +721,7 @@ step_18b_commit_config
 step_19_branch_protection
 step_19b_repo_settings
 step_20_create_labels
+step_20b_cleanup_default_labels
 step_21_write_config || add_warning "Forge config write failed. Not critical — bootstrap metadata only."
 
 # ============================================================

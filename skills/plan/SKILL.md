@@ -99,7 +99,7 @@ sleep 1
 **Wait 1 second after each issue creation** (`sleep 1`). GitHub's secondary rate limits cap content-generating requests at 80/minute and 500/hour. With up to 40 issues plus comments, pausing between mutations prevents hitting these limits.
 
 **Label rules:**
-- All issues get a `type:` label (`type:feature`, `type:config`, `type:design`)
+- All issues get a `type:` label (`type:feature`, `type:config`, `type:design`, `type:bugfix`)
 - Issues with no unmet dependencies get `agent:ready`
 - Issues with unmet dependencies get `agent:blocked`
 - All issues get `priority:medium` unless the risk agent flagged something as high/low priority

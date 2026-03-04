@@ -42,8 +42,13 @@ All project state is encoded in GitHub Issue labels:
 | `agent:done` | PR opened, awaiting human review and merge |
 | `agent:blocked` | Waiting on other issues to close first |
 | `agent:needs-human` | Blocked on a decision only a human can make |
+| `triage` | Human-filed issue, awaiting agent classification on next `/sync` |
 
-`/sync` checks blocked issues and promotes them to ready when their dependencies close.
+`/sync` checks blocked issues and promotes them to ready when their dependencies close. It also classifies `triage` issues, detects stuck `agent:done` issues with no open PR, and reports unlabeled orphan issues.
+
+### Filing Issues
+
+Agent-created issues get labels automatically via `/plan`. For human-filed issues, add the `triage` label — `/sync` will classify it (infer type, set priority) and promote it to `agent:ready`.
 
 ### Resumability
 

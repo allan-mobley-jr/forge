@@ -76,6 +76,17 @@ If the user provides an answer in the chat:
 2. Remove `agent:needs-human` label, add `agent:ready`
 3. Continue to Case C
 
+#### Case B2: Unlabeled issues exist (non-blocking)
+The sync summary shows issues in the "Unlabeled" row — open issues with no `agent:*` or `triage` label.
+
+```
+Action: Surface them to the user, then continue to Case C/D/E
+Message: "These issues are not in the agent workflow: #X, #Y.
+  Add the `triage` label to include them, or close them if they're not needed."
+```
+
+Do not block on this — inform the user and proceed to the next applicable case.
+
 #### Case C: Open issues with `agent:ready` label
 Issues are ready to be built.
 
