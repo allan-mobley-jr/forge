@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','pnpm-lock.yaml','.vercel/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','pnpm-lock.yaml','.vercel/','CLAUDE.md','PROMPT.md','.claude/skills/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
           }
         ]
       }
@@ -31,7 +31,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); f=open('/tmp/forge-session.log','a'); f.write(p+'\\n') if p else None; f.close()\""
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); f=open('.forge-session.log','a'); f.write(p+'\\n') if p else None; f.close()\""
           }
         ]
       }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f /tmp/forge-session.log ] && [ -f /tmp/forge-current-issue ]; then ISSUE=$(cat /tmp/forge-current-issue); gh issue comment \"$ISSUE\" --body \"Session ended. Files modified during this session:\\n\\n$(sort -u /tmp/forge-session.log | sed 's/^/- /')\" 2>/dev/null; fi; rm -f /tmp/forge-session.log /tmp/forge-current-issue"
+            "command": "if [ -f .forge-session.log ] && [ -f .forge-current-issue ]; then ISSUE=$(cat .forge-current-issue); gh issue comment \"$ISSUE\" --body \"Session ended. Files modified during this session:\\n\\n$(sort -u .forge-session.log | sed 's/^/- /')\" 2>/dev/null; fi; rm -f .forge-session.log .forge-current-issue"
           }
         ]
       }
