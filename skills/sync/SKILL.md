@@ -32,6 +32,7 @@ gh issue list --state open --label "agent:ready" --json number,title
 gh issue list --state open --label "agent:in-progress" --json number,title
 gh issue list --state open --label "agent:blocked" --json number,title
 gh issue list --state open --label "agent:needs-human" --json number,title,comments
+gh issue list --state open --label "agent:done" --json number,title
 
 # Open PRs
 gh pr list --state open --json number,title,statusCheckRollup,url
@@ -42,7 +43,7 @@ gh pr list --state open --json number,title,statusCheckRollup,url
 **Stale in-progress issues:** For any issue labeled `agent:in-progress`, check if there's a corresponding open PR or active branch:
 
 ```bash
-gh pr list --state open --json headRefName --jq '.[].headRefName' | grep "agent/issue-{N}"
+gh pr list --state open --json headRefName --jq '.[] | select(.headRefName | startswith("agent/issue-{N}-")) | .headRefName'
 ```
 
 If no PR or branch exists, the issue was likely abandoned by a crashed session. Relabel it:

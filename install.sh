@@ -208,17 +208,12 @@ case "${1:-}" in
         [ -f CLAUDE.md ] && cp CLAUDE.md "$BACKUP_DIR/CLAUDE.md"
         echo -e "  Backed up to ${BOLD}${BACKUP_DIR}/${NC}"
 
-        # 3. Add backup pattern to .gitignore
-        if [ -f .gitignore ]; then
-            if ! grep -q '\.forge-backup-' .gitignore 2>/dev/null; then
-                echo '' >> .gitignore
-                echo '# Forge upgrade backups' >> .gitignore
-                echo '.forge-backup-*' >> .gitignore
+        # 3. Add backup and session patterns to .gitignore
+        for pattern in '.forge-backup-*' '.forge-current-issue' '.forge-session.log'; do
+            if ! grep -Fq "$pattern" .gitignore 2>/dev/null; then
+                echo "$pattern" >> .gitignore
             fi
-        else
-            echo '# Forge upgrade backups' > .gitignore
-            echo '.forge-backup-*' >> .gitignore
-        fi
+        done
 
         # 4. Update skills (clean replacement)
         rm -rf .claude/skills/

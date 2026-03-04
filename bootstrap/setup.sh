@@ -512,7 +512,7 @@ step_18b_commit_config() {
         return
     fi
     # Ensure Forge temp files are gitignored
-    if ! grep -q '.forge-session.log' .gitignore 2>/dev/null; then
+    if ! grep -Fq '.forge-session.log' .gitignore 2>/dev/null; then
         printf '\n# Forge session temp files\n.forge-current-issue\n.forge-session.log\n' >> .gitignore
     fi
     git add CLAUDE.md .claude/ .github/ .gitignore
