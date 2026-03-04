@@ -78,6 +78,7 @@ set -euo pipefail
 FORGE_REPO="$HOME/.forge/repo"
 
 # Colors
+RED='\033[0;31m'
 BOLD='\033[1m'
 YELLOW='\033[1;33m'
 DIM='\033[2m'
@@ -362,7 +363,7 @@ case "${1:-}" in
 
         # Verify inside a Forge project
         if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
-            echo -e "${RED:-}Error: Not a Forge project.${NC:-}"
+            echo -e "${RED}Error: Not a Forge project.${NC}"
             echo "  Run this command from inside a Forge project directory."
             exit 1
         fi
@@ -380,6 +381,12 @@ case "${1:-}" in
                 *) echo "Unknown flag: $1"; exit 1 ;;
             esac
         done
+
+        if [ -n "$timeout_secs" ] && ! command -v timeout &>/dev/null; then
+            echo "Error: --timeout requires GNU coreutils."
+            echo "  Install with: brew install coreutils"
+            exit 1
+        fi
 
         echo ""
         echo -e "  ${YELLOW}forge run${NC} — autonomous build loop"
