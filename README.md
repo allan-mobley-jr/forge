@@ -66,27 +66,47 @@ Every step checks whether it already completed, so resumed runs skip finished wo
 
 ## Running Autonomously
 
-Forge is designed to run as an interactive `claude` session that operates autonomously. The default `settings.json` pre-approves all tools the forge loop needs while maintaining safety through PreToolUse hooks that block writes to protected files.
+Forge supports two levels of autonomous operation.
+
+### Semi-autonomous (interactive)
 
 ```bash
 claude
 ```
 
-The `/forge` skill auto-invokes and drives the build loop. No permission prompts will interrupt the cycle.
+Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. You may occasionally be asked to approve an edge-case operation. Best for Max subscription users who want visibility into the build loop.
 
-**API key users: Headless mode.** If you're authenticating with an API key (not a Max subscription), you can run Forge in fully headless mode:
+### Fully autonomous (headless)
 
 ```bash
 claude -p "/forge"
 ```
 
-**Alternative: Skip all permission prompts.** If you encounter any remaining permission prompts, you can bypass them entirely:
+Runs headless with no user interaction. Unapproved tools are denied automatically (no prompt), but Forge's `settings.json` pre-approves everything needed so the loop runs uninterrupted.
+
+**API key users:** This works out of the box.
+
+**Max subscription users:** OAuth tokens expire after ~10 minutes in headless mode. To work around this, generate a long-lived token (valid 1 year):
 
 ```bash
-claude --dangerouslySkipPermissions
+# On a machine with a browser (one-time setup)
+claude setup-token
+
+# Set the token in your environment
+export CLAUDE_CODE_OAUTH_TOKEN="<token from above>"
+
+# Now headless mode works with your subscription
+claude -p "/forge"
 ```
 
-This disables all permission checks. The PreToolUse hooks still fire and protect sensitive files, but no deny rules are enforced. Use at your own discretion.
+### Escape hatch
+
+If you encounter unexpected permission prompts in either mode, `--dangerouslySkipPermissions` bypasses all permission checks including deny rules. PreToolUse hooks still fire and protect sensitive files.
+
+```bash
+claude --dangerouslySkipPermissions           # interactive
+claude -p "/forge" --dangerouslySkipPermissions  # headless
+```
 
 ## Commands
 
@@ -103,7 +123,7 @@ This disables all permission checks. The PreToolUse hooks still fire and protect
 
 **GitHub is the state machine.** No local state files. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off.
 
-**Interactive by default.** Forge runs as a single long-lived Claude Code session — observable, interruptible, and compatible with Max subscription OAuth. API key users can also run headless with `claude -p "/forge"`.
+**Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions compatible with Max subscription OAuth. Fully autonomous (`claude -p`) for headless operation with API keys or long-lived subscription tokens.
 
 **Human-in-the-loop by PR.** Nothing merges without your approval. CI must pass on every PR. The agent escalates when it's stuck instead of guessing.
 
