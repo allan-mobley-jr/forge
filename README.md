@@ -92,8 +92,9 @@ Runs headless with no user interaction. Unapproved tools are denied automaticall
 # On a machine with a browser (one-time setup)
 claude setup-token
 
-# Set the token in your environment
-export CLAUDE_CODE_OAUTH_TOKEN="<token from above>"
+# Add the token to your shell profile (not the command line) to avoid exposing it in history
+echo 'export CLAUDE_CODE_OAUTH_TOKEN="<token from above>"' >> ~/.zshrc
+source ~/.zshrc
 
 # Now headless mode works with your subscription
 claude -p "/forge"
