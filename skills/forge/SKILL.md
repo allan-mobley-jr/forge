@@ -49,6 +49,32 @@ Run `/sync` to read the current GitHub state. This produces a structured summary
 - Issues needing human input
 - Open PRs
 
+### Step 3.5: Write status file
+
+After `/sync` produces its summary, write the issue counts to `.forge-status.json` so the PreCompact and Stop hooks can read them. Use the counts from the sync output:
+
+```bash
+python3 -c "
+import json, datetime, sys
+data = {
+    'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
+    'issues': {
+        'total': int(sys.argv[1]),
+        'closed': int(sys.argv[2]),
+        'ready': int(sys.argv[3]),
+        'in_progress': int(sys.argv[4]),
+        'blocked': int(sys.argv[5]),
+        'needs_human': int(sys.argv[6]),
+        'revision_needed': int(sys.argv[7]),
+        'done_awaiting_merge': int(sys.argv[8])
+    }
+}
+json.dump(data, open('.forge-status.json', 'w'), indent=2)
+" TOTAL CLOSED READY IN_PROGRESS BLOCKED NEEDS_HUMAN REVISION AWAITING
+```
+
+Replace TOTAL, CLOSED, READY, etc. with the actual counts from the `/sync` summary. This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
+
 ### Step 4: Route based on state
 
 Evaluate the sync output and take the appropriate action:
