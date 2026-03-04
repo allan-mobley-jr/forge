@@ -31,7 +31,7 @@ gh issue list --state closed --json number,title -L 100
 OPEN_ISSUES=$(gh issue list --state open --json number,title,labels,body,comments -L 200)
 
 # Open PRs (includes review state for revision detection)
-OPEN_PRS=$(gh pr list --state open --json number,title,statusCheckRollup,url,reviewDecision,headRefName)
+OPEN_PRS=$(gh pr list --state open --json number,title,statusCheckRollup,url,reviewDecision,headRefName -L 200)
 ```
 
 Filter the `OPEN_ISSUES` JSON locally using `jq` or `--jq`:
@@ -126,8 +126,7 @@ For any issue labeled `agent:done`, check if its linked PR has `reviewDecision =
 DONE_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:done"))] | .[].number')
 
 for ISSUE_NUM in $DONE_ISSUES; do
-  PR_REVIEW=$(echo "$OPEN_PRS" | jq -r ".[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | .reviewDecision")
-  if [ "$PR_REVIEW" = "CHANGES_REQUESTED" ]; then
+  if echo "$OPEN_PRS" | jq -e ".[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")" >/dev/null 2>&1; then
     gh issue edit "$ISSUE_NUM" --remove-label "agent:done" --add-label "agent:revision-needed"
     sleep 1
   fi

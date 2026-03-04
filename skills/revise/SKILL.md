@@ -27,8 +27,19 @@ The PR branch follows the naming convention `agent/issue-{N}-*`. Find it:
 
 ```bash
 ISSUE={number}
-PR_JSON=$(gh pr list --state open --json number,headRefName,url,reviewDecision --jq ".[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))")
-PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
+PR_JSON=$(gh pr list --state open --json number,headRefName,url,reviewDecision \
+  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | sort_by(.number) | .[0]")
+```
+
+If `PR_JSON` is empty or null, no open PR exists for this issue. The PR may have been closed. Relabel the issue back to `agent:ready` so `/build` can retry:
+
+```bash
+PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty')
+```
+
+If `PR_NUMBER` is empty, relabel and return. Otherwise, extract the remaining fields:
+
+```bash
 PR_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
 PR_URL=$(echo "$PR_JSON" | jq -r '.url')
 REVIEW_DECISION=$(echo "$PR_JSON" | jq -r '.reviewDecision')
