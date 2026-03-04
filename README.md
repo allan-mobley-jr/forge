@@ -71,6 +71,8 @@ Every step checks whether it already completed, so resumed runs skip finished wo
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
 | `forge init --resume` | Resume a failed or interrupted bootstrap |
 | `forge update` | Update Forge to the latest version |
+| `forge upgrade` | Update Forge artifacts (skills, hooks, CLAUDE.md) in the current project |
+| `forge doctor` | Check tool versions and project artifact health |
 | `forge version` | Show installed version |
 
 ## Design Decisions
