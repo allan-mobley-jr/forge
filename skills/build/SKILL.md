@@ -212,7 +212,7 @@ After completing (success or failure), end with:
 - **Always push before opening a PR.** The branch must exist on the remote.
 - **Commit message format:** `feat: {title} (closes #{N})` for features, `fix:` for bugfixes, `chore:` for config.
 - **PR body must reference the issue** with `Closes #{N}`.
-- **Write `/tmp/forge-current-issue`** so the Stop hook knows which issue to comment on.
+- **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
 - **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for.
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.
