@@ -65,6 +65,10 @@ There is no local state to lose. If a session ends mid-work:
 
 After `/plan` completes, use `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub. Do not `/clear` between individual `/build` cycles. Sub-agents spawned via Task have their own context windows and do not consume the main session's.
 
+### Autonomous Operation
+
+For fully autonomous headless operation, use `forge run` from the project root. This wraps `claude -p "/forge"` in a restart loop that survives context exhaustion and picks up where it left off. Each session writes `.forge-status.json` for progress tracking and `.forge-exit-status` for the restart loop.
+
 ## Session Start
 
 **At the start of every session, run the `/forge` skill.** This reads the current GitHub state and determines what to do next — plan, build, or surface questions.
