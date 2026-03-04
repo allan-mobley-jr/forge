@@ -21,22 +21,36 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 
 ### 2. Gather state from GitHub
 
-Run these commands to collect the current state:
+Fetch all open issues in a **single API call**, then filter locally by label. This reduces 7 separate API requests to 3 (one for closed issues, one for open issues, one for open PRs), saving API budget across the build loop.
 
 ```bash
 # Closed issues (completed work)
 gh issue list --state closed --json number,title -L 100
 
-# Open issues by agent label
-gh issue list --state open --label "agent:ready" --json number,title
-gh issue list --state open --label "agent:in-progress" --json number,title
-gh issue list --state open --label "agent:blocked" --json number,title
-gh issue list --state open --label "agent:needs-human" --json number,title,comments
-gh issue list --state open --label "agent:done" --json number,title
+# All open issues in one query — filter by label locally
+OPEN_ISSUES=$(gh issue list --state open --json number,title,labels,body,comments -L 200)
 
 # Open PRs
 gh pr list --state open --json number,title,statusCheckRollup,url
 ```
+
+Filter the `OPEN_ISSUES` JSON locally using `jq` or `--jq`:
+
+```bash
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:ready"))]'
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:in-progress"))]'
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:blocked"))]'
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:needs-human"))]'
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:done"))]'
+
+# Triage issues (human handoff — awaiting classification)
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("triage"))]'
+
+# Orphan issues (no agent:* label and no triage label)
+echo "$OPEN_ISSUES" | jq '[.[] | select((.labels | map(.name) | map(select(startswith("agent:"))) | length) == 0 and (.labels | map(.name) | index("triage") | not))]'
+```
+
+These `jq` filters run locally and cost zero API calls.
 
 ### 3. Check for stale and blocked issues
 
@@ -50,18 +64,57 @@ If no PR or branch exists, the issue was likely abandoned by a crashed session. 
 
 ```bash
 gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:ready"
+sleep 1
 ```
 
-**Blocked issues with met dependencies:** For any issue labeled `agent:blocked`, read its body to find dependency references:
+**Blocked issues with met dependencies:** For any issue labeled `agent:blocked`, extract its body from the already-fetched `$OPEN_ISSUES` to find dependency references:
 
 ```bash
-gh issue view {N} --json body -q .body
+echo "$OPEN_ISSUES" | jq -r '.[] | select(.number == {N}) | .body'
 ```
 
-Check if the referenced dependency issues are now closed. If a blocked issue's dependencies are all resolved, relabel it:
+This uses the data already in memory — no additional API call needed. Check if the referenced dependency issues are now closed. If a blocked issue's dependencies are all resolved, relabel it:
 
 ```bash
 gh issue edit {N} --remove-label "agent:blocked" --add-label "agent:ready"
+sleep 1
+```
+
+### 3b. Process triage issues
+
+For any issue labeled `triage`, classify it and promote it into the agent workflow. Read the issue title and body (already in `$OPEN_ISSUES`) and infer labels:
+
+1. **Infer type** from title and body keywords:
+   - Contains "bug", "fix", "broken", "error", "crash", "regression" → `type:bugfix`
+   - Contains "config", "setup", "deploy", "env", "CI", "infrastructure" → `type:config`
+   - Contains "design", "UI", "UX", "layout", "style", "visual" → `type:design`
+   - Otherwise → `type:feature`
+
+2. **Set priority** to `priority:medium` (safe default).
+
+3. **Check for dependency references** (`#N` patterns in the body). If referenced issues are still open → `agent:blocked`. Otherwise → `agent:ready`.
+
+4. **Apply labels and remove `triage`:**
+
+```bash
+# If dependencies are met (or none referenced):
+gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:ready"
+sleep 1
+
+# If dependencies are still open:
+gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:blocked"
+sleep 1
+```
+
+### 3c. Detect stuck `agent:done` issues
+
+For any issue labeled `agent:done`, verify that an open PR still references it. Cross-reference with the open PRs already fetched in step 2.
+
+If no open PR exists for an `agent:done` issue (the PR was closed without merging), relabel it so the agent can retry:
+
+```bash
+gh issue edit {N} --remove-label "agent:done" --add-label "agent:ready"
+sleep 1
 ```
 
 ### 4. Produce the summary
@@ -78,6 +131,7 @@ Ready to build:  {count}  ({issue list if any})
 Blocked:         {count}  ({issue list with what they're waiting on})
 Needs human:     {count}  ({issue list with brief summary})
 Open PRs:        {count}  ({PR list with review status})
+Unlabeled:       {count}  ({issue list — not in agent workflow})
 ------------------------------------
 Next action: {one of the following}
 ```
@@ -96,6 +150,12 @@ Next action: {one of the following}
 - **Multiple needs-human issues**: List all of them with their question summaries
 - **Mix of states**: Prioritize in this order: needs-human (surface first), then ready (build next), then blocked (informational)
 
+## Rate Limit Notes
+
+- The batched open-issues query (Step 2) reduces API calls from 7 to 3 per sync cycle.
+- All mutation calls (`gh issue edit`) must be followed by `sleep 1` to respect GitHub's secondary rate limits.
+- Dependency checks in Step 3 use the `body` field already fetched in the batched query — avoid re-fetching issue bodies when the data is already in `$OPEN_ISSUES`.
+
 ## Output only
 
-This skill produces output. It does not modify any code or create any files. It only reads GitHub state and potentially relabels blocked issues whose dependencies are now met.
+This skill produces output. It does not modify any code or create any files. It only reads GitHub state and relabels issues when needed: promoting blocked issues whose dependencies are met, recovering stale in-progress issues, classifying triage issues, and resetting stuck done issues.

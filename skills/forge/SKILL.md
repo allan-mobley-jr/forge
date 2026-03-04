@@ -26,7 +26,19 @@ ls PROMPT.md CLAUDE.md .claude/skills/forge/SKILL.md 2>/dev/null
 
 If any are missing, inform the user this doesn't appear to be a Forge project and suggest running `forge init`.
 
-### Step 2: Sync state
+### Step 2: Check API budget
+
+Before making any API calls, check the remaining rate limit:
+
+```bash
+gh api rate_limit --jq '.resources.core | "GitHub API: \(.remaining)/\(.limit) requests remaining (resets \(.reset | todate))"'
+```
+
+- If **remaining < 200**, warn the user that the API budget is low and suggest waiting until the reset time. Do not start a build loop.
+- If **remaining < 500**, inform the user the budget is getting low — the session may need to pause before completing all issues.
+- Otherwise, proceed normally.
+
+### Step 3: Sync state
 
 Run `/sync` to read the current GitHub state. This produces a structured summary of:
 - Closed issues (completed work)
@@ -36,7 +48,7 @@ Run `/sync` to read the current GitHub state. This produces a structured summary
 - Issues needing human input
 - Open PRs
 
-### Step 3: Route based on state
+### Step 4: Route based on state
 
 Evaluate the sync output and take the appropriate action:
 
@@ -63,6 +75,17 @@ If the user provides an answer in the chat:
 1. Post their answer as a comment on the issue
 2. Remove `agent:needs-human` label, add `agent:ready`
 3. Continue to Case C
+
+#### Case B2: Unlabeled issues exist (non-blocking)
+The sync summary shows issues in the "Unlabeled" row — open issues with no `agent:*` or `triage` label.
+
+```
+Action: Surface them to the user, then continue to Case C/D/E
+Message: "These issues are not in the agent workflow: #X, #Y.
+  Add the `triage` label to include them, or close them if they're not needed."
+```
+
+Do not block on this — inform the user and proceed to the next applicable case.
 
 #### Case C: Open issues with `agent:ready` label
 Issues are ready to be built.
@@ -100,7 +123,7 @@ Message: "All {N} issues are closed. The project plan is fully implemented.
   3. End the session"
 ```
 
-### Step 4: Loop
+### Step 5: Loop
 
 After `/build` completes one issue (success or failure), **immediately re-invoke `/forge`** — do NOT wait for user input. This creates the autonomous build loop:
 
@@ -121,7 +144,7 @@ If `/build` returns without completing (no PR opened, no escalation posted), che
 
 Do not retry infrastructure errors automatically. Surface them and wait for the user.
 
-### Step 5: Context management
+### Step 6: Context management
 
 After `/plan` completes, run `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub. Do **not** run `/clear` between individual `/build` cycles — `/sync` is lightweight and `/build` benefits from cumulative context about what has been built.
 
