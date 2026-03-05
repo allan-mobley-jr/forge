@@ -111,12 +111,23 @@ sleep 1
 
 For any issue labeled `agent:done`, verify that an open PR still references it. Cross-reference with the open PRs already fetched in step 2.
 
-If no open PR exists for an `agent:done` issue (the PR was closed without merging), relabel it so the agent can retry:
+If no open PR exists for an `agent:done` issue, determine why:
 
-```bash
-gh issue edit {N} --remove-label "agent:done" --add-label "agent:ready"
-sleep 1
-```
+1. **PR was merged** — Check if a merged PR exists for this issue:
+   ```bash
+   MERGED_PR=$(gh pr list --state merged --json headRefName --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${N}-\"))] | length")
+   ```
+   If a merged PR exists but the issue is still open (GitHub's `Closes #N` didn't fire), close it:
+   ```bash
+   gh issue close {N}
+   sleep 1
+   ```
+
+2. **PR was closed without merging** — Relabel so the agent can retry:
+   ```bash
+   gh issue edit {N} --remove-label "agent:done" --add-label "agent:ready"
+   sleep 1
+   ```
 
 ### 3d. Detect PRs needing revision
 
