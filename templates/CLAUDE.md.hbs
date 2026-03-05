@@ -98,7 +98,7 @@ For fully autonomous headless operation, use `forge run` from the project root. 
 - Do not run destructive GitHub commands (`gh repo delete`, etc.).
 - Do not read, print, or log environment variables or secrets.
 - Do not modify CI workflows (`.github/workflows/`) — these are managed by Forge.
-- Protected files/dirs are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `PROMPT.md`, `.claude/skills/`, `pnpm-lock.yaml`, `.vercel/`, `node_modules/`, and `.github/workflows/` (write-only).
+- Protected files/dirs are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `.claude/skills/`, `pnpm-lock.yaml`, `.vercel/`, `node_modules/`, and `.github/workflows/` (write-only). `PROMPT.md` becomes protected after the initial planning phase.
 
 ## Do Not
 
@@ -107,10 +107,11 @@ For fully autonomous headless operation, use `forge run` from the project root. 
 - Skip quality checks — always run `pnpm lint && pnpm tsc --noEmit && pnpm test && pnpm build`.
 - Work on code without a corresponding GitHub Issue.
 - Merge PRs without human approval.
-- Modify `CLAUDE.md`, `PROMPT.md`, or files in `.claude/skills/`.
+- Modify `CLAUDE.md`, `PROMPT.md` (protected after initial planning), or files in `.claude/skills/`.
 
 ## Reference
 
-- `PROMPT.md` — the original application description
+- `PROMPT.md` — after planning, contains audit instructions; original archived in `graveyard/`
+- `graveyard/` — archived prompts from completed planning phases
 - `.claude/skills/` — Forge skill definitions (6 skills + 7 sub-agent references)
 - `.claude/settings.json` — hooks and permissions
