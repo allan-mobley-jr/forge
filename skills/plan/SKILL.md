@@ -157,6 +157,32 @@ Blocked (waiting on deps): {count}
 Next: Run /forge to start the build loop.
 ```
 
+### Step 8: Archive PROMPT.md
+
+After filing all issues, archive the original prompt and replace it with
+post-planning instructions. Use Bash commands (not Write/Edit tools):
+
+```bash
+mkdir -p graveyard
+cp PROMPT.md "graveyard/$(date +%Y-%m-%d).md"
+cat > PROMPT.md <<'PROMPT_EOF'
+This Forge project has already been started. The original prompt has been
+archived in the graveyard/ folder.
+
+If no issues exist on GitHub, audit the current project for obvious gaps,
+possible features, or fixes. Break your findings into manageable issues
+and use issue dependencies where appropriate (e.g., "this issue depends
+on #N because ...").
+PROMPT_EOF
+```
+
+Then lock down PROMPT.md by adding it to the hook's protected files list.
+Use jq or python3 to update `.claude/settings.json` — in the PreToolUse
+hook command string, change `blocked_names=['CLAUDE.md']` to
+`blocked_names=['CLAUDE.md','PROMPT.md']`.
+
+Do not commit these changes — /forge handles the branch, commit, and PR.
+
 ## Rate Limit Awareness
 
 Before starting, check the remaining API budget:
