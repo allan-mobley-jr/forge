@@ -184,6 +184,78 @@ claude --dangerouslySkipPermissions           # interactive
 claude -p "/forge" --dangerouslySkipPermissions  # headless
 ```
 
+## Your First Session
+
+Here's what to expect after `forge init` completes:
+
+1. **Run `claude` in the project directory.** The `/forge` skill auto-invokes.
+
+2. **Planning phase (~2-5 minutes).** The agent reads your PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), and files GitHub Issues as an ordered backlog. You'll see issues appearing in your repo.
+
+3. **Build loop begins.** The agent picks up the first `agent:ready` issue, creates a feature branch, implements it, runs quality checks, and opens a PR. This repeats automatically.
+
+4. **Review PRs on GitHub.** Each PR includes a summary of changes, test results, and a link to the Vercel preview deploy. Approve and merge when satisfied.
+
+5. **Request changes if needed.** If you request changes on a PR, the agent picks it up on the next cycle and addresses your feedback.
+
+6. **Session ends when** all issues are closed, the agent needs your input (check GitHub issues labeled `agent:needs-human`), or you interrupt with Ctrl+C.
+
+**Coming back later:** Just `cd my-app && claude`. The agent syncs state from GitHub and resumes where it left off. No local state to lose.
+
+## Troubleshooting
+
+### Bootstrap Issues
+
+**`forge init` hangs after "Installing Claude Code..."**
+Claude Code may be waiting for authentication. Open a new terminal and run `claude` to complete the login flow, then retry `forge init --resume`.
+
+**"This directory is already a git repository"**
+Use `forge init --resume` to continue a previously interrupted bootstrap.
+
+**SSH key or GitHub auth failures**
+Run `gh auth status` to check. If not authenticated: `gh auth login --web --git-protocol ssh`.
+
+**Vercel login fails or times out**
+Run `vercel login` manually, then `forge init --resume`.
+
+### Build Loop Issues
+
+**Agent gets stuck on an issue**
+Check GitHub for the issue — it may be labeled `agent:needs-human` with a question. Answer in the issue comments or in the Claude session, and the agent will continue.
+
+**PR quality checks keep failing**
+The agent gets 2 attempts per issue (initial + debug-assisted retry). If it still fails, the issue is labeled `agent:needs-human`. Check the branch — the agent pushes its work-in-progress so you can see what went wrong.
+
+**"Rate limit" warnings**
+GitHub limits API requests to 5,000/hour. With `sleep 1` between mutations, Forge stays well within limits for projects up to 40 issues. If you hit limits, wait for the reset time shown in the warning.
+
+**Session ends unexpectedly**
+Context windows have finite length. For long sessions, use `forge run` which automatically restarts with fresh context. The `/sync` skill recovers state from GitHub on each restart.
+
+### Token & Auth Issues
+
+**"Token expired" in headless mode**
+OAuth tokens from `claude` expire after ~10 minutes in `-p` (headless) mode. Generate a long-lived token:
+```bash
+claude setup-token
+echo 'export CLAUDE_CODE_OAUTH_TOKEN="<token>"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Max subscription vs API key**
+Forge works with both. Max subscriptions have no per-token cost but have daily usage limits. API keys are billed per-token with no daily limit. Set a spending cap at https://console.anthropic.com/settings/limits if using an API key.
+
+### Project Issues
+
+**"Not a Forge project" error**
+Run commands from the project root directory (where PROMPT.md and CLAUDE.md live).
+
+**Issues are stuck as `agent:blocked`**
+Dependencies may not have resolved. Run `claude` — the `/sync` skill automatically promotes blocked issues when their dependencies close. If it's a deadlock (circular dependencies), the agent will alert you.
+
+**Want to add features after initial build**
+Create a GitHub Issue, add the `triage` label, and start a new `claude` session. The agent will classify it and build it.
+
 ## Commands
 
 | Command | Description |
@@ -198,13 +270,13 @@ claude -p "/forge" --dangerouslySkipPermissions  # headless
 
 ## Design Decisions
 
-**GitHub is the state machine.** No local state files. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off.
+**GitHub is the state machine.** No local state files, no database, no coordination server. All project state is encoded in GitHub Issue labels and PR status. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off. This design trades flexibility for reliability — you can never lose state because of a crashed session or a lost laptop.
 
-**Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions compatible with Max subscription OAuth. Fully autonomous (`claude -p`) for headless operation with API keys or long-lived subscription tokens.
+**Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions compatible with Max subscription OAuth. Fully autonomous (`forge run`) for headless operation with API keys or long-lived subscription tokens. Each mode uses the same skills — the difference is session management and restart behavior.
 
-**Human-in-the-loop by PR.** Nothing merges without your approval. CI must pass on every PR. The agent escalates when it's stuck instead of guessing.
+**Human-in-the-loop by PR.** Nothing merges without your approval. CI must pass on every PR. The agent escalates when it's stuck instead of guessing. This ensures you always know what changed and why.
 
-**Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework.
+**Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow. Constraints enable reliability.
 
 ## Repository Structure
 
