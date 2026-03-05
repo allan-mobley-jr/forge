@@ -130,7 +130,7 @@ step_02_node() {
         local node_major
         node_major=$(node --version | sed 's/v//' | cut -d. -f1)
         if [ "$node_major" -lt 18 ]; then
-            warn "Node.js v$(node --version) is too old (need >= 18). Upgrading..."
+            warn "Node.js $(node --version) is too old (need >= 18). Upgrading..."
             brew upgrade node
             ok "$label"
             return

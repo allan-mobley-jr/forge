@@ -115,7 +115,7 @@ If no open PR exists for an `agent:done` issue, determine why:
 
 1. **PR was merged** — Check if a merged PR exists for this issue:
    ```bash
-   MERGED_PR=$(gh pr list --state merged --json headRefName --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${N}-\"))] | length")
+   MERGED_PR=$(gh pr list --state merged --limit 200 --json headRefName --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${N}-\"))] | length")
    ```
    If a merged PR exists but the issue is still open (GitHub's `Closes #N` didn't fire), close it:
    ```bash

@@ -623,7 +623,7 @@ if total > 0:
                 echo ""
                 echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
                 echo ""
-                echo "Runs claude -p "/forge" in a restart loop. Each session syncs"
+                echo 'Runs claude -p "/forge" in a restart loop. Each session syncs'
                 echo "state from GitHub, builds the next issue, and writes exit status."
                 echo "The loop restarts until all issues are closed or human input is needed."
                 echo ""
