@@ -4,18 +4,6 @@
 
 Forge is an autonomous development system that turns a plain-English description of your app into a working Next.js project — planned, built, and deployed through GitHub Issues, PRs, and Vercel. You describe what you want. Claude Code does the rest. You approve the PRs.
 
-## Quick Start
-
-```bash
-# Install Forge (one-time)
-curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
-
-# Start a new project
-mkdir my-app && cd my-app
-forge init                   # bootstraps the project
-claude                       # start building
-```
-
 ## Requirements
 
 - macOS
@@ -25,7 +13,26 @@ claude                       # start building
 
 The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
 
+## Quick Start
+
+```bash
+# Install Forge (one-time)
+curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
+
+# Start a new project
+mkdir my-app && cd my-app
+touch PROMPT.md
+```
+
+Open `PROMPT.md` in your editor and describe the app you want to build in plain English. Then bootstrap and start building:
+
+```bash
+forge init                   # bootstraps the project
+claude                       # start building
+```
+
 ## How It Works
+
 
 ```
     You write PROMPT.md
@@ -35,8 +42,8 @@ The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, 
    │  forge init   │──────▶│  GitHub  │  │ Vercel │  │   CI   │
    │  (bootstrap)  │       │   repo   │  │ project│  │pipeline│
    └───────┬───────┘       └────┬─────┘  └────┬───┘  └────┬───┘
-           │                    │              │           │
-           ▼                    ▼              ▼           ▼
+           │                    │             │           │
+           ▼                    ▼             ▼           ▼
    ┌───────────────┐    ┌─────────────────────────────────────┐
    │    claude     │    │           GitHub (state)            │
    │  or forge run │───▶│  Issues = backlog  │  PRs = work    │
@@ -160,7 +167,7 @@ Every PR must be approved by you before it merges. CI runs automatically on ever
 ```
   PR opened by agent
        │
-       ├──▶ Lint          (pnpm lint)
+       ├──▶ Lint           (pnpm lint)
        ├──▶ TypeCheck      (pnpm tsc --noEmit)
        ├──▶ Unit Tests     (pnpm test)
        ├──▶ Build          (pnpm build)
@@ -171,7 +178,7 @@ Every PR must be approved by you before it merges. CI runs automatically on ever
   You review on GitHub
        │
        ├── Approve + Merge ──▶ Vercel deploys to production
-       └── Request Changes  ──▶ Agent addresses on next cycle (/revise)
+       └── Request Changes ──▶ Agent addresses on next cycle (/revise)
 ```
 
 Nothing ships without your sign-off. The agent escalates when it's stuck instead of guessing.
