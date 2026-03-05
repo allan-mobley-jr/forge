@@ -4,16 +4,6 @@
 
 Forge is an autonomous development system that turns a plain-English description of your app into a working Next.js project — planned, built, and deployed through GitHub Issues, PRs, and Vercel. You describe what you want. Claude Code does the rest. You approve the PRs.
 
-## How It Works
-
-1. You write a `PROMPT.md` describing your application
-2. Forge bootstraps the project — repo, CI, Vercel, labels, branch protection
-3. Claude Code plans the work and files GitHub Issues as an ordered backlog
-4. A build loop picks up issues one by one, implements them on feature branches, and opens PRs
-5. You review and merge. Vercel deploys.
-
-GitHub is the single source of truth. Issues are the task queue. PRs are the unit of work. You are the approver.
-
 ## Quick Start
 
 ```bash
@@ -26,8 +16,6 @@ forge init                   # bootstraps the project
 claude                       # start building
 ```
 
-The `/forge` skill auto-invokes when Claude Code starts, reads the project state from GitHub, and begins the plan-build loop.
-
 ## Requirements
 
 - macOS with Homebrew
@@ -37,15 +25,156 @@ The `/forge` skill auto-invokes when Claude Code starts, reads the project state
 
 The bootstrap handles installing and configuring everything else.
 
-## What Forge Sets Up
+## How It Works
 
-Each project gets:
+```
+    You write PROMPT.md
+           │
+           ▼
+   ┌───────────────┐       ┌──────────┐  ┌────────┐  ┌────────┐
+   │  forge init   │──────▶│  GitHub  │  │ Vercel │  │   CI   │
+   │  (bootstrap)  │       │   repo   │  │ project│  │pipeline│
+   └───────┬───────┘       └────┬─────┘  └────┬───┘  └────┬───┘
+           │                    │              │           │
+           ▼                    ▼              ▼           ▼
+   ┌───────────────┐    ┌─────────────────────────────────────┐
+   │    claude     │    │           GitHub (state)            │
+   │  or forge run │───▶│  Issues = backlog  │  PRs = work    │
+   └───────┬───────┘    │  Labels = status   │  CI = quality  │
+           │            └────────────┬────────────────────────┘
+           ▼                         │
+   ┌───────────────┐                 │
+   │  /forge loop  │◀────── reads ───┘
+   │               │
+   │  sync ──▶ route ──┬──▶ /plan   (research + file issues)
+   │    ▲              ├──▶ /build  (implement + open PR)
+   │    │              ├──▶ /revise (address PR feedback)
+   │    │              └──▶ /ask    (escalate to human)
+   │    │                     │
+   │    └─────────────────────┘
+   └───────────────┘
+           │
+           ▼
+   You review PRs on GitHub
+   Merge ──▶ Vercel deploys
+```
 
-- A GitHub repo with branch protection and CI
-- Claude Code skills that drive the autonomous loop (`/forge`, `/plan`, `/build`, `/revise`, `/sync`, `/ask`)
-- Hooks that guard protected files and log modifications
-- A Vercel project with automatic preview deploys on PRs
-- A label taxonomy for tracking issue and agent state
+There are four stages: **install**, **init**, **build loop**, and **review**. The sections below walk through each one.
+
+### Stage 1 — Install Forge
+
+```
+  curl | bash
+       │
+       ├──▶ Ensures git is available (installs Xcode CLI Tools if needed)
+       ├──▶ Clones Forge repo to ~/.forge/repo
+       ├──▶ Creates the forge CLI at ~/.forge/bin/forge
+       └──▶ Adds ~/.forge/bin to your shell PATH
+```
+
+After restarting your terminal, you have the `forge` command. This is a one-time step — run it once and you're set.
+
+### Stage 2 — Bootstrap a Project (`forge init`)
+
+Create a directory, write a `PROMPT.md` describing your app, and run `forge init`. The bootstrap runs ~21 idempotent steps in two phases:
+
+```
+  forge init
+       │
+       │  Phase 1: Tool checks
+       ├──▶ Homebrew, Node ≥18, pnpm ≥8
+       ├──▶ GitHub CLI + authentication
+       ├──▶ SSH key generation + upload
+       ├──▶ Git identity + commit signing
+       ├──▶ Vercel CLI + authentication
+       │
+       │  Phase 2: Project setup
+       ├──▶ git init + scaffold Next.js (TypeScript, Tailwind, App Router)
+       ├──▶ Install test stack (Vitest, Playwright, Testing Library)
+       ├──▶ Create GitHub repo + push
+       ├──▶ Link Vercel project
+       ├──▶ Install Claude Code skills (/forge, /plan, /build, /revise, /sync, /ask)
+       ├──▶ Install hooks (file guards, rate limiting, session management)
+       ├──▶ Install CI pipeline (lint, typecheck, test, build, E2E)
+       ├──▶ Generate CLAUDE.md from template
+       ├──▶ Set up branch protection + labels
+       └──▶ Done — ready to build
+```
+
+Every step checks whether it already ran before acting. If bootstrap fails partway through (network error, auth timeout), resume from where it stopped:
+
+```bash
+forge init --resume
+```
+
+### Stage 3 — The Autonomous Loop
+
+Run `claude` in the project directory. The `/forge` skill auto-invokes and enters the build loop:
+
+```
+  ┌──────────────────────────────────────────────────────────────────┐
+  │                        /forge (orchestrator)                     │
+  │                                                                  │
+  │   ┌──────────┐                                                   │
+  │   │  /sync   │  Reads GitHub: issues, PRs, labels (3 API calls)  │
+  │   └────┬─────┘  Recovers stale state, promotes unblocked issues  │
+  │        │                                                         │
+  │        ▼                                                         │
+  │   What needs doing?                                              │
+  │        │                                                         │
+  │        ├── No issues yet ──────────▶ /plan                       │
+  │        │                             Spawns 4 research agents    │
+  │        │                             Files issues as backlog     │
+  │        │                                                         │
+  │        ├── Issues ready ───────────▶ /build                      │
+  │        │                             Claims issue, branches      │
+  │        │                             Implements, tests, opens PR │
+  │        │                                                         │
+  │        ├── Review requested ───────▶ /revise                     │
+  │        │                             Reads PR comments           │
+  │        │                             Applies fixes, re-pushes    │
+  │        │                                                         │
+  │        ├── Stuck on a decision ────▶ /ask                        │
+  │        │                             Posts question on issue     │
+  │        │                             Labels agent:needs-human    │
+  │        │                                                         │
+  │        └── All issues closed ──────▶ Done                        │
+  │                                                                  │
+  │   After each action, /forge loops back to /sync automatically.   │
+  └──────────────────────────────────────────────────────────────────┘
+```
+
+**What /plan does (runs once):**
+The agent reads your PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria.
+
+**What /build does (one issue per cycle):**
+The agent picks the next `agent:ready` issue, creates a feature branch, implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in.
+
+**What /revise does:**
+When you request changes on a PR, the agent picks it up on the next cycle. It reads your review comments, applies fixes, re-runs quality checks, pushes, and re-requests your review.
+
+### Stage 4 — You Review
+
+Every PR must be approved by you before it merges. CI runs automatically on every PR:
+
+```
+  PR opened by agent
+       │
+       ├──▶ Lint          (pnpm lint)
+       ├──▶ TypeCheck      (pnpm tsc --noEmit)
+       ├──▶ Unit Tests     (pnpm test)
+       ├──▶ Build          (pnpm build)
+       ├──▶ E2E Tests      (pnpm test:e2e, if e2e/ exists)
+       ├──▶ Vercel Preview (automatic deploy)
+       │
+       ▼
+  You review on GitHub
+       │
+       ├── Approve + Merge ──▶ Vercel deploys to production
+       └── Request Changes  ──▶ Agent addresses on next cycle (/revise)
+```
+
+Nothing ships without your sign-off. The agent escalates when it's stuck instead of guessing.
 
 ## Label System
 
@@ -110,23 +239,6 @@ These labels are for your own organization and the agent ignores them:
 - **Don't remove `agent:in-progress`** while the agent is working — let `/sync` handle stale issues
 - **Don't create labels starting with `agent:`** — that namespace is reserved for the agent's state machine
 
-## Resuming Work
-
-**Coming back to a project:** Just open a terminal and start Claude Code. The `/forge` skill reads project state from GitHub — open issues, in-progress PRs, labels — and picks up where it left off. No local state to lose.
-
-```bash
-cd my-app
-claude
-```
-
-**If `forge init` was interrupted:** If bootstrap fails partway through (network error, auth timeout, etc.), resume from where it stopped:
-
-```bash
-forge init --resume
-```
-
-Every step checks whether it already completed, so resumed runs skip finished work and retry from the point of failure.
-
 ## Running Autonomously
 
 Forge supports two levels of autonomous operation.
@@ -137,7 +249,7 @@ Forge supports two levels of autonomous operation.
 claude
 ```
 
-Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. You may occasionally be asked to approve an edge-case operation. Best for Max subscription users who want visibility into the build loop.
+Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for Max subscription users who want visibility into the build loop.
 
 ### Fully autonomous (headless)
 
@@ -175,32 +287,25 @@ source ~/.zshrc
 forge run
 ```
 
+### Resuming work
+
+All project state lives on GitHub. Coming back to a project is just:
+
+```bash
+cd my-app
+claude
+```
+
+The `/forge` skill syncs state from GitHub and picks up where it left off. No local state to lose.
+
 ### Escape hatch
 
-If you encounter unexpected permission prompts in either mode, `--dangerouslySkipPermissions` bypasses all permission checks including deny rules. PreToolUse hooks still fire and block reads and writes to sensitive paths (`.env`, `.git/`, `CLAUDE.md`, etc.), but `Bash`, `Glob`, and `Grep` calls are not covered by the hook.
+If you encounter unexpected permission prompts, `--dangerouslySkipPermissions` bypasses all permission checks including deny rules. PreToolUse hooks still fire and block reads and writes to sensitive paths (`.env`, `.git/`, `CLAUDE.md`, etc.), but `Bash`, `Glob`, and `Grep` calls are not covered by the hook.
 
 ```bash
 claude --dangerouslySkipPermissions           # interactive
 claude -p "/forge" --dangerouslySkipPermissions  # headless
 ```
-
-## Your First Session
-
-Here's what to expect after `forge init` completes:
-
-1. **Run `claude` in the project directory.** The `/forge` skill auto-invokes.
-
-2. **Planning phase (~2-5 minutes).** The agent reads your PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), and files GitHub Issues as an ordered backlog. You'll see issues appearing in your repo.
-
-3. **Build loop begins.** The agent picks up the first `agent:ready` issue, creates a feature branch, implements it, runs quality checks, and opens a PR. This repeats automatically.
-
-4. **Review PRs on GitHub.** Each PR includes a summary of changes, test results, and a link to the Vercel preview deploy. Approve and merge when satisfied.
-
-5. **Request changes if needed.** If you request changes on a PR, the agent picks it up on the next cycle and addresses your feedback.
-
-6. **Session ends when** all issues are closed, the agent needs your input (check GitHub issues labeled `agent:needs-human`), or you interrupt with Ctrl+C.
-
-**Coming back later:** Just `cd my-app && claude`. The agent syncs state from GitHub and resumes where it left off. No local state to lose.
 
 ## Troubleshooting
 
@@ -290,6 +395,7 @@ forge/
 ├── skills/                 # Claude Code skill definitions
 │   ├── forge/SKILL.md      #   Master orchestrator
 │   ├── plan/SKILL.md       #   Research & issue filing
+│   │   └── references/     #   Sub-agent prompts (architecture, stack, design, risk)
 │   ├── build/SKILL.md      #   Issue → branch → PR
 │   │   └── references/     #   Sub-agent prompts (review, test, debug)
 │   ├── revise/SKILL.md     #   Address PR review feedback
