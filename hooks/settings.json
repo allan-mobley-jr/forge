@@ -6,6 +6,7 @@
       "Bash(pnpm *)",
       "Bash(node *)",
       "Bash(vercel *)",
+      "Bash(sleep *)",
       "Read",
       "Write",
       "Edit",
@@ -13,6 +14,7 @@
       "Glob",
       "Grep",
       "Task",
+      "Skill",
       "WebFetch",
       "WebSearch",
       "TodoWrite"
@@ -32,6 +34,16 @@
           {
             "type": "command",
             "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','pnpm-lock.yaml','.vercel/','CLAUDE.md','PROMPT.md','.claude/skills/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '--- FORGE CONTEXT RECOVERY ---'; echo 'You are the Forge orchestrator in a build loop.'; if [ -f .forge-status.json ]; then echo 'Current progress:'; cat .forge-status.json; fi; if [ -f .forge-current-issue ]; then echo \"Currently working on issue #$(cat .forge-current-issue)\"; fi; echo 'After compaction, re-run /forge to sync state and continue.'; echo '--- END RECOVERY ---'"
           }
         ]
       }
@@ -61,7 +73,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -f .forge-session.log ] && [ -f .forge-current-issue ]; then ISSUE=$(cat .forge-current-issue); gh issue comment \"$ISSUE\" --body \"Session ended. Files modified during this session:\\n\\n$(sort -u .forge-session.log | sed 's/^/- /')\" 2>/dev/null; fi; rm -f .forge-session.log .forge-current-issue"
+            "command": "python3 -c \"import json,subprocess,os\nsession_log='.forge-session.log'; issue_file='.forge-current-issue'; status_file='.forge-status.json'; exit_file='.forge-exit-status'\nif os.path.exists(session_log) and os.path.exists(issue_file):\n    issue=open(issue_file).read().strip(); files=open(session_log).read().strip()\n    if files:\n        body='Session ended. Files modified:\\\\n\\\\n'+'\\\\n'.join('- '+f for f in sorted(set(files.splitlines())))\n        subprocess.run(['gh','issue','comment',issue,'--body',body],capture_output=True)\nstatus='needs-restart'\nif os.path.exists(status_file):\n    try:\n        data=json.load(open(status_file)); iss=data.get('issues',{})\n        if iss.get('total',0)>0 and iss.get('closed',0)==iss.get('total',0): status='complete'\n        elif iss.get('ready',0)==0 and iss.get('in_progress',0)==0 and iss.get('revision_needed',0)==0 and (iss.get('needs_human',0)>0 or iss.get('done_awaiting_merge',0)>0): status='needs-human'\n    except: status='error'\nopen(exit_file,'w').write(status)\nfor f in [session_log,issue_file]:\n    if os.path.exists(f): os.remove(f)\""
           }
         ]
       }

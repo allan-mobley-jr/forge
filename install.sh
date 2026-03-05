@@ -78,6 +78,7 @@ set -euo pipefail
 FORGE_REPO="$HOME/.forge/repo"
 
 # Colors
+RED='\033[0;31m'
 BOLD='\033[1m'
 YELLOW='\033[1;33m'
 DIM='\033[2m'
@@ -209,7 +210,7 @@ case "${1:-}" in
         echo -e "  Backed up to ${BOLD}${BACKUP_DIR}/${NC}"
 
         # 3. Add backup and session patterns to .gitignore
-        for pattern in '.forge-backup-*' '.forge-current-issue' '.forge-session.log'; do
+        for pattern in '.forge-backup-*' '.forge-current-issue' '.forge-session.log' '.forge-status.json' '.forge-exit-status'; do
             if ! grep -Fq "$pattern" .gitignore 2>/dev/null; then
                 echo "$pattern" >> .gitignore
             fi
@@ -357,6 +358,124 @@ case "${1:-}" in
         fi
         echo ""
         ;;
+    run)
+        shift
+
+        # Verify inside a Forge project
+        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+            echo -e "${RED}Error: Not a Forge project.${NC}"
+            echo "  Run this command from inside a Forge project directory."
+            exit 1
+        fi
+
+        # Parse flags
+        max_sessions=20
+        max_budget=""
+        timeout_secs=""
+
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --max-sessions) max_sessions="$2"; shift 2 ;;
+                --max-budget)   max_budget="$2"; shift 2 ;;
+                --timeout)      timeout_secs="$2"; shift 2 ;;
+                -h|--help)
+                    echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                    echo ""
+                    echo "  --max-sessions N   Maximum session restarts (default: 20)"
+                    echo "  --max-budget N     Max API spend per session in USD"
+                    echo "  --timeout N        Wall-clock timeout per session in seconds"
+                    exit 0
+                    ;;
+                *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
+            esac
+        done
+
+        # Validate numeric flags
+        if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
+            echo "Error: --max-sessions must be a positive integer"; exit 1
+        fi
+        if [ -n "$max_budget" ] && ! [[ "$max_budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Error: --max-budget must be a number"; exit 1
+        fi
+        if [ -n "$timeout_secs" ] && ! [[ "$timeout_secs" =~ ^[0-9]+$ ]]; then
+            echo "Error: --timeout must be a positive integer (seconds)"; exit 1
+        fi
+
+        # Resolve timeout command (GNU coreutils installs as gtimeout on macOS)
+        timeout_cmd=""
+        if [ -n "$timeout_secs" ]; then
+            if command -v timeout &>/dev/null; then
+                timeout_cmd="timeout"
+            elif command -v gtimeout &>/dev/null; then
+                timeout_cmd="gtimeout"
+            else
+                echo "Error: --timeout requires GNU coreutils."
+                echo "  Install with: brew install coreutils"
+                exit 1
+            fi
+        fi
+
+        echo ""
+        echo -e "  ${YELLOW}forge run${NC} — autonomous build loop"
+        echo "  Max sessions: $max_sessions"
+        [ -n "$max_budget" ] && echo "  Budget per session: \$$max_budget"
+        [ -n "$timeout_secs" ] && echo "  Timeout per session: ${timeout_secs}s"
+        echo ""
+
+        session=0
+        while [ "$session" -lt "$max_sessions" ]; do
+            session=$((session + 1))
+            echo "[forge] Session $session/$max_sessions starting..."
+
+            cmd=(claude -p "/forge")
+            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
+
+            exit_code=0
+            if [ -n "$timeout_cmd" ]; then
+                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
+            else
+                "${cmd[@]}" || exit_code=$?
+            fi
+
+            if [ -f .forge-exit-status ]; then
+                exit_status=$(cat .forge-exit-status)
+                rm -f .forge-exit-status
+
+                case "$exit_status" in
+                    complete)
+                        echo ""
+                        echo "[forge] All issues closed. Project complete!"
+                        exit 0
+                        ;;
+                    needs-human)
+                        echo ""
+                        echo "[forge] Action required. Review open PRs and check GitHub issues."
+                        exit 1
+                        ;;
+                    error)
+                        echo ""
+                        echo "[forge] Session ended with errors. Check GitHub issues."
+                        exit 1
+                        ;;
+                    needs-restart)
+                        echo "[forge] More work to do. Restarting in 5s..."
+                        sleep 5
+                        ;;
+                    *)
+                        echo "[forge] Unknown status: $exit_status. Restarting in 5s..."
+                        sleep 5
+                        ;;
+                esac
+            else
+                echo "[forge] Session ended without status (exit code $exit_code). Restarting in 5s..."
+                sleep 5
+            fi
+        done
+
+        echo ""
+        echo "[forge] Reached max sessions ($max_sessions). Check progress on GitHub."
+        exit 1
+        ;;
     version)
         echo "Forge $(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)"
         ;;
@@ -378,10 +497,16 @@ case "${1:-}" in
         echo "Commands:"
         echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
+        echo "  run              Run the autonomous build loop (headless, with restarts)"
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
         echo "  version          Show installed version"
+        echo ""
+        echo "Run flags:"
+        echo "  --max-sessions N   Maximum session restarts (default: 20)"
+        echo "  --max-budget N     Max API spend per session in USD"
+        echo "  --timeout N        Wall-clock timeout per session in seconds"
         echo ""
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"

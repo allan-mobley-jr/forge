@@ -49,6 +49,30 @@ Run `/sync` to read the current GitHub state. This produces a structured summary
 - Issues needing human input
 - Open PRs
 
+### Step 3.5: Write status file
+
+After `/sync` produces its summary, write the issue counts to `.forge-status.json` so the PreCompact and Stop hooks can read them. Use the counts from the sync output:
+
+```bash
+cat > .forge-status.json <<EOF
+{
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "issues": {
+    "total": TOTAL,
+    "closed": CLOSED,
+    "ready": READY,
+    "in_progress": IN_PROGRESS,
+    "blocked": BLOCKED,
+    "needs_human": NEEDS_HUMAN,
+    "revision_needed": REVISION,
+    "done_awaiting_merge": AWAITING
+  }
+}
+EOF
+```
+
+Replace TOTAL, CLOSED, READY, etc. with the actual counts from the `/sync` summary. Define TOTAL as the sum of labeled issue buckets only: TOTAL = CLOSED + READY + IN_PROGRESS + BLOCKED + NEEDS_HUMAN + REVISION + AWAITING. Do not include unlabeled or triage issues — they are outside the agent workflow and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
+
 ### Step 4: Route based on state
 
 Evaluate the sync output and take the appropriate action:

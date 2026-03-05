@@ -142,36 +142,37 @@ Runs an interactive session where you can observe progress and interrupt with Ct
 ### Fully autonomous (headless)
 
 ```bash
+forge run
+```
+
+Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. The loop exits when all issues are closed, the agent needs human input, or safety limits are reached.
+
+```bash
+forge run --max-sessions 10   # limit restart count (default: 20)
+forge run --max-budget 50     # limit API spend per session (USD)
+forge run --timeout 3600      # wall-clock timeout per session (seconds)
+```
+
+For a single session without restarts:
+
+```bash
 claude -p "/forge"
 ```
 
-Runs headless with no user interaction. Unapproved tools are denied automatically (no prompt), but Forge's `settings.json` pre-approves everything needed so the loop runs uninterrupted.
+**API key users:** `forge run` works out of the box.
 
-**API key users:** This works out of the box.
-
-**Max subscription users:** OAuth tokens expire after ~10 minutes in headless mode. To work around this, generate a long-lived token (valid 1 year):
+**Max subscription users:** OAuth tokens expire after ~10 minutes in headless mode. Generate a long-lived token:
 
 ```bash
-# 1. Generate a long-lived token (one-time, on a machine with a browser)
 claude setup-token
+```
 
-# 2. Copy the token from the output now — nano will fill the screen
-#    and you won't be able to see it.
+Then add the token to your shell profile:
 
-# 3. Open your shell profile in the nano editor
-nano ~/.zshrc
-
-# 4. Scroll to the bottom and type this line (replace <token> with the token you copied in step 2):
-#
-#      export CLAUDE_CODE_OAUTH_TOKEN="<token>"
-#
-# 5. Save the file:  press Ctrl+O, then Enter
-# 6. Exit nano:      press Ctrl+X
-# 7. Load the change in your current terminal
+```bash
+echo 'export CLAUDE_CODE_OAUTH_TOKEN="<token>"' >> ~/.zshrc
 source ~/.zshrc
-
-# 8. Run Forge headless
-claude -p "/forge"
+forge run
 ```
 
 ### Escape hatch
@@ -189,6 +190,7 @@ claude -p "/forge" --dangerouslySkipPermissions  # headless
 |---------|-------------|
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
 | `forge init --resume` | Resume a failed or interrupted bootstrap |
+| `forge run` | Run the autonomous build loop (headless, with restarts) |
 | `forge update` | Update Forge to the latest version |
 | `forge upgrade` | Update Forge artifacts (skills, hooks, CLAUDE.md) in the current project |
 | `forge doctor` | Check tool versions and project artifact health |
