@@ -126,6 +126,18 @@ sleep 1
 
 **Wait 1 second after each comment** (`sleep 1`). This creates a bidirectional dependency map in the issue comments.
 
+### Step 6b: Validate dependency graph
+
+After filing all issues and dependency comments, validate the dependency graph has no cycles. For each issue, trace its `Depends on #N` references and verify no chain leads back to itself.
+
+If a circular dependency is detected:
+1. Identify the cycle (e.g., #3 → #5 → #7 → #3)
+2. Break the cycle by removing the weakest dependency link — the one where the two issues could reasonably be built independently
+3. Update the affected issue to remove the dependency reference and change its label from `agent:blocked` to `agent:ready` if all remaining deps are met
+4. Post a comment on the affected issue explaining the change
+
+This check prevents deadlocks where all remaining issues are `agent:blocked` with no path to resolution.
+
 ### Step 7: Summary
 
 After filing all issues, produce a summary:
