@@ -7,6 +7,7 @@ node_modules/
 # Local Claude Code config (except project hooks)
 .claude/*
 !.claude/settings.json
+!.claude/commands/
 
 # Temp working docs
 *.tmp

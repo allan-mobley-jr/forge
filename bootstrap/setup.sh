@@ -123,10 +123,18 @@ step_01_homebrew() {
     ok "$label"
 }
 
-# Step 2: Node.js
+# Step 2: Node.js (>= 18 required)
 step_02_node() {
-    local label="2. Node.js installed"
+    local label="2. Node.js installed (>= 18)"
     if command -v node &>/dev/null; then
+        local node_major
+        node_major=$(node --version | sed 's/v//' | cut -d. -f1)
+        if [ "$node_major" -lt 18 ]; then
+            warn "Node.js $(node --version) is too old (need >= 18). Upgrading..."
+            brew upgrade node
+            ok "$label"
+            return
+        fi
         skip "$label"
         return
     fi
@@ -134,10 +142,18 @@ step_02_node() {
     ok "$label"
 }
 
-# Step 3: pnpm
+# Step 3: pnpm (>= 8 required)
 step_03_pnpm() {
-    local label="3. pnpm installed"
+    local label="3. pnpm installed (>= 8)"
     if command -v pnpm &>/dev/null; then
+        local pnpm_major
+        pnpm_major=$(pnpm --version | cut -d. -f1)
+        if [ "$pnpm_major" -lt 8 ]; then
+            warn "pnpm v$(pnpm --version) is too old (need >= 8). Upgrading..."
+            brew upgrade pnpm
+            ok "$label"
+            return
+        fi
         skip "$label"
         return
     fi
@@ -479,11 +495,15 @@ step_17_copy_ci() {
     ok "$label"
 }
 
-# Step 18: Generate CLAUDE.md
+# Step 18: Generate CLAUDE.md (requires perl)
 step_18_generate_claude_md() {
     local label="18. CLAUDE.md generated"
     if [ -f CLAUDE.md ]; then
         skip "$label"
+        return
+    fi
+    if \! command -v perl &>/dev/null; then
+        add_warning "perl not found — CLAUDE.md generation skipped. Install perl and run forge init --resume."
         return
     fi
     local project_name github_repo description created_date

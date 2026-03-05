@@ -21,7 +21,18 @@ gh issue list --state open --label "agent:ready" --json number,title,body,labels
 
 If no issues are ready, report this and return to `/forge`.
 
-### Step 2: Verify dependencies
+### Step 2: Check for existing PR
+
+Before starting work, check if a PR already exists for this issue (e.g., created manually or by a previous crashed session):
+
+```bash
+EXISTING_PR=$(gh pr list --state open --json number,headRefName,url \
+  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | .[0]")
+```
+
+If a PR already exists, skip this issue — it's already being handled. Report the existing PR and try the next ready issue.
+
+### Step 2b: Verify dependencies
 
 Read the issue body and find the "Dependencies" section. For each dependency `#N`:
 
@@ -110,6 +121,16 @@ pnpm build
 **If all pass:** proceed to Step 8.
 
 **If any fail:** spawn the **debug agent**. Read `.claude/skills/build/references/debug-agent.md` and spawn a Task with its contents as the prompt. Append the full error output, the list of files changed, and the issue body. The debug agent returns a prioritized list of fixes — apply them in order, then re-run all four checks. You get **2 total attempts** (the initial run + one retry after the debug agent's fixes).
+
+### Step 7b: Rate limit checkpoint
+
+Before pushing and creating a PR, verify the API budget is sufficient:
+
+```bash
+gh api rate_limit --jq '.resources.core | .remaining'
+```
+
+If fewer than 50 requests remain, commit locally but do not push or create the PR. Inform the user that the rate limit is nearly exhausted and the work is saved on the local branch. Return to `/forge` which will pause the loop.
 
 ### Step 8: On success — commit and open PR
 

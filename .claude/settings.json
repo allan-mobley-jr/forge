@@ -3,7 +3,12 @@
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "command": "bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); if echo \"$CMD\" | grep -q \"git commit\"; then echo \"ATOMIC COMMIT REMINDER: This commit must be a single logical change. If staged changes span multiple unrelated concerns (e.g., a new feature AND a docs fix AND a refactor), split them into separate commits. One fix, one feature, or one refactor per commit.\"; fi'"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'INPUT=$(cat); CMD=$(echo \"$INPUT\" | jq -r \".tool_input.command // empty\"); if echo \"$CMD\" | grep -q \"git commit\"; then echo \"ATOMIC COMMIT REMINDER: This commit must be a single logical change. If staged changes span multiple unrelated concerns (e.g., a new feature AND a docs fix AND a refactor), split them into separate commits. One fix, one feature, or one refactor per commit.\"; fi'"
+          }
+        ]
       }
     ]
   }

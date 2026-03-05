@@ -26,6 +26,9 @@ jobs:
         run: pnpm build
         env:
           SKIP_ENV_VALIDATION: true
+      - name: Audit dependencies
+        run: pnpm audit --prod --audit-level=high
+        continue-on-error: true
 
   e2e:
     name: E2E Tests

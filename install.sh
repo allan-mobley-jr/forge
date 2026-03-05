@@ -9,6 +9,27 @@ FORGE_REPO="$FORGE_HOME/repo"
 FORGE_BIN="$FORGE_HOME/bin"
 FORGE_REMOTE="https://github.com/allan-mobley-jr/forge.git"
 
+# --- Retry helper ---
+
+retry() {
+    local max_attempts=3
+    local delay=2
+    local attempt=1
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if "$@"; then
+            return 0
+        fi
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo -e "  ${YELLOW}Retrying in ${delay}s... (attempt $((attempt+1))/$max_attempts)${NC}"
+            sleep "$delay"
+            delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
+    echo -e "${RED}Failed after $max_attempts attempts.${NC}"
+    return 1
+}
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,12 +79,12 @@ fi
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
-    git -C "$FORGE_REPO" pull --quiet
+    retry git -C "$FORGE_REPO" pull --quiet
     echo -e "${GREEN}Forge updated.${NC}"
 else
     echo -e "${BLUE}Installing Forge...${NC}"
     mkdir -p "$FORGE_HOME"
-    git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
+    retry git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
     echo -e "${GREEN}Forge installed to $FORGE_REPO${NC}"
 fi
 
@@ -140,8 +161,8 @@ case "${1:-}" in
         curl -fsSL https://claude.ai/install.sh | bash
         echo ""
 
-        # --- Check billing: API key vs subscription (skip on resume) ---
-        if [ "$FORGE_RESUME" != true ]; then
+        # --- Check billing: API key vs subscription ---
+        if [ "$FORGE_RESUME" != true ] || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
             if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
                 echo "  ⚠  ANTHROPIC_API_KEY is set in your environment."
                 echo "     Forge will use the API key instead of your subscription."
@@ -350,11 +371,113 @@ case "${1:-}" in
             echo -e "  ${DIM}-${NC} CI workflow not found"
         fi
 
+        # 4. Check version requirements
+        echo ""
+        echo "Versions:"
+
+        if command -v node &>/dev/null; then
+            node_major=$(node --version | sed 's/v//' | cut -d. -f1)
+            if [ "$node_major" -ge 18 ]; then
+                echo -e "  ${GREEN}✓${NC} Node.js >= 18"
+            else
+                echo -e "  ${RED}✗${NC} Node.js $(node --version) — need >= 18"
+            fi
+        fi
+
+        if command -v pnpm &>/dev/null; then
+            pnpm_major=$(pnpm --version | cut -d. -f1)
+            if [ "$pnpm_major" -ge 8 ]; then
+                echo -e "  ${GREEN}✓${NC} pnpm >= 8"
+            else
+                echo -e "  ${RED}✗${NC} pnpm $(pnpm --version) — need >= 8"
+            fi
+        fi
+
+        if command -v perl &>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} perl available"
+        else
+            echo -e "  ${RED}✗${NC} perl not found (needed for CLAUDE.md generation)"
+        fi
+
+        # 5. Check connectivity
+        echo ""
+        echo "Connectivity:"
+
+        if gh auth status &>/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC} GitHub authenticated"
+        else
+            echo -e "  ${RED}✗${NC} GitHub not authenticated — run: gh auth login"
+        fi
+
+        if vercel whoami &>/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC} Vercel authenticated"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
+        fi
+
+        # 6. Check disk space
+        echo ""
+        echo "System:"
+        avail_gb=$(df -g . 2>/dev/null | tail -1 | awk '{print $4}')
+        if [ -n "$avail_gb" ] && [ "$avail_gb" -ge 2 ]; then
+            echo -e "  ${GREEN}✓${NC} Disk space: ${avail_gb}GB available"
+        elif [ -n "$avail_gb" ]; then
+            echo -e "  ${YELLOW}⚠${NC} Low disk space: ${avail_gb}GB (need >= 2GB)"
+        fi
+
         echo ""
         if [ "$artifacts_outdated" = true ]; then
             echo "  Run 'forge upgrade' to update outdated artifacts."
         else
             echo "  All managed artifacts are up-to-date."
+        fi
+        echo ""
+        ;;
+    status)
+        GREEN='\033[0;32m'
+        RED='\033[0;31m'
+        BLUE='\033[0;34m'
+
+        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+            echo -e "${RED}Error:${NC} Not a Forge project."
+            exit 1
+        fi
+
+        echo ""
+        echo "Forge Status"
+        echo "============"
+        echo ""
+
+        if [ -f .forge-status.json ]; then
+            python3 -c "
+import json
+with open('.forge-status.json') as f:
+    d = json.load(f)
+ts = d.get('timestamp', 'unknown')
+iss = d.get('issues', {})
+print(f'  Last sync: {ts}')
+print(f'  Total issues: {iss.get("total", 0)}')
+print(f'  Closed: {iss.get("closed", 0)}')
+print(f'  Ready: {iss.get("ready", 0)}')
+print(f'  In progress: {iss.get("in_progress", 0)}')
+print(f'  Blocked: {iss.get("blocked", 0)}')
+print(f'  Needs human: {iss.get("needs_human", 0)}')
+print(f'  Revision needed: {iss.get("revision_needed", 0)}')
+print(f'  Awaiting merge: {iss.get("done_awaiting_merge", 0)}')
+total = iss.get('total', 0)
+closed = iss.get('closed', 0)
+if total > 0:
+    pct = int(closed / total * 100)
+    print(f'\n  Progress: {closed}/{total} ({pct}%)')
+"
+        else
+            echo "  No status file found. Run a Forge session first."
+            echo "  Start with: claude"
+        fi
+
+        if [ -f .forge-exit-status ]; then
+            echo ""
+            echo "  Last exit status: $(cat .forge-exit-status)"
         fi
         echo ""
         ;;
@@ -476,6 +599,130 @@ case "${1:-}" in
         echo "[forge] Reached max sessions ($max_sessions). Check progress on GitHub."
         exit 1
         ;;
+    help)
+        case "${2:-}" in
+            init)
+                echo "forge init — Bootstrap a new Forge project"
+                echo ""
+                echo "Usage: forge init [--resume]"
+                echo ""
+                echo "Creates a new Forge project in the current directory:"
+                echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
+                echo "  2. Scaffolds a Next.js app from your PROMPT.md"
+                echo "  3. Creates a GitHub repo with branch protection and CI"
+                echo "  4. Links a Vercel project for preview deploys"
+                echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
+                echo ""
+                echo "Options:"
+                echo "  --resume    Resume from where a previous bootstrap stopped"
+                echo ""
+                echo "Requires PROMPT.md in the current directory."
+                ;;
+            run)
+                echo "forge run — Autonomous headless build loop"
+                echo ""
+                echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                echo ""
+                echo 'Runs claude -p "/forge" in a restart loop. Each session syncs'
+                echo "state from GitHub, builds the next issue, and writes exit status."
+                echo "The loop restarts until all issues are closed or human input is needed."
+                echo ""
+                echo "Options:"
+                echo "  --max-sessions N   Maximum restarts (default: 20)"
+                echo "  --max-budget N     API spend cap per session in USD"
+                echo "  --timeout N        Wall-clock timeout per session in seconds"
+                ;;
+            status)
+                echo "forge status — Show current project progress"
+                echo ""
+                echo "Usage: forge status"
+                echo ""
+                echo "Reads .forge-status.json (written by /forge after each /sync)"
+                echo "and displays issue counts, completion percentage, and last exit status."
+                ;;
+            update)
+                echo "forge update — Update Forge itself"
+                echo ""
+                echo "Usage: forge update"
+                echo ""
+                echo "Pulls the latest version of Forge from GitHub."
+                echo "Run 'forge upgrade' inside a project to update its artifacts."
+                ;;
+            upgrade)
+                echo "forge upgrade — Update project artifacts"
+                echo ""
+                echo "Usage: forge upgrade"
+                echo ""
+                echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
+                echo "to match the installed Forge version. Creates a backup first."
+                echo ""
+                echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
+                ;;
+            doctor)
+                echo "forge doctor — Health check"
+                echo ""
+                echo "Usage: forge doctor"
+                echo ""
+                echo "Checks tool versions, authentication, disk space, and whether"
+                echo "project artifacts are up-to-date with the installed Forge version."
+                ;;
+            uninstall)
+                echo "forge uninstall — Remove Forge"
+                echo ""
+                echo "Usage: forge uninstall"
+                echo ""
+                echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
+                echo "shell config files. Does NOT affect existing Forge projects."
+                ;;
+            "")
+                echo "Usage: forge help <command>"
+                echo ""
+                echo "Commands: init, run, status, update, upgrade, doctor, uninstall, version"
+                ;;
+            *)
+                echo "Unknown command: $2"
+                echo "Run 'forge help' for available commands."
+                ;;
+        esac
+        ;;
+    uninstall)
+        echo ""
+        echo "This will remove Forge from your system."
+        echo ""
+        echo "  Removes:  ~/.forge/ (repo, CLI binary)"
+        echo "  Removes:  PATH entries from shell config"
+        echo "  Keeps:    All existing Forge projects (untouched)"
+        echo ""
+        printf "  Continue? (y/n) [n]: "
+        read -r confirm
+        confirm="${confirm:-n}"
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+            echo "  Cancelled."
+            exit 0
+        fi
+
+        # Remove PATH from shell configs
+        for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+            if [ -f "$rc" ]; then
+                # Remove the Forge PATH line and its comment
+                sed -i '' '/# Forge/d' "$rc" 2>/dev/null || true
+                sed -i '' '/\.forge\/bin/d' "$rc" 2>/dev/null || true
+            fi
+        done
+
+        # Remove fish config
+        rm -f "$HOME/.config/fish/conf.d/forge.fish" 2>/dev/null || true
+
+        # Remove Forge itself
+        rm -rf "$HOME/.forge"
+
+        echo ""
+        echo "  Forge has been uninstalled."
+        echo "  Your Forge projects are still intact — only the CLI was removed."
+        echo "  Restart your terminal to update PATH."
+        echo ""
+        exit 0
+        ;;
     version)
         echo "Forge $(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)"
         ;;
@@ -498,10 +745,13 @@ case "${1:-}" in
         echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
         echo "  run              Run the autonomous build loop (headless, with restarts)"
+        echo "  status           Show current project progress"
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
+        echo "  uninstall        Remove Forge from your system"
         echo "  version          Show installed version"
+        echo "  help <command>   Show detailed help for a command"
         echo ""
         echo "Run flags:"
         echo "  --max-sessions N   Maximum session restarts (default: 20)"
@@ -548,6 +798,17 @@ echo "    mkdir my-app && cd my-app"
 echo "    forge init"
 echo "    claude"
 echo ""
+# Fish shell support
+FISH_CONFIG="$HOME/.config/fish/conf.d/forge.fish"
+if [ "$(basename "${SHELL:-}")" = "fish" ] || [ -d "$HOME/.config/fish" ]; then
+    if [ \! -f "$FISH_CONFIG" ]; then
+        mkdir -p "$(dirname "$FISH_CONFIG")"
+        echo '# Forge' > "$FISH_CONFIG"
+        echo 'fish_add_path -g $HOME/.forge/bin' >> "$FISH_CONFIG"
+        echo -e "${GREEN}Added Forge to PATH for fish shell${NC}"
+    fi
+fi
+
 if [ -n "$SHELL_RC" ]; then
     echo -e "  ${YELLOW}Note:${NC} Restart your terminal or run ${BOLD}source $SHELL_RC${NC} to use the forge command."
     echo ""

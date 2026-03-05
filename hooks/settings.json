@@ -1,12 +1,39 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git *)",
-      "Bash(gh *)",
+      "Bash(git add *)",
+      "Bash(git checkout *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git diff *)",
+      "Bash(git fetch *)",
+      "Bash(git log *)",
+      "Bash(git merge *)",
+      "Bash(git pull *)",
+      "Bash(git push -u origin *)",
+      "Bash(git push origin agent/*)",
+      "Bash(git push origin --delete agent/*)",
+      "Bash(git rev-parse *)",
+      "Bash(git remote *)",
+      "Bash(git show *)",
+      "Bash(git status *)",
+      "Bash(git stash *)",
+      "Bash(gh issue *)",
+      "Bash(gh pr *)",
+      "Bash(gh api *)",
+      "Bash(gh repo view *)",
+      "Bash(gh label *)",
+      "Bash(gh auth *)",
       "Bash(pnpm *)",
       "Bash(node *)",
       "Bash(vercel *)",
       "Bash(sleep *)",
+      "Bash(cat *)",
+      "Bash(echo *)",
+      "Bash(ls *)",
+      "Bash(mkdir *)",
+      "Bash(date *)",
+      "Bash(jq *)",
       "Read",
       "Write",
       "Edit",
@@ -21,6 +48,16 @@
     ],
     "deny": [
       "Bash(rm -rf *)",
+      "Bash(git push origin main*)",
+      "Bash(git push * origin main*)",
+      "Bash(git push -f *)",
+      "Bash(git push --force*)",
+      "Bash(git push * --force*)",
+      "Bash(git push * -f *)",
+      "Bash(git reset --hard*)",
+      "Bash(gh repo delete*)",
+      "Bash(pnpm publish*)",
+      "Bash(npm publish*)",
       "Read(.env*)",
       "Write(.env*)",
       "Write(pnpm-lock.yaml)"
@@ -33,7 +70,16 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); blocked=['.env','.git/','pnpm-lock.yaml','.vercel/','CLAUDE.md','PROMPT.md','.claude/skills/']; sys.exit(2 if any(x in p for x in blocked) else 0)\""
+            "command": "python3 -c \"import json,sys,os; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); ap=os.path.abspath(p) if p else ''; blocked_exact=['.env','.env.local','.env.production','.env.development']; blocked_dirs=['.git/','node_modules/','.vercel/']; blocked_names=['CLAUDE.md','PROMPT.md']; blocked_prefixes=['.claude/skills/']; hit=any(os.path.basename(ap)==b for b in blocked_exact) or any(('/'+b) in (ap+'/') for b in blocked_dirs) or any(os.path.basename(ap)==b for b in blocked_names) or any(b in ap for b in blocked_prefixes); sys.exit(2 if hit else 0)\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys,os; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); protected=['.github/workflows/','pnpm-lock.yaml']; hit=any(x in p for x in protected); sys.exit(2 if hit else 0)\""
           }
         ]
       }
