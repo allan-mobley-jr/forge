@@ -91,6 +91,15 @@ For fully autonomous headless operation, use `forge run` from the project root. 
 - Co-locate unit tests with source: `Component.tsx` -> `Component.test.tsx`
 - E2E tests go in the `e2e/` directory (Playwright, chromium only in CI)
 
+## Security
+
+- Do not push directly to main — all changes go through feature branches and PRs.
+- Do not force-push (`--force`, `-f`) — it rewrites shared history.
+- Do not run destructive GitHub commands (`gh repo delete`, etc.).
+- Do not read, print, or log environment variables or secrets.
+- Do not modify CI workflows (`.github/workflows/`) — these are managed by Forge.
+- Protected files are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `PROMPT.md`, `.claude/skills/`, `pnpm-lock.yaml`, `.vercel/`.
+
 ## Do Not
 
 - Write to `.env` files directly — use `vercel env` for environment variables.
