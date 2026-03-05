@@ -378,14 +378,41 @@ case "${1:-}" in
                 --max-sessions) max_sessions="$2"; shift 2 ;;
                 --max-budget)   max_budget="$2"; shift 2 ;;
                 --timeout)      timeout_secs="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
+                -h|--help)
+                    echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                    echo ""
+                    echo "  --max-sessions N   Maximum session restarts (default: 20)"
+                    echo "  --max-budget N     Max API spend per session in USD"
+                    echo "  --timeout N        Wall-clock timeout per session in seconds"
+                    exit 0
+                    ;;
+                *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
             esac
         done
 
-        if [ -n "$timeout_secs" ] && ! command -v timeout &>/dev/null; then
-            echo "Error: --timeout requires GNU coreutils."
-            echo "  Install with: brew install coreutils"
-            exit 1
+        # Validate numeric flags
+        if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
+            echo "Error: --max-sessions must be a positive integer"; exit 1
+        fi
+        if [ -n "$max_budget" ] && ! [[ "$max_budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Error: --max-budget must be a number"; exit 1
+        fi
+        if [ -n "$timeout_secs" ] && ! [[ "$timeout_secs" =~ ^[0-9]+$ ]]; then
+            echo "Error: --timeout must be a positive integer (seconds)"; exit 1
+        fi
+
+        # Resolve timeout command (GNU coreutils installs as gtimeout on macOS)
+        timeout_cmd=""
+        if [ -n "$timeout_secs" ]; then
+            if command -v timeout &>/dev/null; then
+                timeout_cmd="timeout"
+            elif command -v gtimeout &>/dev/null; then
+                timeout_cmd="gtimeout"
+            else
+                echo "Error: --timeout requires GNU coreutils."
+                echo "  Install with: brew install coreutils"
+                exit 1
+            fi
         fi
 
         echo ""
@@ -404,8 +431,8 @@ case "${1:-}" in
             [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 
             exit_code=0
-            if [ -n "$timeout_secs" ]; then
-                timeout "$timeout_secs" "${cmd[@]}" || exit_code=$?
+            if [ -n "$timeout_cmd" ]; then
+                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
             else
                 "${cmd[@]}" || exit_code=$?
             fi
@@ -422,7 +449,7 @@ case "${1:-}" in
                         ;;
                     needs-human)
                         echo ""
-                        echo "[forge] Blocked on human input. Check GitHub issues."
+                        echo "[forge] Action required. Review open PRs and check GitHub issues."
                         exit 1
                         ;;
                     error)
