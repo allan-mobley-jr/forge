@@ -55,6 +55,16 @@ sleep 1
 
 Create one milestone per phase. Maximum 5 milestones. **Wait 1 second between each milestone creation** (`sleep 1`) to stay within GitHub's secondary rate limits.
 
+### Step 4b: Rate limit checkpoint
+
+Before filing issues, re-check the API budget. Filing N issues requires ~3N API calls (create + comment + label mutations):
+
+```bash
+gh api rate_limit --jq '.resources.core | "Rate limit: \(.remaining)/\(.limit) remaining"'
+```
+
+If fewer than 100 requests remain, stop and inform the user. Save the synthesized plan to a comment on a tracking issue so the next session can resume filing.
+
 ### Step 5: File issues
 
 For each issue in the backlog, file it using `gh issue create`. Each issue must follow this exact structure:
