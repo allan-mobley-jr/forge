@@ -177,7 +177,24 @@ If `/build` returns without completing (no PR opened, no escalation posted), che
 
 Do not retry infrastructure errors automatically. Surface them and wait for the user.
 
-### Step 6: Context management
+### Step 6: Housekeeping PR after /plan
+
+If `/plan` just ran, create a housekeeping PR for the PROMPT.md archive:
+
+```bash
+git checkout -b forge/archive-prompt
+git add graveyard/ PROMPT.md .claude/settings.json
+git commit -m "Archive original prompt after planning phase"
+git push -u origin forge/archive-prompt
+gh pr create --title "Archive original prompt" \
+  --body "Housekeeping: archives PROMPT.md to graveyard/ and locks it down after initial planning."
+git checkout main
+```
+
+Do not wait for this PR to merge — continue to `/clear` and the build loop.
+The archive PR is independent of feature work.
+
+### Step 7: Context management
 
 After `/plan` completes, run `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub. Do **not** run `/clear` between individual `/build` cycles — `/sync` is lightweight and `/build` benefits from cumulative context about what has been built.
 
