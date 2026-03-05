@@ -9,6 +9,27 @@ FORGE_REPO="$FORGE_HOME/repo"
 FORGE_BIN="$FORGE_HOME/bin"
 FORGE_REMOTE="https://github.com/allan-mobley-jr/forge.git"
 
+# --- Retry helper ---
+
+retry() {
+    local max_attempts=3
+    local delay=2
+    local attempt=1
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if "$@"; then
+            return 0
+        fi
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo -e "  ${YELLOW}Retrying in ${delay}s... (attempt $((attempt+1))/$max_attempts)${NC}"
+            sleep "$delay"
+            delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
+    echo -e "${RED}Failed after $max_attempts attempts.${NC}"
+    return 1
+}
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,12 +79,12 @@ fi
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
-    git -C "$FORGE_REPO" pull --quiet
+    retry git -C "$FORGE_REPO" pull --quiet
     echo -e "${GREEN}Forge updated.${NC}"
 else
     echo -e "${BLUE}Installing Forge...${NC}"
     mkdir -p "$FORGE_HOME"
-    git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
+    retry git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
     echo -e "${GREEN}Forge installed to $FORGE_REPO${NC}"
 fi
 
@@ -140,8 +161,8 @@ case "${1:-}" in
         curl -fsSL https://claude.ai/install.sh | bash
         echo ""
 
-        # --- Check billing: API key vs subscription (skip on resume) ---
-        if [ "$FORGE_RESUME" != true ]; then
+        # --- Check billing: API key vs subscription ---
+        if [ "$FORGE_RESUME" != true ] || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
             if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
                 echo "  ⚠  ANTHROPIC_API_KEY is set in your environment."
                 echo "     Forge will use the API key instead of your subscription."
@@ -548,6 +569,17 @@ echo "    mkdir my-app && cd my-app"
 echo "    forge init"
 echo "    claude"
 echo ""
+# Fish shell support
+FISH_CONFIG="$HOME/.config/fish/conf.d/forge.fish"
+if [ "$(basename "${SHELL:-}")" = "fish" ] || [ -d "$HOME/.config/fish" ]; then
+    if [ \! -f "$FISH_CONFIG" ]; then
+        mkdir -p "$(dirname "$FISH_CONFIG")"
+        echo '# Forge' > "$FISH_CONFIG"
+        echo 'fish_add_path -g $HOME/.forge/bin' >> "$FISH_CONFIG"
+        echo -e "${GREEN}Added Forge to PATH for fish shell${NC}"
+    fi
+fi
+
 if [ -n "$SHELL_RC" ]; then
     echo -e "  ${YELLOW}Note:${NC} Restart your terminal or run ${BOLD}source $SHELL_RC${NC} to use the forge command."
     echo ""
