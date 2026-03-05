@@ -371,11 +371,113 @@ case "${1:-}" in
             echo -e "  ${DIM}-${NC} CI workflow not found"
         fi
 
+        # 4. Check version requirements
+        echo ""
+        echo "Versions:"
+
+        if command -v node &>/dev/null; then
+            node_major=$(node --version | sed 's/v//' | cut -d. -f1)
+            if [ "$node_major" -ge 18 ]; then
+                echo -e "  ${GREEN}✓${NC} Node.js >= 18"
+            else
+                echo -e "  ${RED}✗${NC} Node.js $(node --version) — need >= 18"
+            fi
+        fi
+
+        if command -v pnpm &>/dev/null; then
+            pnpm_major=$(pnpm --version | cut -d. -f1)
+            if [ "$pnpm_major" -ge 8 ]; then
+                echo -e "  ${GREEN}✓${NC} pnpm >= 8"
+            else
+                echo -e "  ${RED}✗${NC} pnpm $(pnpm --version) — need >= 8"
+            fi
+        fi
+
+        if command -v perl &>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} perl available"
+        else
+            echo -e "  ${RED}✗${NC} perl not found (needed for CLAUDE.md generation)"
+        fi
+
+        # 5. Check connectivity
+        echo ""
+        echo "Connectivity:"
+
+        if gh auth status &>/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC} GitHub authenticated"
+        else
+            echo -e "  ${RED}✗${NC} GitHub not authenticated — run: gh auth login"
+        fi
+
+        if vercel whoami &>/dev/null 2>&1; then
+            echo -e "  ${GREEN}✓${NC} Vercel authenticated"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
+        fi
+
+        # 6. Check disk space
+        echo ""
+        echo "System:"
+        avail_gb=$(df -g . 2>/dev/null | tail -1 | awk '{print $4}')
+        if [ -n "$avail_gb" ] && [ "$avail_gb" -ge 2 ]; then
+            echo -e "  ${GREEN}✓${NC} Disk space: ${avail_gb}GB available"
+        elif [ -n "$avail_gb" ]; then
+            echo -e "  ${YELLOW}⚠${NC} Low disk space: ${avail_gb}GB (need >= 2GB)"
+        fi
+
         echo ""
         if [ "$artifacts_outdated" = true ]; then
             echo "  Run 'forge upgrade' to update outdated artifacts."
         else
             echo "  All managed artifacts are up-to-date."
+        fi
+        echo ""
+        ;;
+    status)
+        GREEN='\033[0;32m'
+        RED='\033[0;31m'
+        BLUE='\033[0;34m'
+
+        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+            echo -e "${RED}Error:${NC} Not a Forge project."
+            exit 1
+        fi
+
+        echo ""
+        echo "Forge Status"
+        echo "============"
+        echo ""
+
+        if [ -f .forge-status.json ]; then
+            python3 -c "
+import json
+with open('.forge-status.json') as f:
+    d = json.load(f)
+ts = d.get('timestamp', 'unknown')
+iss = d.get('issues', {})
+print(f'  Last sync: {ts}')
+print(f'  Total issues: {iss.get("total", 0)}')
+print(f'  Closed: {iss.get("closed", 0)}')
+print(f'  Ready: {iss.get("ready", 0)}')
+print(f'  In progress: {iss.get("in_progress", 0)}')
+print(f'  Blocked: {iss.get("blocked", 0)}')
+print(f'  Needs human: {iss.get("needs_human", 0)}')
+print(f'  Revision needed: {iss.get("revision_needed", 0)}')
+print(f'  Awaiting merge: {iss.get("done_awaiting_merge", 0)}')
+total = iss.get('total', 0)
+closed = iss.get('closed', 0)
+if total > 0:
+    pct = int(closed / total * 100)
+    print(f'\n  Progress: {closed}/{total} ({pct}%)')
+"
+        else
+            echo "  No status file found. Run a Forge session first."
+            echo "  Start with: claude"
+        fi
+
+        if [ -f .forge-exit-status ]; then
+            echo ""
+            echo "  Last exit status: $(cat .forge-exit-status)"
         fi
         echo ""
         ;;
@@ -519,6 +621,7 @@ case "${1:-}" in
         echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
         echo "  run              Run the autonomous build loop (headless, with restarts)"
+        echo "  status           Show current project progress"
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
