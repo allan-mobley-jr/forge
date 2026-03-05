@@ -18,12 +18,12 @@ claude                       # start building
 
 ## Requirements
 
-- macOS with Homebrew
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Max subscription or API key
+- macOS
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Pro subscription, Max subscription, or API key
 - GitHub account
 - Vercel account
 
-The bootstrap handles installing and configuring everything else.
+The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
 
 ## How It Works
 
