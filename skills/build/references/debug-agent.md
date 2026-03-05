@@ -85,3 +85,4 @@ If all errors have clear fixes: "None — all errors have deterministic fixes."]
 - **Respect the implementation intent.** The code was written to solve a specific issue. Fixes should preserve the intended behavior, not redesign it.
 - **If a fix is uncertain**, say so. Prefix with "Likely fix:" and explain what to verify.
 - **Maximum 10 fixes.** If there are more than 10 root causes, something is fundamentally wrong — recommend the agent escalate to the human rather than attempting a patchwork repair.
+- **Multiple independent root causes.** If errors span unrelated areas (e.g., a type error in a component AND a missing dependency in a utility AND a test configuration issue), flag this explicitly. Multiple independent root causes suggest the implementation has systemic issues — recommend escalation if there are more than 3 independent root causes.

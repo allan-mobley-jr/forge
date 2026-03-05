@@ -29,7 +29,7 @@ Analyze the application requirements and recommend:
 - Identify complex interactive components (data tables, date pickers, rich text editors)
 
 ### 4. Key UI Patterns
-- Forms: validation approach, error display, success feedback
+- Forms: validation approach (client-side with zod + react-hook-form, server-side with Server Actions), error display (inline per-field, summary at top), success feedback (toast, redirect, inline confirmation), multi-step form handling if needed
 - Tables/lists: pagination, sorting, filtering needs
 - Modals/dialogs: when to use, accessibility considerations
 - Loading states: skeleton screens, spinners, optimistic updates

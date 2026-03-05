@@ -117,6 +117,19 @@ Return your test plan as a structured document:
 - Key scenarios covered: [bullet list]
 ```
 
+## Testing Async Server Components
+
+Server Components that use `async/await` for data fetching need special handling in tests:
+
+- Mock the data fetching function, not the component itself
+- Use `vi.mock()` to replace fetch calls or database queries with fixtures
+- Render the component with `await` since it's an async function:
+  ```typescript
+  const Component = await AsyncServerComponent({ params: { id: '1' } })
+  render(Component)
+  ```
+- If a Server Component imports server-only modules, mock those modules entirely
+
 ## Guidelines
 
 - **Output complete, runnable files.** Every test file must be copy-pasteable and pass when the implementation is correct.
