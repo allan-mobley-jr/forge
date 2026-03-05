@@ -263,10 +263,13 @@ Create a GitHub Issue, add the `triage` label, and start a new `claude` session.
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
 | `forge init --resume` | Resume a failed or interrupted bootstrap |
 | `forge run` | Run the autonomous build loop (headless, with restarts) |
+| `forge status` | Show current project progress (issue counts, completion %) |
 | `forge update` | Update Forge to the latest version |
 | `forge upgrade` | Update Forge artifacts (skills, hooks, CLAUDE.md) in the current project |
-| `forge doctor` | Check tool versions and project artifact health |
+| `forge doctor` | Check tool versions, auth, disk space, and project health |
+| `forge uninstall` | Remove Forge from your system (keeps existing projects) |
 | `forge version` | Show installed version |
+| `forge help <cmd>` | Show detailed help for a command |
 
 ## Design Decisions
 
