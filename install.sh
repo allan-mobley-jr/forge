@@ -599,6 +599,130 @@ if total > 0:
         echo "[forge] Reached max sessions ($max_sessions). Check progress on GitHub."
         exit 1
         ;;
+    help)
+        case "${2:-}" in
+            init)
+                echo "forge init — Bootstrap a new Forge project"
+                echo ""
+                echo "Usage: forge init [--resume]"
+                echo ""
+                echo "Creates a new Forge project in the current directory:"
+                echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
+                echo "  2. Scaffolds a Next.js app from your PROMPT.md"
+                echo "  3. Creates a GitHub repo with branch protection and CI"
+                echo "  4. Links a Vercel project for preview deploys"
+                echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
+                echo ""
+                echo "Options:"
+                echo "  --resume    Resume from where a previous bootstrap stopped"
+                echo ""
+                echo "Requires PROMPT.md in the current directory."
+                ;;
+            run)
+                echo "forge run — Autonomous headless build loop"
+                echo ""
+                echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                echo ""
+                echo "Runs claude -p "/forge" in a restart loop. Each session syncs"
+                echo "state from GitHub, builds the next issue, and writes exit status."
+                echo "The loop restarts until all issues are closed or human input is needed."
+                echo ""
+                echo "Options:"
+                echo "  --max-sessions N   Maximum restarts (default: 20)"
+                echo "  --max-budget N     API spend cap per session in USD"
+                echo "  --timeout N        Wall-clock timeout per session in seconds"
+                ;;
+            status)
+                echo "forge status — Show current project progress"
+                echo ""
+                echo "Usage: forge status"
+                echo ""
+                echo "Reads .forge-status.json (written by /forge after each /sync)"
+                echo "and displays issue counts, completion percentage, and last exit status."
+                ;;
+            update)
+                echo "forge update — Update Forge itself"
+                echo ""
+                echo "Usage: forge update"
+                echo ""
+                echo "Pulls the latest version of Forge from GitHub."
+                echo "Run 'forge upgrade' inside a project to update its artifacts."
+                ;;
+            upgrade)
+                echo "forge upgrade — Update project artifacts"
+                echo ""
+                echo "Usage: forge upgrade"
+                echo ""
+                echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
+                echo "to match the installed Forge version. Creates a backup first."
+                echo ""
+                echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
+                ;;
+            doctor)
+                echo "forge doctor — Health check"
+                echo ""
+                echo "Usage: forge doctor"
+                echo ""
+                echo "Checks tool versions, authentication, disk space, and whether"
+                echo "project artifacts are up-to-date with the installed Forge version."
+                ;;
+            uninstall)
+                echo "forge uninstall — Remove Forge"
+                echo ""
+                echo "Usage: forge uninstall"
+                echo ""
+                echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
+                echo "shell config files. Does NOT affect existing Forge projects."
+                ;;
+            "")
+                echo "Usage: forge help <command>"
+                echo ""
+                echo "Commands: init, run, status, update, upgrade, doctor, uninstall, version"
+                ;;
+            *)
+                echo "Unknown command: $2"
+                echo "Run 'forge help' for available commands."
+                ;;
+        esac
+        ;;
+    uninstall)
+        echo ""
+        echo "This will remove Forge from your system."
+        echo ""
+        echo "  Removes:  ~/.forge/ (repo, CLI binary)"
+        echo "  Removes:  PATH entries from shell config"
+        echo "  Keeps:    All existing Forge projects (untouched)"
+        echo ""
+        printf "  Continue? (y/n) [n]: "
+        read -r confirm
+        confirm="${confirm:-n}"
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+            echo "  Cancelled."
+            exit 0
+        fi
+
+        # Remove PATH from shell configs
+        for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+            if [ -f "$rc" ]; then
+                # Remove the Forge PATH line and its comment
+                sed -i '' '/# Forge/d' "$rc" 2>/dev/null || true
+                sed -i '' '/\.forge\/bin/d' "$rc" 2>/dev/null || true
+            fi
+        done
+
+        # Remove fish config
+        rm -f "$HOME/.config/fish/conf.d/forge.fish" 2>/dev/null || true
+
+        # Remove Forge itself
+        rm -rf "$HOME/.forge"
+
+        echo ""
+        echo "  Forge has been uninstalled."
+        echo "  Your Forge projects are still intact — only the CLI was removed."
+        echo "  Restart your terminal to update PATH."
+        echo ""
+        exit 0
+        ;;
     version)
         echo "Forge $(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)"
         ;;
@@ -625,7 +749,9 @@ if total > 0:
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
+        echo "  uninstall        Remove Forge from your system"
         echo "  version          Show installed version"
+        echo "  help <command>   Show detailed help for a command"
         echo ""
         echo "Run flags:"
         echo "  --max-sessions N   Maximum session restarts (default: 20)"
