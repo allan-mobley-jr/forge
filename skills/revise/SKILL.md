@@ -64,6 +64,38 @@ if [ "$REVIEW_DECISION" = "APPROVED" ]; then
 fi
 ```
 
+### Step 2.5: Check revision count
+
+Count prior revision attempts by looking for "## Revision Summary" comments already posted by previous `/revise` runs:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+# gh pr comment posts to the issues API endpoint, so count there
+REVISION_COUNT=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -s 'add | map(select(.body | test("^## Revision Summary"))) | length' || echo 0)
+MAX_REVISIONS=3
+```
+
+If the revision count has reached the limit, escalate instead of retrying:
+
+```bash
+if [ "$REVISION_COUNT" -ge "$MAX_REVISIONS" ]; then
+  gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:needs-human"
+  sleep 1
+  gh issue comment $ISSUE --body "$(cat <<ESCALATE
+## Revision Limit Reached
+
+This issue has been revised **${REVISION_COUNT}** times (limit: ${MAX_REVISIONS}) without converging on an approved solution.
+
+**Prior revision attempts are visible in PR #${PR_NUMBER} comments.**
+
+Human review is needed to determine the next approach — the automated revision cycle is not converging.
+ESCALATE
+)"
+  sleep 1
+  # Return to /forge — do not attempt another revision
+fi
+```
+
 ### Step 3: Claim the issue
 
 ```bash
