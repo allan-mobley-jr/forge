@@ -594,20 +594,22 @@ if total > 0:
                         echo "[forge] Action required. Review open PRs and check GitHub issues."
                         echo "[forge] Polling for PR review changes every 60s (Ctrl+C to stop)..."
                         while true; do
-                            sleep 60
-                            # Check if any open agent PR has CHANGES_REQUESTED
-                            review_change=$(gh pr list --state open --json headRefName,reviewDecision \
-                                --jq '[.[] | select(.headRefName | startswith("agent/")) | select(.reviewDecision == "CHANGES_REQUESTED")] | length' 2>/dev/null || echo "0")
-                            # Check if any open agent PR was merged (no longer open)
-                            agent_prs=$(gh pr list --state open --json headRefName \
-                                --jq '[.[] | select(.headRefName | startswith("agent/"))] | length' 2>/dev/null || echo "1")
+                            # Fetch all open agent PRs in a single call
+                            if ! agent_pr_json=$(gh pr list --state open -L 200 --json headRefName,reviewDecision \
+                                --jq '[.[] | select(.headRefName | startswith("agent/"))]'); then
+                                echo "[forge] Failed to query GitHub PRs. Run 'gh auth refresh' or check connectivity."
+                                exit 1
+                            fi
+                            review_change=$(echo "$agent_pr_json" | jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length')
+                            agent_prs=$(echo "$agent_pr_json" | jq 'length')
                             if [ "$review_change" -gt 0 ]; then
                                 echo "[forge] Review comments detected. Restarting to handle revisions..."
                                 break
                             elif [ "$agent_prs" -eq 0 ]; then
-                                echo "[forge] PR merged. Restarting to continue build loop..."
+                                echo "[forge] No open agent PRs detected. Restarting to continue build loop..."
                                 break
                             fi
+                            sleep 60
                         done
                         ;;
                     error)
