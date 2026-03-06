@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+[[ "$(uname)" == "Darwin" ]] || { echo "Error: Forge requires macOS."; exit 1; }
+
 # Forge Bootstrap — Project setup
 # Tool-check steps (1-9) are idempotent and safe to re-run.
 # Project steps (10+) run once during forge init.
+# Note: Tools are installed via Homebrew without version pinning.
+# This trades reproducibility for always getting the latest stable versions.
 
 # --- Configuration ---
 
@@ -192,6 +196,7 @@ step_06_ssh_key() {
         return
     fi
     info "  Generating SSH key..."
+    # Empty passphrase required for non-interactive git operations
     ssh-keygen -t ed25519 -C "$(git config user.email || echo 'forge@local')" -f ~/.ssh/id_ed25519 -N ""
     info "  Adding SSH key to GitHub..."
     gh ssh-key add ~/.ssh/id_ed25519.pub --title "Forge ($(hostname))"
@@ -531,10 +536,11 @@ step_18b_commit_config() {
         skip "$label"
         return
     fi
-    # Ensure Forge temp files are gitignored
-    if ! grep -Fq '.forge-session.log' .gitignore 2>/dev/null; then
-        printf '\n# Forge session temp files\n.forge-current-issue\n.forge-session.log\n.forge-status.json\n.forge-exit-status\n' >> .gitignore
+    # Ensure Forge temp directory is gitignored
+    if ! grep -Fq '.forge-temp/' .gitignore 2>/dev/null; then
+        printf '\n# Forge session temp files\n.forge-temp/\n' >> .gitignore
     fi
+    mkdir -p .forge-temp
     git add CLAUDE.md .claude/ .github/ .gitignore
     git commit -m "chore: add Forge configuration"
     git push
@@ -557,6 +563,8 @@ step_19_branch_protection() {
         skip "$label"
         return
     fi
+    # The "Quality Checks" context below must match the job name in workflows/ci.yml.
+    # Changing either one without the other will block all PRs.
     if ! gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \

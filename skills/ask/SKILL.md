@@ -28,10 +28,10 @@ Do NOT escalate when:
 
 ### 1. Identify the blocking issue
 
-Read `.forge-current-issue` to get the current issue number, or accept it from the calling context.
+Read `.forge-temp/current-issue` to get the current issue number, or accept it from the calling context.
 
 ```bash
-ISSUE=$(cat .forge-current-issue 2>/dev/null)
+ISSUE=$(cat .forge-temp/current-issue 2>/dev/null)
 ```
 
 ### 2. Post the structured question

@@ -75,10 +75,11 @@ Run `/sync` to read the current GitHub state. This produces a structured summary
 
 ### Step 3.5: Write status file
 
-After `/sync` produces its summary, write the issue counts to `.forge-status.json` so the PreCompact and Stop hooks can read them. Use the counts from the sync output:
+After `/sync` produces its summary, ensure the temp directory exists and write the issue counts so the PreCompact and Stop hooks can read them. Use the counts from the sync output:
 
 ```bash
-cat > .forge-status.json <<EOF
+mkdir -p .forge-temp
+cat > .forge-temp/status.json <<EOF
 {
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "issues": {
@@ -94,7 +95,7 @@ cat > .forge-status.json <<EOF
 EOF
 ```
 
-Replace TOTAL, CLOSED, etc. with the actual counts from the `/sync` summary. REVISION is the count of `agent:done` issues whose PR has `CHANGES_REQUESTED` (reported by `/sync` step 3d). AWAITING is `agent:done` issues NOT needing revision. Define TOTAL as the sum of all tracked issue states: TOTAL = CLOSED + IN_PROGRESS + NEEDS_HUMAN + AWAITING + REVISION. Do not include backlog issues — they are unclaimed and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
+Replace TOTAL, CLOSED, etc. with the actual counts from the `/sync` summary. REVISION is the count of `agent:done` issues whose PR has `CHANGES_REQUESTED` (reported by `/sync` step 3d). AWAITING is `agent:done` issues NOT needing revision. Define TOTAL as the sum of all tracked issue states: TOTAL = CLOSED + IN_PROGRESS + NEEDS_HUMAN + AWAITING + REVISION. Do not include backlog issues — they are unclaimed and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop). All temp files live in `.forge-temp/` which is git-ignored.
 
 ### Step 3.7: Clean up merged branches
 
@@ -159,10 +160,10 @@ Message: "Issue #{X} has an open PR awaiting merge:
   Merge or close the PR before the next issue can be built."
 ```
 
-Write `.forge-exit-status` as `needs-human` and return — do not proceed to build new issues.
+Write `.forge-temp/exit-status` as `needs-human` and return — do not proceed to build new issues.
 
 ```bash
-echo "needs-human" > .forge-exit-status
+echo "needs-human" > .forge-temp/exit-status
 ```
 
 #### Case C: `agent:in-progress` on an issue (crash recovery)
@@ -172,7 +173,21 @@ Check for an existing branch or PR:
 REMOTE_BRANCH=$(git branch -r --list "origin/agent/issue-${ISSUE}-*" | head -1 | tr -d ' ')
 ```
 
-If a branch exists, route to `/build` which will detect and resume from the existing branch.
+If a branch exists, check whether the issue has an open PR with `CHANGES_REQUESTED` before routing. This handles the case where a `/revise` session crashed mid-revision:
+
+```bash
+PR_REVIEW=$(gh pr list --state open --json headRefName,reviewDecision \
+  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | length")
+```
+
+- If `PR_REVIEW > 0`: route to `/revise` (the crash happened during a revision cycle)
+
+```
+Action: Run /revise
+Message: "Issue #{X} was interrupted mid-revision. Resuming revision..."
+```
+
+- Otherwise: route to `/build` which will detect and resume from the existing branch.
 
 ```
 Action: Run /build
@@ -219,7 +234,7 @@ gh issue list --state open --label "ai-generated" --limit 1000 --json number --j
    ```
 
    ```bash
-   echo "complete" > .forge-exit-status
+   echo "complete" > .forge-temp/exit-status
    ```
 
 ### Step 5: Loop
@@ -270,25 +285,26 @@ The archive PR is independent of feature work.
 
 After `/plan` completes, run `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub.
 
-**Between build cycles:** After each `/build` completes, increment a persistent build counter and check if it's time to clear context. Note: `.forge-build-count` must be in the repository's `.gitignore` to prevent accidental commits.
+**Between build cycles:** After each `/build` completes, increment a persistent build counter and check if it's time to clear context:
 
 ```bash
-COUNT=$(cat .forge-build-count 2>/dev/null || echo 0)
+COUNT=$(cat .forge-temp/build-count 2>/dev/null || echo 0)
 COUNT=$((COUNT + 1))
-echo "$COUNT" > .forge-build-count
+echo "$COUNT" > .forge-temp/build-count
 
 if [ "$COUNT" -ge 3 ]; then
-  echo "0" > .forge-build-count
+  echo "0" > .forge-temp/build-count
   # Run /clear before the next /forge invocation
 fi
 ```
 
-After every **3 completed builds**, run `/clear` before re-invoking `/forge`. This prevents context exhaustion during long sessions with many issues. The counter persists in `.forge-build-count` so it survives context clearing. `/sync` will re-establish all necessary state from GitHub after clearing.
+After every **3 completed builds**, run `/clear` before re-invoking `/forge`. This prevents context exhaustion during long sessions with many issues. The counter persists in `.forge-temp/build-count` so it survives context clearing. `/sync` will re-establish all necessary state from GitHub after clearing.
 
-**Pre-emptive status file:** Write `.forge-exit-status` as `needs-restart` at the start of every `/forge` invocation (before `/sync`). Update it to `complete` or `needs-human` only after `/sync` confirms the appropriate state. This ensures a valid exit status exists even if the session terminates abruptly due to context exhaustion:
+**Pre-emptive status file:** Write `.forge-temp/exit-status` as `needs-restart` at the start of every `/forge` invocation (before `/sync`). Update it to `complete` or `needs-human` only after `/sync` confirms the appropriate state. This ensures a valid exit status exists even if the session terminates abruptly due to context exhaustion:
 
 ```bash
-echo "needs-restart" > .forge-exit-status
+mkdir -p .forge-temp
+echo "needs-restart" > .forge-temp/exit-status
 ```
 
 **If context compaction occurs** (PreCompact hook fires), the next action after compaction should be to re-run `/forge` — the PreCompact hook already prints recovery instructions. Do not attempt to continue a partially-completed `/build` after compaction; instead, let `/sync` detect the in-progress issue and handle it.
@@ -301,4 +317,4 @@ echo "needs-restart" > .forge-exit-status
 - **Be observable.** Print clear status messages so the human can follow along in the terminal.
 - **Don't modify code directly.** The orchestrator routes to sub-skills. It doesn't write application code itself.
 - **Handle 403 errors carefully.** Only treat a 403 as secondary rate limiting (sleep 60s + retry once) when the error output mentions `secondary rate limit`. All other 403s are auth/permission errors — surface them immediately instead of retrying.
-- **Guard against context exhaustion.** Write `.forge-exit-status` as `needs-restart` at the start of each invocation. Run `/clear` after every 3 builds. After compaction, re-run `/forge` to resync state and continue.
+- **Guard against context exhaustion.** Write `.forge-temp/exit-status` as `needs-restart` at the start of each invocation. Run `/clear` after every 3 builds. After compaction, re-run `/forge` to resync state and continue.

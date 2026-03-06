@@ -28,6 +28,7 @@ Fetch all open issues in a **single API call**, then filter locally by label. Th
 gh issue list --state closed --json number,title -L 100
 
 # All open issues in one query — filter by label locally
+# 200-item limit is sufficient for Forge-managed projects (max 40 issues from /plan)
 OPEN_ISSUES=$(gh issue list --state open --json number,title,labels,body,comments -L 200)
 
 # Open PRs (includes review state for revision detection)

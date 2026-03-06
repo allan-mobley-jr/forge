@@ -4,6 +4,8 @@ on:
     branches: [main]
 jobs:
   quality:
+    # IMPORTANT: This job name is referenced by the branch protection ruleset
+    # created in bootstrap/setup.sh. Changing it will block all PRs.
     name: Quality Checks
     runs-on: ubuntu-latest
     steps:

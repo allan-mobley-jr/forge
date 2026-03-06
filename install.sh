@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+[[ "$(uname)" == "Darwin" ]] || { echo "Error: Forge requires macOS."; exit 1; }
+
 # Forge Installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
 
@@ -231,7 +233,7 @@ case "${1:-}" in
         echo -e "  Backed up to ${BOLD}${BACKUP_DIR}/${NC}"
 
         # 3. Add backup and session patterns to .gitignore
-        for pattern in '.forge-backup-*' '.forge-current-issue' '.forge-session.log' '.forge-status.json' '.forge-exit-status'; do
+        for pattern in '.forge-backup-*' '.forge-temp/'; do
             if ! grep -Fq "$pattern" .gitignore 2>/dev/null; then
                 echo "$pattern" >> .gitignore
             fi
@@ -448,10 +450,10 @@ case "${1:-}" in
         echo "============"
         echo ""
 
-        if [ -f .forge-status.json ]; then
+        if [ -f .forge-temp/status.json ]; then
             python3 -c "
 import json
-with open('.forge-status.json') as f:
+with open('.forge-temp/status.json') as f:
     d = json.load(f)
 ts = d.get('timestamp', 'unknown')
 iss = d.get('issues', {})
@@ -475,9 +477,9 @@ if total > 0:
             echo "  Start with: claude"
         fi
 
-        if [ -f .forge-exit-status ]; then
+        if [ -f .forge-temp/exit-status ]; then
             echo ""
-            echo "  Last exit status: $(cat .forge-exit-status)"
+            echo "  Last exit status: $(cat .forge-temp/exit-status)"
         fi
         echo ""
         ;;
@@ -579,9 +581,9 @@ if total > 0:
                 "${cmd[@]}" || exit_code=$?
             fi
 
-            if [ -f .forge-exit-status ]; then
-                exit_status=$(cat .forge-exit-status)
-                rm -f .forge-exit-status
+            if [ -f .forge-temp/exit-status ]; then
+                exit_status=$(cat .forge-temp/exit-status)
+                rm -f .forge-temp/exit-status
 
                 case "$exit_status" in
                     complete)
@@ -674,7 +676,7 @@ if total > 0:
                 echo ""
                 echo "Usage: forge status"
                 echo ""
-                echo "Reads .forge-status.json (written by /forge after each /sync)"
+                echo "Reads .forge-temp/status.json (written by /forge after each /sync)"
                 echo "and displays issue counts, completion percentage, and last exit status."
                 ;;
             update)

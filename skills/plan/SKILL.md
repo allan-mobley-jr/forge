@@ -74,7 +74,7 @@ Before filing issues, re-check the API budget. Filing N issues requires ~2N API 
 gh api rate_limit --jq '.resources.core | "Rate limit: \(.remaining)/\(.limit) remaining"'
 ```
 
-If fewer than 100 requests remain, stop and inform the user. Save the synthesized plan to a comment on a tracking issue so the next session can resume filing.
+If fewer than 100 requests remain, stop and inform the user. Save the synthesized plan to a comment on a tracking issue so the next session can resume filing. If the budget is insufficient, the milestones created in Step 4 are harmless — they'll be reused when the session resumes.
 
 ### Step 5: File issues
 
@@ -264,7 +264,7 @@ Rate limiting for GitHub mutations is handled automatically by the PostToolUse h
 ## Rules
 
 - **Maximum 5 milestones, 8 issues per milestone** (40 issues absolute max)
-- **Every issue must have acceptance criteria** including the three standard checks (lint, typecheck, build)
+- **Every issue must have acceptance criteria** including the four standard checks (lint, typecheck, test, build)
 - **File in dependency order** — foundational issues first, so lower issue numbers = build first
 - **Milestone 0 is always "Infrastructure"** — this includes: Next.js scaffold, Tailwind config, base layout, environment variables, any auth setup
 - **Be specific in implementation notes** — mention exact file paths, package names, and patterns
