@@ -180,13 +180,10 @@ post-planning instructions. Use Bash commands (not Write/Edit tools):
 mkdir -p graveyard
 cp PROMPT.md "graveyard/$(date +%Y-%m-%d).md"
 cat > PROMPT.md <<'PROMPT_EOF'
-This Forge project has already been started. The original prompt has been
-archived in the graveyard/ folder.
-
-If no issues exist on GitHub, audit the current project for obvious gaps,
-possible features, or fixes. Break your findings into manageable issues
-and use issue dependencies where appropriate (e.g., "this issue depends
-on #N because ...").
+Audit the current project against the original requirements archived in
+graveyard/. Review what was built (closed issues) and compare it to what
+was requested. Identify missing features, incomplete implementations, and
+anything that doesn't match the original spec. File issues for each gap.
 PROMPT_EOF
 ```
 
