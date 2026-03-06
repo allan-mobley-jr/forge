@@ -79,7 +79,7 @@ There are four stages: **install**, **init**, **build loop**, and **review**. Th
        └──▶ Adds ~/.forge/bin to your shell PATH
 ```
 
-After restarting your terminal, you have the `forge` command. This is a one-time step — run it once and you're set.
+After restarting your terminal, you have the `forge` command. Re-running the install command updates Forge to the latest version.
 
 ### Stage 2 — Bootstrap a Project (`forge init`)
 
@@ -233,7 +233,7 @@ Forge supports two levels of autonomous operation.
 claude
 ```
 
-Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for users who want visibility into the build loop.
+Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for users who want visibility into the build loop. The session stops after opening a PR — merge or request changes on GitHub, then re-run `claude` to continue.
 
 ### Fully autonomous (headless)
 
@@ -246,8 +246,10 @@ Runs headless with automatic session restarts. Each session gets fresh context, 
 ```bash
 forge run --max-sessions 10   # limit restart count (default: 20)
 forge run --max-budget 50     # limit API spend per session (USD)
-forge run --timeout 3600      # wall-clock timeout per session (seconds)
+forge run --timeout 3600      # wall-clock timeout per session (requires coreutils: brew install coreutils)
 ```
+
+The run loop uses `.forge-temp/` for session state (exit status, progress). These files are ephemeral and regenerated each session.
 
 For a single headless session without restarts:
 
@@ -257,7 +259,7 @@ claude -p "/forge"
 
 ### Authentication for headless mode
 
-Headless mode (`forge run` and `claude -p`) requires a token or API key that doesn't expire mid-session.
+Headless mode (`forge run` and `claude -p`) requires a token or API key that doesn't expire mid-session. `forge init` configures GitHub authentication; Claude API auth must be set up separately using the steps below.
 
 **API key users** — set your key in the environment and you're good to go:
 
