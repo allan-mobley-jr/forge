@@ -98,6 +98,22 @@ EOF
 
 Replace TOTAL, CLOSED, READY, etc. with the actual counts from the `/sync` summary. Define TOTAL as the sum of labeled issue buckets only: TOTAL = CLOSED + READY + IN_PROGRESS + BLOCKED + NEEDS_HUMAN + REVISION + AWAITING. Do not include unlabeled or triage issues — they are outside the agent workflow and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
 
+### Step 3.7: Clean up merged branches
+
+After syncing, clean up local branches for issues that have been closed (merged PRs). This prevents stale branches from accumulating:
+
+```bash
+# Delete local agent branches whose remote counterpart is gone (merged and auto-deleted)
+git remote prune origin 2>/dev/null || true
+git branch --format='%(refname:short)' --list 'agent/*' | while read -r branch; do
+  if ! git rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
+    git branch -d "$branch" 2>/dev/null || true
+  fi
+done
+```
+
+This is non-blocking — failures are silently ignored. Do not delete branches that still have a remote counterpart.
+
 ### Step 4: Route based on state
 
 Evaluate the sync output and take the appropriate action:
