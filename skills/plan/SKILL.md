@@ -199,7 +199,7 @@ Do not commit these changes — /forge handles the branch, commit, and PR.
 
 ## Audit Mode
 
-When `graveyard/` exists, all original issues have been closed and `/forge` has re-invoked `/plan` to check for gaps. Your job is to compare what was requested against what was built and file issues for anything missing.
+When `/forge` Case E re-invokes `/plan` after all issues have been closed, `graveyard/` will exist (created during the initial planning run). Your job is to compare what was requested against what was built and file issues for anything missing.
 
 ### Audit Step 1: Gather context
 
