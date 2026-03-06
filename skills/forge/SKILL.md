@@ -209,23 +209,25 @@ Message: "All {N} remaining issues are blocked. Here's the dependency situation:
 ```
 
 #### Case E: All issues are closed
-The project is complete (or this phase of it is). Before announcing, check for audit instructions.
+All filed issues have been closed. Re-invoke `/plan` — it will read PROMPT.md (which now contains post-planning audit instructions) and file new issues if gaps are found.
 
-1. Read the archived original prompt in `graveyard/` (the original `PROMPT.md` is archived there by `/plan`) and check for audit instructions (e.g., a section describing what to verify after all issues are implemented, gaps to check for, or standards to validate against). Also review the closed issues to understand what was built.
+```
+Action: Run /plan
+Message: "All {N} issues are closed. Running /plan to check for gaps..."
+```
 
-2. **If audit instructions are present:** Follow them — review the codebase against the original requirements, file `triage`-labeled issues for any gaps or missing functionality discovered, then re-invoke `/forge` to process them.
+After `/plan` returns, check whether new issues were created:
 
-   ```bash
-   gh issue create --title "{gap title}" --label "triage" --body-file - <<'EOF'
-   {description}
-   EOF
-   ```
+```bash
+gh issue list --state open --json number --jq 'length'
+```
 
-3. **If no audit instructions are present** (or audit is complete with no gaps found): Announce completion and write the exit status.
+- **If new issues exist:** Continue the loop — re-invoke `/forge` to process them.
+- **If no new issues:** The project is complete. Announce completion and write the exit status.
 
    ```
    Action: Announce completion
-   Message: "All {N} issues are closed. The project plan is fully implemented."
+   Message: "All issues are closed and no gaps found. The project plan is fully implemented."
    ```
 
    ```bash
@@ -256,7 +258,7 @@ Do not retry infrastructure errors automatically. Surface them and wait for the 
 
 ### Step 6: Housekeeping PR after /plan
 
-If `/plan` just ran, create a housekeeping PR for the PROMPT.md archive:
+If `/plan` just ran **and** the `graveyard/` directory was newly created (first planning run), create a housekeeping PR for the PROMPT.md archive:
 
 ```bash
 git checkout -b forge/archive-prompt
