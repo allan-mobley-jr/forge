@@ -213,13 +213,13 @@ All filed issues have been closed. Re-invoke `/plan` — it will read PROMPT.md 
 
 ```
 Action: Run /plan
-Message: "All {N} issues are closed. Running /plan to check for gaps..."
+Message: "All issues are closed. Running /plan to check for gaps..."
 ```
 
-After `/plan` returns, check whether new issues were created:
+After `/plan` returns, check whether new agent workflow issues were created. Use `ai-generated` to match only issues filed by `/plan`, and `--limit` to avoid pagination:
 
 ```bash
-gh issue list --state open --json number --jq 'length'
+gh issue list --state open --label "ai-generated" --limit 1000 --json number --jq 'length'
 ```
 
 - **If new issues exist:** Continue the loop — re-invoke `/forge` to process them.
@@ -258,7 +258,13 @@ Do not retry infrastructure errors automatically. Surface them and wait for the 
 
 ### Step 6: Housekeeping PR after /plan
 
-If `/plan` just ran **and** the `graveyard/` directory was newly created (first planning run), create a housekeeping PR for the PROMPT.md archive:
+If `/plan` just ran **and** this is the first planning run, create a housekeeping PR for the PROMPT.md archive. Detect first run by checking whether `graveyard/` has uncommitted files (i.e., `/plan` just created it):
+
+```bash
+git status --porcelain graveyard/ | grep -q . && echo "first-run"
+```
+
+If `graveyard/` is already committed from a previous session, skip this step.
 
 ```bash
 git checkout -b forge/archive-prompt
