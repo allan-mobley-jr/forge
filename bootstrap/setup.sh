@@ -277,7 +277,7 @@ step_10_git_init() {
         skip "$label"
         return
     fi
-    git init
+    git init -b main
     ok "$label"
 }
 
@@ -541,7 +541,8 @@ step_18b_commit_config() {
         printf '\n# Forge session temp files\n.forge-temp/\n' >> .gitignore
     fi
     mkdir -p .forge-temp
-    git add CLAUDE.md .claude/ .github/ .gitignore
+    git add .claude/ .github/ .gitignore
+    [ -f CLAUDE.md ] && git add CLAUDE.md
     git commit -m "chore: add Forge configuration"
     git push
     ok "$label"
@@ -682,29 +683,42 @@ step_20b_cleanup_default_labels() {
     ok "$label"
 }
 
-# Step 21: Write config (non-critical, skipped if config already exists)
+# Step 21: Write or update config (non-critical)
 step_21_write_config() {
     local label="21. Forge config"
-    if [ -f "$FORGE_CONFIG_DIR/config.json" ]; then
-        skip "$label"
-        return
-    fi
     mkdir -p "$FORGE_CONFIG_DIR"
     local project_name github_repo
     project_name=$(basename "$PROJECT_DIR")
     github_repo=$(gh repo view --json url -q .url 2>/dev/null || echo "unknown")
-    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+    local created_date
+    created_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    if [ -f "$FORGE_CONFIG_DIR/config.json" ]; then
+        # Merge new project entry into existing config
+        python3 -c "
+import json, sys
+cfg_path = sys.argv[1]
+with open(cfg_path) as f:
+    cfg = json.load(f)
+name, path, repo, created = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created}
+with open(cfg_path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+    f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$PROJECT_DIR" "$github_repo" "$created_date"
+    else
+        cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
   "version": "1.0.0",
   "projects": {
     "$project_name": {
       "path": "$PROJECT_DIR",
       "repo": "$github_repo",
-      "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      "created": "$created_date"
     }
   }
 }
 EOF
+    fi
     ok "$label"
 }
 
