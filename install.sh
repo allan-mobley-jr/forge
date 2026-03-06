@@ -550,6 +550,20 @@ if total > 0:
             session=$((session + 1))
             echo "[forge] Session $session/$max_sessions starting..."
 
+            # Auth pre-check: verify tokens before each session
+            if ! gh auth status &>/dev/null; then
+                echo ""
+                echo "[forge] GitHub auth expired or invalid."
+                echo "  Run: gh auth refresh"
+                exit 1
+            fi
+            if ! command -v claude &>/dev/null; then
+                echo ""
+                echo "[forge] Claude CLI not found in PATH."
+                echo "  Install: npm install -g @anthropic-ai/claude-code"
+                exit 1
+            fi
+
             cmd=(claude -p "/forge")
             [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 

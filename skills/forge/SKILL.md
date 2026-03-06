@@ -26,6 +26,18 @@ ls PROMPT.md CLAUDE.md .claude/skills/forge/SKILL.md 2>/dev/null
 
 If any are missing, inform the user this doesn't appear to be a Forge project and suggest running `forge init`.
 
+### Step 1.5: Verify authentication
+
+Check that both GitHub and Claude authentication are valid before making API calls:
+
+```bash
+gh auth status 2>&1
+```
+
+If `gh auth status` fails, inform the user to run `gh auth refresh` and stop — do not proceed with the build loop.
+
+This check catches expired tokens early, preventing cascading 401 errors that the agent might misinterpret as rate limits or transient failures.
+
 ### Step 2: Check API budget
 
 Before making any API calls, check the remaining rate limit:
