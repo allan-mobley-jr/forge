@@ -64,8 +64,9 @@ gh pr list --state open --json headRefName --jq '.[] | select(.headRefName | sta
 If no open PR exists, determine why before relabeling:
 
 ```bash
-# Check for closed (not merged) PRs for this issue
-CLOSED_PR=$(gh pr list --state closed --json headRefName,mergedAt --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt == null)] | length")
+# Check for closed PRs for this issue (both merged and unmerged)
+CLOSED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt == null)] | length")
+MERGED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt != null)] | length")
 ```
 
 - **If a closed (unmerged) PR exists** (`CLOSED_PR > 0`): The previous attempt was explicitly abandoned or rejected. Relabel as `agent:needs-human` so a human can decide the next approach:
@@ -78,7 +79,7 @@ gh issue comment {N} --body "$(cat <<STALE
 
 A prior PR for this issue was closed without being merged. Rebuilding from scratch may repeat the same problems.
 
-A human should review the closed PR's feedback and either:
+A human should review the closed PR feedback and either:
 1. Re-scope the issue with updated guidance
 2. Relabel as \`agent:ready\` to retry with a fresh approach
 3. Close the issue if it's no longer needed
@@ -87,7 +88,7 @@ STALE
 sleep 1
 ```
 
-- **If a merged PR exists** (closed PR with `mergedAt != null`): The PR was merged but the issue label was never updated (session crashed after merge). Mark as done:
+- **If a merged PR exists** (`MERGED_PR > 0`): The PR was merged but the issue label was never updated (session crashed after merge). Mark as done:
 
 ```bash
 gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:done"
