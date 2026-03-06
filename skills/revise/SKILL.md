@@ -15,17 +15,16 @@ You are the Forge revision agent. Your job is to pick up the `agent:done` issue 
 
 ### Step 1: Find the issue needing revision
 
-The `/forge` orchestrator identifies the `agent:done` issue with `CHANGES_REQUESTED` on its PR and routes here. Find it:
+The `/forge` orchestrator identifies the `agent:done` issue with `CHANGES_REQUESTED` on its PR and routes here. Find it by fetching all open PRs once and correlating locally:
 
 ```bash
-# Get all agent:done issues
+# Get all agent:done issues and all open PRs in two calls
 DONE_ISSUES=$(gh issue list --state open --label "agent:done" --json number,title,body,labels --jq 'sort_by(.number)')
+OPEN_PRS=$(gh pr list --state open --json headRefName,reviewDecision -L 200)
 
-# For each, check if its PR has CHANGES_REQUESTED
+# Correlate locally — no per-issue API calls
 for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
-  PR_REVIEW=$(gh pr list --state open --json headRefName,reviewDecision \
-    --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | .[0]")
-  if [ -n "$PR_REVIEW" ] && [ "$PR_REVIEW" != "null" ]; then
+  if echo "$OPEN_PRS" | jq -e "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | .[0]" >/dev/null 2>&1; then
     ISSUE=$ISSUE_NUM
     break
   fi

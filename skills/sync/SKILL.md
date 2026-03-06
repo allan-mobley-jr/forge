@@ -89,6 +89,7 @@ gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:done"
 - **If no closed PR exists at all but a remote branch exists**: The issue was likely interrupted by a timeout or crash. Keep `agent:in-progress` — `/build` will detect the existing branch and resume.
 
 ```bash
+git fetch origin --prune 2>/dev/null || true
 REMOTE_BRANCH=$(git branch -r --list "origin/agent/issue-{N}-*" | head -1 | tr -d ' ')
 if [ -n "$REMOTE_BRANCH" ]; then
   # Branch exists — /build will resume from it. Keep agent:in-progress.

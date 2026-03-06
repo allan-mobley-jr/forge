@@ -87,13 +87,14 @@ cat > .forge-status.json <<EOF
     "in_progress": IN_PROGRESS,
     "needs_human": NEEDS_HUMAN,
     "done_awaiting_merge": AWAITING,
+    "revision_needed": REVISION,
     "backlog": BACKLOG
   }
 }
 EOF
 ```
 
-Replace TOTAL, CLOSED, etc. with the actual counts from the `/sync` summary. Define TOTAL as the sum of all tracked issue states: TOTAL = CLOSED + IN_PROGRESS + NEEDS_HUMAN + AWAITING. Do not include backlog issues — they are unclaimed and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
+Replace TOTAL, CLOSED, etc. with the actual counts from the `/sync` summary. REVISION is the count of `agent:done` issues whose PR has `CHANGES_REQUESTED` (reported by `/sync` step 3d). AWAITING is `agent:done` issues NOT needing revision. Define TOTAL as the sum of all tracked issue states: TOTAL = CLOSED + IN_PROGRESS + NEEDS_HUMAN + AWAITING + REVISION. Do not include backlog issues — they are unclaimed and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
 
 ### Step 3.7: Clean up merged branches
 

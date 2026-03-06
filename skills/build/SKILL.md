@@ -24,6 +24,13 @@ ISSUE_JSON=$(gh issue list --state open --json number,title,body,labels -L 200 \
 
 If no issues are available, report this and return to `/forge`.
 
+Extract the issue number and title:
+
+```bash
+ISSUE=$(echo "$ISSUE_JSON" | jq -r '.number')
+TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+```
+
 ### Step 2: Check for existing PR
 
 Before starting work, check if a PR already exists for this issue (e.g., created manually or by a previous crashed session):
@@ -38,7 +45,6 @@ If a PR already exists, skip this issue — it's already being handled. Report t
 ### Step 3: Claim the issue
 
 ```bash
-ISSUE={number}
 gh issue edit $ISSUE --add-label "agent:in-progress"
 echo $ISSUE > .forge-current-issue
 ```
@@ -85,9 +91,10 @@ Return to `/forge` so the next session can resume from the WIP branch.
 
 ### Step 4: Prepare the branch
 
-First, check for an existing WIP branch from a previous timeout or crash:
+First, fetch and check for an existing WIP branch from a previous timeout or crash:
 
 ```bash
+git fetch origin --prune 2>/dev/null || true
 EXISTING_BRANCH=$(git branch -r --list "origin/agent/issue-${ISSUE}-*" | head -1 | tr -d ' ')
 ```
 
@@ -97,7 +104,7 @@ If an existing branch is found, check it out and resume:
 if [ -n "$EXISTING_BRANCH" ]; then
   BRANCH_NAME=${EXISTING_BRANCH#origin/}
   git checkout main && git pull origin main
-  git checkout "$BRANCH_NAME"
+  git checkout -b "$BRANCH_NAME" "$EXISTING_BRANCH" 2>/dev/null || git checkout "$BRANCH_NAME"
   git pull origin "$BRANCH_NAME"
   git merge origin/main --no-edit
 else
