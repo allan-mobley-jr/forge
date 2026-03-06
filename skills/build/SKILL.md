@@ -15,11 +15,21 @@ You are the Forge build agent. Your job is to claim one issue, implement it on a
 
 ### Step 1: Find the next issue
 
+Find the lowest-numbered open issue with no `agent:*` label (i.e., unclaimed backlog):
+
 ```bash
-gh issue list --state open --label "agent:ready" --json number,title,body,labels --jq 'sort_by(.number) | .[0]'
+ISSUE_JSON=$(gh issue list --state open --json number,title,body,labels -L 200 \
+  --jq '[.[] | select(.labels | map(.name) | map(select(startswith("agent:"))) | length == 0)] | sort_by(.number) | .[0]')
 ```
 
-If no issues are ready, report this and return to `/forge`.
+If no issues are available, report this and return to `/forge`.
+
+Extract the issue number and title:
+
+```bash
+ISSUE=$(echo "$ISSUE_JSON" | jq -r '.number')
+TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+```
 
 ### Step 2: Check for existing PR
 
@@ -30,23 +40,12 @@ EXISTING_PR=$(gh pr list --state open --json number,headRefName,url \
   --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | .[0]")
 ```
 
-If a PR already exists, skip this issue — it's already being handled. Report the existing PR and try the next ready issue.
-
-### Step 2b: Verify dependencies
-
-Read the issue body and find the "Dependencies" section. For each dependency `#N`:
-
-```bash
-gh issue view N --json state -q .state
-```
-
-If any dependency is still `OPEN`, skip this issue and try the next ready one. If no issues have met dependencies, report the situation and return to `/forge`.
+If a PR already exists, skip this issue — it's already being handled. Report the existing PR and return to `/forge`.
 
 ### Step 3: Claim the issue
 
 ```bash
-ISSUE={number}
-gh issue edit $ISSUE --remove-label "agent:ready" --add-label "agent:in-progress"
+gh issue edit $ISSUE --add-label "agent:in-progress"
 echo $ISSUE > .forge-current-issue
 ```
 
@@ -67,19 +66,20 @@ if [ "$ELAPSED" -ge "$BUILD_TIMEOUT" ]; then
 fi
 ```
 
-If the timeout is reached mid-build, commit work-in-progress and escalate:
+If the timeout is reached mid-build, commit work-in-progress and push the branch. Keep `agent:in-progress` so the next session can resume:
 
 ```bash
 git add <files modified so far>
 git commit -m "wip: timeout after ${ELAPSED}s on issue #${ISSUE}" || true
 git push -u origin HEAD 2>/dev/null || true
-gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
 gh issue comment $ISSUE --body "$(cat <<TIMEOUT
 ## Build Timeout
 
 This build exceeded the per-build timeout of ${BUILD_TIMEOUT}s (elapsed: ${ELAPSED}s).
 
-Work-in-progress has been pushed to the branch if possible. A human should either:
+Work-in-progress has been pushed to the branch. The next session will resume from the existing branch.
+
+If the issue is too large, a human should:
 1. Continue the build manually
 2. Re-scope the issue into smaller pieces
 3. Increase the timeout for complex issues
@@ -87,17 +87,34 @@ TIMEOUT
 )"
 ```
 
-Return to `/forge` so other ready issues can proceed.
+Return to `/forge` so the next session can resume from the WIP branch.
 
 ### Step 4: Prepare the branch
 
+First, fetch and check for an existing WIP branch from a previous timeout or crash:
+
 ```bash
-git checkout main
-git pull origin main
-gh issue develop $ISSUE --name agent/issue-{N}-{slug} --checkout
+git fetch origin --prune 2>/dev/null || true
+EXISTING_BRANCH=$(git branch -r --list "origin/agent/issue-${ISSUE}-*" | head -1 | tr -d ' ')
 ```
 
-This creates a branch linked to the issue in GitHub's "Development" sidebar. If `gh issue develop` fails (e.g., insufficient permissions or network error), fall back to local branch creation:
+If an existing branch is found, check it out and resume:
+
+```bash
+if [ -n "$EXISTING_BRANCH" ]; then
+  BRANCH_NAME=${EXISTING_BRANCH#origin/}
+  git checkout main && git pull origin main
+  git checkout -b "$BRANCH_NAME" "$EXISTING_BRANCH" 2>/dev/null || git checkout "$BRANCH_NAME"
+  git pull origin "$BRANCH_NAME"
+  git merge origin/main --no-edit
+else
+  git checkout main
+  git pull origin main
+  gh issue develop $ISSUE --name agent/issue-{N}-{slug} --checkout
+fi
+```
+
+If `gh issue develop` fails (e.g., insufficient permissions or network error), fall back to local branch creation:
 
 ```bash
 git checkout -b agent/issue-{N}-{slug}
@@ -111,6 +128,8 @@ Read the full issue body carefully. Pay attention to:
 - **Implementation Notes** — specific files to create/modify, packages to install, patterns to follow
 - **Acceptance Criteria** — what must be true when you're done
 - **Dependencies** — what's already been built (reference those PRs/issues for context)
+
+If resuming from a WIP branch (Step 4 found an existing branch), also read the most recent "Build Timeout" comment on the issue for context on what was already done.
 
 Also read:
 - `CLAUDE.md` — project conventions
@@ -127,7 +146,7 @@ This is where you write code. Follow these principles:
 4. **Use the Task tool for complex research.** If you need to understand an API or library, spawn a research sub-agent rather than guessing.
 5. **Work incrementally.** Make small, logical changes. Don't try to implement everything in one giant edit.
 6. **Test as you go.** Run the dev server (`pnpm dev`) to verify changes work when practical.
-7. **File triage issues for out-of-scope discoveries.** If you find bugs, missing error handling, or improvement opportunities outside the current issue's scope, file a `triage`-labeled issue for each one rather than fixing it inline. Stay focused on the current issue.
+7. **File new issues for out-of-scope discoveries.** If you find bugs, missing error handling, or improvement opportunities outside the current issue's scope, file a new issue (with `--label "ai-generated"`) for each one rather than fixing it inline. Stay focused on the current issue.
 
 ### Step 6b: Review and test (sub-agents)
 
@@ -135,7 +154,7 @@ After implementation is complete, spawn two sub-agents **in parallel** via the T
 
 1. **Review agent** — Read `.claude/skills/build/references/review-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the list of files changed (with contents), and the project's CLAUDE.md as context.
 
-2. **Test agent** — Read `.claude/skills/build/references/test-agent.md` and spawn a Task the same way. Include the issue labels so it can determine whether to skip (e.g., `type:config`).
+2. **Test agent** — Read `.claude/skills/build/references/test-agent.md` and spawn a Task the same way. Include the issue body so it can determine whether to skip.
 
 **Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data as a context section at the end → spawn the Task. Both agents are read-only advisors — they return structured text output. They do not write files, run commands, or modify the project. You (the build agent) interpret their output and act on it.
 
@@ -230,8 +249,7 @@ Or: "No additional suggestions."]
 
 > Preview deploy will appear below. Check it before approving.
 EOF
-)" \
-  --label "ai-generated"
+)"
 ```
 
 Update the issue:
@@ -289,7 +307,7 @@ After completing (success or failure), end with:
 - **Commit message format:** `feat:` for features, `fix:` for bugfixes, `chore:` for config. Only the final commit includes `(closes #{N})`. Split commits by logical change — one concern per commit.
 - **PR body must reference the issue** with `Closes #{N}`.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
-- **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for. If you discover something worth fixing, file a `triage` issue (see principle 7 in Step 6).
+- **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for. If you discover something worth fixing, file a new issue (with `--label "ai-generated"`).
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.
-- **Respect the build timeout.** Check elapsed time before Steps 6, 6b, 6c, 7, and 8. If the 30-minute limit is reached, commit WIP and escalate rather than continuing.
+- **Respect the build timeout.** Check elapsed time before Steps 6, 6b, 6c, 7, and 8. If the 30-minute limit is reached, commit WIP and push — the next session resumes from the branch.

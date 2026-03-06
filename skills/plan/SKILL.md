@@ -53,7 +53,7 @@ Combine the four agent outputs into a unified implementation plan:
 3. **Group into milestones** — organize features into phases:
    - **Milestone 0: Infrastructure** (always first) — project scaffold, env vars, config, base layout, auth setup if needed
    - **Milestones 1-4** — feature milestones in dependency order
-4. **Order within milestones** — within each milestone, order issues by dependency and priority.
+4. **Order within milestones** — within each milestone, order issues by dependency. Issue ordering IS the dependency graph — lower-numbered issues are built first.
 
 ### Step 4: Create milestones
 
@@ -68,7 +68,7 @@ Create one milestone per phase. Maximum 5 milestones.
 
 ### Step 4b: Rate limit checkpoint
 
-Before filing issues, re-check the API budget. Filing N issues requires ~3N API calls (create + comment + label mutations):
+Before filing issues, re-check the API budget. Filing N issues requires ~2N API calls (create + comment):
 
 ```bash
 gh api rate_limit --jq '.resources.core | "Rate limit: \(.remaining)/\(.limit) remaining"'
@@ -111,17 +111,11 @@ gh issue create \
 [issue body here]
 EOF
 )" \
-  --label "type:feature" \
-  --label "agent:ready" \
+  --label "ai-generated" \
   --milestone "Phase 0: Infrastructure"
 ```
 
-**Label rules:**
-- All issues get a `type:` label (`type:feature`, `type:config`, `type:design`, `type:bugfix`)
-- Issues with no unmet dependencies get `agent:ready`
-- Issues with unmet dependencies get `agent:blocked`
-- All issues get `priority:medium` unless the risk agent flagged something as high/low priority
-- All issues get `ai-generated`
+**Label rules:** All issues get `ai-generated`. No other labels are needed — issue ordering handles dependencies (lower number = build first), and the agent claims issues by number.
 
 ### Step 6: Post dependency comments
 
@@ -133,18 +127,6 @@ gh issue comment {N} --body "Unblocks: #{X}, #{Y}"
 
 This creates a bidirectional dependency map in the issue comments.
 
-### Step 6b: Validate dependency graph
-
-After filing all issues and dependency comments, validate the dependency graph has no cycles. For each issue, trace its `Depends on #N` references and verify no chain leads back to itself.
-
-If a circular dependency is detected:
-1. Identify the cycle (e.g., #3 → #5 → #7 → #3)
-2. Break the cycle by removing the weakest dependency link — the one where the two issues could reasonably be built independently
-3. Update the affected issue to remove the dependency reference and change its label from `agent:blocked` to `agent:ready` if all remaining deps are met
-4. Post a comment on the affected issue explaining the change
-
-This check prevents deadlocks where all remaining issues are `agent:blocked` with no path to resolution.
-
 ### Step 7: Summary
 
 After filing all issues, produce a summary:
@@ -154,12 +136,6 @@ Planning complete.
 
 Milestones: {count}
 Issues filed: {count}
-  - Infrastructure: {count}
-  - Features: {count}
-  - Design: {count}
-  - Config: {count}
-Ready to build: {count}
-Blocked (waiting on deps): {count}
 
 Next: Run /forge to start the build loop.
 ```
@@ -242,12 +218,17 @@ Combine the four agent outputs into a gap analysis:
 
 ### Audit Step 4: File gap issues
 
-If gaps were found, file them using the same structured template as initial planning (Step 5 format). Use these label rules:
+If gaps were found, file them using the same structured template as initial planning (Step 5 format):
 
-- All issues get `type:bugfix` or `type:feature` depending on whether it's a missing feature or an incorrect implementation
-- All issues get `agent:ready` (audit issues have no dependencies on each other)
-- All issues get `priority:high` (gaps in original requirements are high priority)
-- All issues get `ai-generated`
+```bash
+gh issue create \
+  --title "Issue title" \
+  --body "$(cat <<'EOF'
+[issue body here]
+EOF
+)" \
+  --label "ai-generated"
+```
 
 If **no gaps are found**, file nothing — just output a summary:
 
@@ -284,8 +265,7 @@ Rate limiting for GitHub mutations is handled automatically by the PostToolUse h
 
 - **Maximum 5 milestones, 8 issues per milestone** (40 issues absolute max)
 - **Every issue must have acceptance criteria** including the three standard checks (lint, typecheck, build)
-- **File in dependency order** — foundational issues first
+- **File in dependency order** — foundational issues first, so lower issue numbers = build first
 - **Milestone 0 is always "Infrastructure"** — this includes: Next.js scaffold, Tailwind config, base layout, environment variables, any auth setup
 - **Be specific in implementation notes** — mention exact file paths, package names, and patterns
-- **No circular dependencies** — if you detect a cycle, restructure the issues to break it
 - **Err on the side of fewer, larger issues** rather than many tiny ones. Each issue should deliver a visible, testable piece of functionality.

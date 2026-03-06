@@ -653,21 +653,10 @@ step_20_create_labels() {
     local label="20. GitHub label taxonomy"
     local failed=0
     info "  Creating labels..."
-    gh label create "agent:ready"        --color "0E8A16" --description "Available — all deps met"           --force 2>/dev/null || failed=1
-    gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"             --force 2>/dev/null || failed=1
-    gh label create "agent:done"              --color "6F42C1" --description "PR opened, awaiting review"         --force 2>/dev/null || failed=1
-    gh label create "agent:revision-needed"  --color "D876E3" --description "PR has review comments to address"  --force 2>/dev/null || failed=1
-    gh label create "agent:needs-human"      --color "E4E669" --description "Blocked on human decision"          --force 2>/dev/null || failed=1
-    gh label create "agent:blocked"      --color "D93F0B" --description "Deps not yet closed"                --force 2>/dev/null || failed=1
-    gh label create "type:feature"       --color "A2EEEF" --description "New feature"                        --force 2>/dev/null || failed=1
-    gh label create "type:config"        --color "D4C5F9" --description "Config / infrastructure"            --force 2>/dev/null || failed=1
-    gh label create "type:bugfix"        --color "D73A4A" --description "Bug fix"                            --force 2>/dev/null || failed=1
-    gh label create "type:design"        --color "F9D0C4" --description "Visual / UX work"                   --force 2>/dev/null || failed=1
-    gh label create "priority:high"      --color "B60205" --description "Build first within milestone"       --force 2>/dev/null || failed=1
-    gh label create "priority:medium"    --color "FBCA04" --description "Normal"                             --force 2>/dev/null || failed=1
-    gh label create "priority:low"       --color "C5DEF5" --description "Last in milestone"                  --force 2>/dev/null || failed=1
-    gh label create "ai-generated"       --color "EEEEEE" --description "PR or issue filed by agent"         --force 2>/dev/null || failed=1
-    gh label create "triage"             --color "C2E0C6" --description "Needs classification — agent picks up on next sync" --force 2>/dev/null || failed=1
+    gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"         --force 2>/dev/null || failed=1
+    gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"     --force 2>/dev/null || failed=1
+    gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"      --force 2>/dev/null || failed=1
+    gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"     --force 2>/dev/null || failed=1
     if [ "$failed" -eq 1 ]; then
         add_warning "Some labels failed to create. Run manually: gh label list"
         return

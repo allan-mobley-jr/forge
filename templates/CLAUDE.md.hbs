@@ -34,23 +34,22 @@ The loop: `/forge` → `/sync` → route to `/plan`, `/build`, or `/revise` → 
 
 ### State Machine
 
-All project state is encoded in GitHub Issue labels:
+All project state is encoded in GitHub Issue labels. Only one issue is active at a time — the agent works on the lowest-numbered open issue.
 
 | Label | Meaning |
 |-------|---------|
-| `agent:ready` | Dependencies met, available for an agent to claim |
 | `agent:in-progress` | An agent is actively working on this issue |
 | `agent:done` | PR opened, awaiting human review and merge |
-| `agent:revision-needed` | PR has review comments the agent will address on the next cycle |
-| `agent:blocked` | Waiting on other issues to close first |
 | `agent:needs-human` | Blocked on a decision only a human can make |
-| `triage` | Human-filed issue, awaiting agent classification on next `/sync` |
 
-`/sync` checks blocked issues and promotes them to ready when their dependencies close. It also classifies `triage` issues, detects stuck `agent:done` issues with no open PR, promotes `agent:done` issues to `agent:revision-needed` when their PR has changes requested, and reports unlabeled orphan issues.
+- **No `agent:*` label** = backlog (unclaimed, ready to build)
+- `ai-generated` = metadata label marking agent-filed issues/PRs
+
+`/sync` detects stale `agent:in-progress` labels and recovers them. It also detects `agent:done` issues whose PR has `CHANGES_REQUESTED` and reports them so `/forge` routes to `/revise`. Issue ordering is the dependency graph — lower-numbered issues are built first.
 
 ### Filing Issues
 
-Agent-created issues get labels automatically via `/plan`. For human-filed issues, add the `triage` label — `/sync` will classify it (infer type, set priority) and promote it to `agent:ready`.
+To have the agent work on a human-filed issue, just create it on GitHub. The agent picks up the lowest-numbered open issue without an `agent:*` label. No special labels needed — just create the issue and the agent will get to it in order.
 
 ### Resumability
 

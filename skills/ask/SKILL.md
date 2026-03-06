@@ -69,11 +69,8 @@ Replace the bracketed placeholders with actual content before posting.
 ### 3. Update labels
 
 ```bash
-# Mark as needing human input
-gh issue edit "$ISSUE" --add-label "agent:needs-human"
-
-# Remove in-progress if present
-gh issue edit "$ISSUE" --remove-label "agent:in-progress" 2>/dev/null || true
+# Swap in-progress for needs-human
+gh issue edit "$ISSUE" --remove-label "agent:in-progress" --add-label "agent:needs-human" 2>/dev/null || true
 ```
 
 ### 4. Return control
