@@ -97,6 +97,12 @@ Return to `/forge` so other ready issues can proceed.
 ```bash
 git checkout main
 git pull origin main
+gh issue develop $ISSUE --name agent/issue-{N}-{slug} --checkout
+```
+
+This creates a branch linked to the issue in GitHub's "Development" sidebar. If `gh issue develop` fails (e.g., insufficient permissions or network error), fall back to local branch creation:
+
+```bash
 git checkout -b agent/issue-{N}-{slug}
 ```
 
