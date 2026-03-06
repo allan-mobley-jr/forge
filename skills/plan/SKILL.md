@@ -180,13 +180,11 @@ post-planning instructions. Use Bash commands (not Write/Edit tools):
 mkdir -p graveyard
 cp PROMPT.md "graveyard/$(date +%Y-%m-%d).md"
 cat > PROMPT.md <<'PROMPT_EOF'
-This Forge project has already been started. The original prompt has been
-archived in the graveyard/ folder.
+Planning complete. The original prompt has been archived in graveyard/.
 
-If no issues exist on GitHub, audit the current project for obvious gaps,
-possible features, or fixes. Break your findings into manageable issues
-and use issue dependencies where appropriate (e.g., "this issue depends
-on #N because ...").
+When /plan is invoked again, it detects graveyard/ and enters audit mode
+automatically — comparing the original requirements against closed issues
+to identify gaps. See skills/plan/SKILL.md § Audit Mode for details.
 PROMPT_EOF
 ```
 
