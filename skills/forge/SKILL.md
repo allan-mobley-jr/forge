@@ -104,8 +104,8 @@ After syncing, clean up local branches for issues that have been closed (merged 
 
 ```bash
 # Delete local agent branches whose remote counterpart is gone (merged and auto-deleted)
-git remote prune origin
-git branch --list 'agent/*' | while read branch; do
+git remote prune origin 2>/dev/null || true
+git branch --format='%(refname:short)' --list 'agent/*' | while read -r branch; do
   if ! git rev-parse --verify "origin/$branch" >/dev/null 2>&1; then
     git branch -d "$branch" 2>/dev/null || true
   fi
