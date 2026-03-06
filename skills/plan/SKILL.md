@@ -3,13 +3,25 @@ name: plan
 description: >
   Research the application described in PROMPT.md and file a complete set of
   GitHub Issues representing the full implementation plan. Invoke when no issues
-  exist yet, or when explicitly asked to plan a new feature set.
+  exist yet, when all issues are closed (audit mode), or when explicitly asked
+  to plan a new feature set.
 allowed-tools: Bash(gh *), Bash(git *), Read, Task, Glob, Grep
 ---
 
 # /plan — Research & Issue Filing
 
 You are the Forge planner. Your job is to research the best implementation approach for what's described in `PROMPT.md`, then file a complete GitHub Issue backlog — before writing a single line of application code.
+
+## Mode Detection
+
+Before starting, determine which mode you're in:
+
+```bash
+ls graveyard/ 2>/dev/null
+```
+
+- **If `graveyard/` does not exist:** This is the **initial planning** run. Follow the Instructions section below.
+- **If `graveyard/` exists:** This is an **audit** run. Skip to the Audit Mode section.
 
 ## Instructions
 
@@ -184,6 +196,85 @@ hook command string, change `blocked_names=['CLAUDE.md']` to
 `blocked_names=['CLAUDE.md','PROMPT.md']`.
 
 Do not commit these changes — /forge handles the branch, commit, and PR.
+
+## Audit Mode
+
+When `graveyard/` exists, all original issues have been closed and `/forge` has re-invoked `/plan` to check for gaps. Your job is to compare what was requested against what was built and file issues for anything missing.
+
+### Audit Step 1: Gather context
+
+Read two sources to understand the full picture:
+
+1. **Original requirements** — read all files in `graveyard/`:
+   ```bash
+   cat graveyard/*.md
+   ```
+
+2. **What was built** — read closed issues to understand the implemented scope:
+   ```bash
+   gh issue list --state closed --label "ai-generated" --limit 200 --json number,title,body --jq '.[] | "### #\(.number): \(.title)\n\(.body)\n"'
+   ```
+
+Also read `CLAUDE.md` for project conventions.
+
+### Audit Step 2: Spawn audit sub-agents
+
+Read the same four reference files from `.claude/skills/plan/references/` and spawn sub-agents via the **Task tool** in parallel. For each agent, prepend the following audit context before the agent's original prompt:
+
+```
+AUDIT CONTEXT: This is a post-implementation audit, not initial planning.
+The application has been built. Your job is to review what was built against
+the original requirements and identify gaps, missing features, or issues.
+
+ORIGINAL REQUIREMENTS:
+[contents of graveyard/*.md]
+
+CLOSED ISSUES (what was built):
+[summary of closed issue titles and objectives]
+
+Instead of recommending what to build, identify what is MISSING or WRONG
+compared to the requirements. For each gap, describe what's missing and why
+it matters. If everything looks complete for your area, say so explicitly.
+```
+
+Append this context, then the agent's reference file contents. The agents will analyze their respective domains (architecture, stack, design, risk) through the lens of "what's missing" rather than "what to build."
+
+### Audit Step 3: Synthesize findings
+
+Combine the four agent outputs into a gap analysis:
+
+1. **Discard non-issues** — if an agent says everything looks complete, move on.
+2. **Deduplicate** — multiple agents may flag the same gap from different angles.
+3. **Prioritize** — rank gaps by impact on the original requirements.
+4. **Skip milestones** — audit issues do not need new milestones. Assign them to existing milestones if appropriate, or leave them unassigned.
+
+### Audit Step 4: File gap issues
+
+If gaps were found, file them using the same structured template as initial planning (Step 5 format). Use these label rules:
+
+- All issues get `type:bugfix` or `type:feature` depending on whether it's a missing feature or an incorrect implementation
+- All issues get `agent:ready` (audit issues have no dependencies on each other)
+- All issues get `priority:high` (gaps in original requirements are high priority)
+- All issues get `ai-generated`
+
+If **no gaps are found**, file nothing — just output a summary:
+
+```
+Audit complete. No gaps found — all original requirements are implemented.
+```
+
+### Audit Step 5: Summary
+
+```
+Audit complete.
+
+Issues filed: {count}
+  - Missing features: {count}
+  - Implementation fixes: {count}
+No gaps found: {list of areas that passed audit}
+
+Next: Run /forge to continue the build loop.
+```
 
 ## Rate Limit Awareness
 
