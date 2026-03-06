@@ -173,7 +173,7 @@ post-planning instructions. Use Bash commands (not Write/Edit tools):
 
 ```bash
 mkdir -p graveyard
-cp PROMPT.md "graveyard/$(date +%Y-%m-%d).md"
+cp PROMPT.md "graveyard/$(date +%Y-%m-%d-%H%M%S).md"
 cat > PROMPT.md <<'PROMPT_EOF'
 Audit the current project against the original requirements archived in
 graveyard/. Review what was built (closed issues) and compare it to what
