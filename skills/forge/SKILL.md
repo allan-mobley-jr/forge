@@ -28,7 +28,7 @@ If any are missing, inform the user this doesn't appear to be a Forge project an
 
 ### Step 1.5: Verify authentication
 
-Check that both GitHub and Claude authentication are valid before making API calls:
+Check that GitHub authentication is valid before making API calls:
 
 ```bash
 gh auth status 2>&1

@@ -551,7 +551,12 @@ if total > 0:
             echo "[forge] Session $session/$max_sessions starting..."
 
             # Auth pre-check: verify tokens before each session
-            if ! gh auth status &>/dev/null; then
+            if ! command -v gh &>/dev/null; then
+                echo ""
+                echo "[forge] GitHub CLI (gh) not found in PATH."
+                echo "  Install: https://cli.github.com/"
+                exit 1
+            elif ! gh auth status &>/dev/null; then
                 echo ""
                 echo "[forge] GitHub auth expired or invalid."
                 echo "  Run: gh auth refresh"
