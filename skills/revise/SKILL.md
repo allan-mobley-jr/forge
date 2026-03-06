@@ -348,7 +348,7 @@ After completing (success or failure), end with:
 - **One issue per invocation.** Never batch multiple revision issues.
 - **No review or test sub-agents.** The human IS the reviewer. Tests already exist from the original `/build`. Only spawn the debug agent if quality checks fail.
 - **Preserve existing tests.** Do not modify test files unless a review comment specifically asks for it. If your code changes cause test failures, fix the implementation to match the tests, not the other way around.
-- **Don't exceed the issue's scope.** Only address what the reviewer asked for. Don't refactor surrounding code or add features.
+- **Don't exceed the issue's scope.** Only address what the reviewer asked for. Don't refactor surrounding code or add features. If you discover bugs or improvements outside scope, file a `triage`-labeled issue instead of fixing inline.
 - **Every comment must be resolved or escalated.** Don't silently skip feedback.
 - **Always push before updating labels.** The branch must be updated on the remote before marking the issue done.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
