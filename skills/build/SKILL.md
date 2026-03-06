@@ -73,7 +73,7 @@ If the timeout is reached mid-build, commit work-in-progress and escalate:
 ```bash
 git add <files modified so far>
 git commit -m "wip: timeout after ${ELAPSED}s on issue #${ISSUE}" || true
-git push -u origin $BRANCH 2>/dev/null || true
+git push -u origin HEAD 2>/dev/null || true
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
 sleep 1
 gh issue comment $ISSUE --body "$(cat <<TIMEOUT
