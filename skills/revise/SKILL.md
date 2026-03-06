@@ -355,4 +355,4 @@ After completing (success or failure), end with:
 - **Every comment must be resolved or escalated.** Don't silently skip feedback.
 - **Always push before updating labels.** The branch must be updated on the remote before marking the issue done.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
-- **Commit message format:** `fix: address review feedback (#N)` — always use `fix:` prefix for revisions.
+- **Commit message format:** `fix: {descriptive message} (#N)` — always use `fix:` prefix for revisions. Use a specific description per commit when splitting atomic commits (e.g., `fix: rename handler to match convention (#N)`).

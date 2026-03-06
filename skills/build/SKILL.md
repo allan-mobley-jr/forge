@@ -193,9 +193,9 @@ git commit -m "feat: add hero section component"
 git add <files for change 2>
 git commit -m "chore: install framer-motion"
 
-# Only the FINAL commit gets (closes #{N})
+# Only the FINAL commit gets (closes #{N}). Use the appropriate type: feat/fix/chore.
 git add <remaining files>
-git commit -m "feat: {issue title} (closes #{N})"
+git commit -m "{type}: {issue title} (closes #{N})"
 
 # Push the branch
 git push -u origin agent/issue-{N}-{slug}
