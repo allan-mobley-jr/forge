@@ -180,11 +180,10 @@ post-planning instructions. Use Bash commands (not Write/Edit tools):
 mkdir -p graveyard
 cp PROMPT.md "graveyard/$(date +%Y-%m-%d).md"
 cat > PROMPT.md <<'PROMPT_EOF'
-Planning complete. The original prompt has been archived in graveyard/.
-
-When /plan is invoked again, it detects graveyard/ and enters audit mode
-automatically — comparing the original requirements against closed issues
-to identify gaps. See skills/plan/SKILL.md § Audit Mode for details.
+Audit the current project against the original requirements archived in
+graveyard/. Review what was built (closed issues) and compare it to what
+was requested. Identify missing features, incomplete implementations, and
+anything that doesn't match the original spec. File issues for each gap.
 PROMPT_EOF
 ```
 
