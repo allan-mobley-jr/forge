@@ -157,7 +157,9 @@ Blocked (waiting on deps): {count}
 Next: Run /forge to start the build loop.
 ```
 
-### Step 8: Archive PROMPT.md
+### Step 8: Archive PROMPT.md (first run only)
+
+**Skip this step if `graveyard/` already exists** — the prompt has already been archived by a previous planning run.
 
 After filing all issues, archive the original prompt and replace it with
 post-planning instructions. Use Bash commands (not Write/Edit tools):
