@@ -145,6 +145,30 @@ Action: Run /revise
 Message: "Found {N} issues needing PR revision. Starting with Issue #{X} — {title}"
 ```
 
+#### Case B4: Issues with `agent:done` label (PR awaiting merge)
+An issue has an open PR that hasn't been merged yet. The sequential lifecycle requires merge before moving on.
+
+Look up the PR for the done issue using the `/sync` Open PRs data, or resolve it directly:
+
+```bash
+gh pr list --state open --json number,url,headRefName,reviewDecision \
+  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | .[0]"
+```
+
+```
+Action: Stop the loop. Display the resolved PR URL and review status.
+Message: "Issue #{X} has an open PR awaiting merge:
+  PR #{P}: {url} — review: {reviewDecision}
+
+  Merge or close the PR before the next issue can be built."
+```
+
+Write `.forge-exit-status` as `needs-human` and return — do not proceed to build new issues.
+
+```bash
+echo "needs-human" > .forge-exit-status
+```
+
 #### Case C: Open issues with `agent:ready` label
 Issues are ready to be built.
 
@@ -192,6 +216,7 @@ After `/build` completes one issue (success or failure), **immediately re-invoke
 The loop continues until:
 - All issues are closed (Case E)
 - An issue needs human input (Case B)
+- A PR is awaiting merge (Case B4)
 - A deadlock is detected (Case D)
 - The user interrupts (Ctrl+C)
 
