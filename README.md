@@ -148,14 +148,14 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
   │        ├── PR awaiting merge ────▶ Stop loop, wait for merge     │
   │        │                           (forge run polls for changes) │
   │        │                                                         │
-  │        └── All issues closed ──────▶ Audit + Done                │
+  │        └── All issues closed ──────▶ /plan (audit for gaps)       │
   │                                                                  │
   │   After each action, /forge loops back to /sync automatically.   │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
-**What /plan does (runs once):**
-The agent reads your PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria.
+**What /plan does:**
+The agent reads PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria. On the first run, PROMPT.md contains your app description; after planning, it's replaced with audit instructions. When all issues are eventually closed, `/forge` routes back to `/plan`, which reads the audit PROMPT.md and files new issues for any gaps — the same loop, driven by different PROMPT.md content.
 
 **What /build does (one issue per cycle):**
 The agent picks the next `agent:ready` issue, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. Out-of-scope bugs or improvements discovered during implementation are filed as `triage` issues rather than fixed inline.
