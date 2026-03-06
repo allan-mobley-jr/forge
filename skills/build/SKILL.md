@@ -201,6 +201,8 @@ gh pr create \
   --body "$(cat <<'EOF'
 Closes #{N}
 
+> This PR implements Issue #{N} and will close it automatically when merged.
+
 ## Changes
 
 [2-5 bullet points summarizing what was implemented]
