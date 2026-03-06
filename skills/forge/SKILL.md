@@ -193,17 +193,26 @@ Message: "All {N} remaining issues are blocked. Here's the dependency situation:
 ```
 
 #### Case E: All issues are closed
-The project is complete (or this phase of it is).
+The project is complete (or this phase of it is). Before announcing, check for audit instructions.
 
-```
-Action: Announce completion
-Message: "All {N} issues are closed. The project plan is fully implemented.
+1. Read `PROMPT.md` and look for audit instructions (e.g., a section describing what to verify after all issues are implemented, gaps to check for, or standards to validate against).
 
-  Would you like to:
-  1. Add new features (describe them and I'll file new issues)
-  2. Review the deployed application
-  3. End the session"
-```
+2. **If audit instructions are present:** Follow them — review the codebase against the original requirements, file `triage`-labeled issues for any gaps or missing functionality discovered, then re-invoke `/forge` to process them.
+
+   ```bash
+   gh issue create --title "{gap title}" --body "{description}" --label "triage"
+   ```
+
+3. **If no audit instructions are present** (or audit is complete with no gaps found): Announce completion and write the exit status.
+
+   ```
+   Action: Announce completion
+   Message: "All {N} issues are closed. The project plan is fully implemented."
+   ```
+
+   ```bash
+   echo "complete" > .forge-exit-status
+   ```
 
 ### Step 5: Loop
 
