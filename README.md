@@ -148,7 +148,7 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
   │        ├── PR awaiting merge ────▶ Stop loop, wait for merge     │
   │        │                           (forge run polls for changes) │
   │        │                                                         │
-  │        └── All issues closed ──────▶ /plan (audit for gaps)       │
+  │        └── All issues closed ──────▶ /plan (audit for gaps)      │
   │                                                                  │
   │   After each action, /forge loops back to /sync automatically.   │
   └──────────────────────────────────────────────────────────────────┘
