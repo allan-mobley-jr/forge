@@ -38,17 +38,18 @@ gh api rate_limit --jq '.resources.core | "GitHub API: \(.remaining)/\(.limit) r
 - If **remaining < 500**, inform the user the budget is getting low — the session may need to pause before completing all issues.
 - Otherwise, proceed normally.
 
-**Secondary rate limits:** GitHub enforces undocumented secondary limits (approximately 80 content-generating requests/minute, 500/hour) that are **not** exposed by `gh api rate_limit`. These are enforced with 403 responses containing a `Retry-After` header. If any `gh` command fails with a 403 error during the session:
+**Secondary rate limits:** GitHub enforces undocumented secondary limits (approximately 80 content-generating requests/minute, 500/hour) that are **not** exposed by `gh api rate_limit`. These trigger 403 responses with error text mentioning "secondary rate limit." If any `gh` command fails with a 403 error during the session:
 
-1. Check the error output for `Retry-After` or `secondary rate limit` text
-2. If present, wait for the specified duration (or 60 seconds if no `Retry-After` value):
+1. Check the error output for `secondary rate limit` text
+2. **If not present**, treat as a standard 403 (auth/permissions) — surface the error immediately and do not retry
+3. **If present**, wait 60 seconds before retrying:
    ```bash
    sleep 60
    ```
-3. Retry the failed command once
-4. If it fails again, pause the build loop and inform the user that secondary rate limits have been hit
+4. Retry the failed command once
+5. If it fails again, pause the build loop and inform the user that secondary rate limits have been hit
 
-All sub-skills (`/build`, `/revise`, `/plan`) should follow this same pattern when encountering 403 errors from `gh` commands.
+All sub-skills (`/build`, `/revise`, `/plan`) should follow this same pattern: only sleep/retry on confirmed secondary rate limit 403s; surface all other 403s immediately.
 
 ### Step 3: Sync state
 
@@ -217,4 +218,4 @@ After `/plan` completes, run `/clear` before starting the build loop — `/sync`
 - **Loop automatically.** Don't ask "should I continue?" — just keep building until something blocks you.
 - **Be observable.** Print clear status messages so the human can follow along in the terminal.
 - **Don't modify code directly.** The orchestrator routes to sub-skills. It doesn't write application code itself.
-- **Handle 403 errors gracefully.** If a `gh` command returns 403, check for `Retry-After` or `secondary rate limit` in the output. Sleep for the indicated duration (default 60s), then retry once. If the retry also fails, pause the loop and inform the user.
+- **Handle 403 errors carefully.** Only treat a 403 as secondary rate limiting (sleep 60s + retry once) when the error output mentions `secondary rate limit`. All other 403s are auth/permission errors — surface them immediately instead of retrying.
