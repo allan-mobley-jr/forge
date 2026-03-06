@@ -64,6 +64,38 @@ if [ "$REVIEW_DECISION" = "APPROVED" ]; then
 fi
 ```
 
+### Step 2.5: Check revision count
+
+Count prior revision attempts by looking for "## Revision Summary" comments already posted by previous `/revise` runs:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+# gh pr comment posts to the issues API endpoint, so count there
+REVISION_COUNT=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -s 'add | map(select(.body | test("^## Revision Summary"))) | length' || echo 0)
+MAX_REVISIONS=3
+```
+
+If the revision count has reached the limit, escalate instead of retrying:
+
+```bash
+if [ "$REVISION_COUNT" -ge "$MAX_REVISIONS" ]; then
+  gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:needs-human"
+  sleep 1
+  gh issue comment $ISSUE --body "$(cat <<ESCALATE
+## Revision Limit Reached
+
+This issue has been revised **${REVISION_COUNT}** times (limit: ${MAX_REVISIONS}) without converging on an approved solution.
+
+**Prior revision attempts are visible in PR #${PR_NUMBER} comments.**
+
+Human review is needed to determine the next approach — the automated revision cycle is not converging.
+ESCALATE
+)"
+  sleep 1
+  # Return to /forge — do not attempt another revision
+fi
+```
+
 ### Step 3: Claim the issue
 
 ```bash
@@ -88,41 +120,87 @@ git merge origin/main --no-edit
 
 **If there are merge conflicts:**
 
-1. Read the conflicted files and resolve them, favoring the PR branch's intent while incorporating main's changes.
-2. If conflicts are too complex to resolve confidently (e.g., both sides rewrote the same function with different logic), escalate:
+1. **List conflicted files:**
+   ```bash
+   CONFLICTS=$(git diff --name-only --diff-filter=U)
+   ```
 
-```bash
-gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-sleep 1
-gh issue comment $ISSUE --body "$(cat <<'COMMENT'
-## Agent Question
+2. **Classify each conflict.** Read the conflicted file and examine the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`). Categorize as:
+   - **Simple** — non-overlapping changes (e.g., different imports added, adjacent but non-intersecting edits, formatting-only differences). Resolve by keeping both sides' intent.
+   - **Complex** — both sides modified the same function body, rewrote the same logic block, or made semantically incompatible changes. These require human judgment.
 
-**Blocking:** Revision of Issue #ISSUE_NUMBER
+3. **Resolve simple conflicts.** For each simple conflict, edit the file to combine both changes logically, remove all conflict markers, and stage the file:
+   ```bash
+   git add <resolved-file>
+   ```
 
-**Context:**
-While syncing the PR branch with main, merge conflicts arose that require human judgment to resolve.
+4. **If any complex conflicts remain**, abort the merge and escalate:
+   ```bash
+   REMAINING_CONFLICTS=$(git diff --name-only --diff-filter=U)
+   git merge --abort
+   gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
+   sleep 1
+   gh issue comment $ISSUE --body "$(cat <<COMMENT
+   ## Merge Conflict — Human Review Needed
 
-**Conflicted files:**
-- [list of conflicted files]
+   While syncing PR branch \`${PR_BRANCH}\` with main, merge conflicts arose in files where both sides modified the same logic:
 
-**The question:**
-How should these conflicts be resolved? Should the PR branch's approach or main's changes take precedence?
+   **Conflicted files:**
+   $(echo "$REMAINING_CONFLICTS" | sed 's/^/- /')
 
-**Options considered:**
-- **Option A**: Keep the PR branch's implementation and adapt to main's new context
-- **Option B**: Rebase the branch on main and re-implement the changes
+   Some conflicts were too complex for automated resolution (both sides modified the same logic).
 
-**Default if no response in 24h:**
-Option A — preserve the existing PR work and adapt minimally.
+   **Options:**
+   1. Resolve conflicts manually on the branch
+   2. Close the PR and re-build from current main
 
----
-*Forge will check for your response on next session start.*
-COMMENT
-)"
-sleep 1
-```
+   COMMENT
+   )"
+   sleep 1
+   ```
+   Return to `/forge` after escalating.
 
-Return to `/forge` after escalating.
+5. **If all conflicts were resolved**, complete the merge and verify with quality checks:
+   ```bash
+   git commit --no-edit
+   ```
+
+   Run all four quality checks to catch regressions from the merge resolution, capturing any failures:
+   ```bash
+   QUALITY_ERROR=$(
+     {
+       pnpm lint &&
+       pnpm tsc --noEmit &&
+       pnpm test &&
+       pnpm build
+     } 2>&1
+   ) || true
+   ```
+
+   **If any check fails after conflict resolution**, the resolution introduced a regression. Abort:
+   ```bash
+   if [ $? -ne 0 ] || echo "$QUALITY_ERROR" | grep -qiE '(error|failed|FAIL)'; then
+     git reset --hard HEAD~1
+     gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
+     sleep 1
+     gh issue comment $ISSUE --body "$(cat <<COMMENT
+   ## Merge Conflict Resolution Failed Quality Checks
+
+   Auto-resolved merge conflicts in \`${PR_BRANCH}\`, but quality checks failed after resolution:
+
+   \`\`\`
+   $QUALITY_ERROR
+   \`\`\`
+
+   The merge resolution has been reverted. Human review needed.
+   COMMENT
+     )"
+     sleep 1
+   fi
+   ```
+   Return to `/forge` after escalating.
+
+   If all checks pass, proceed to Step 5.
 
 ### Step 5: Fetch and read all review comments
 
