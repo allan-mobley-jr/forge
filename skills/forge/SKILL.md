@@ -38,6 +38,19 @@ gh api rate_limit --jq '.resources.core | "GitHub API: \(.remaining)/\(.limit) r
 - If **remaining < 500**, inform the user the budget is getting low — the session may need to pause before completing all issues.
 - Otherwise, proceed normally.
 
+**Secondary rate limits:** GitHub enforces undocumented secondary limits (approximately 80 content-generating requests/minute, 500/hour) that are **not** exposed by `gh api rate_limit`. These trigger 403 responses with error text mentioning "secondary rate limit." If any `gh` command fails with a 403 error during the session:
+
+1. Check the error output for `secondary rate limit` text
+2. **If not present**, treat as a standard 403 (auth/permissions) — surface the error immediately and do not retry
+3. **If present**, wait 60 seconds before retrying:
+   ```bash
+   sleep 60
+   ```
+4. Retry the failed command once
+5. If it fails again, pause the build loop and inform the user that secondary rate limits have been hit
+
+All sub-skills (`/build`, `/revise`, `/plan`) should follow this same pattern: only sleep/retry on confirmed secondary rate limit 403s; surface all other 403s immediately.
+
 ### Step 3: Sync state
 
 Run `/sync` to read the current GitHub state. This produces a structured summary of:
@@ -196,7 +209,30 @@ The archive PR is independent of feature work.
 
 ### Step 7: Context management
 
-After `/plan` completes, run `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub. Do **not** run `/clear` between individual `/build` cycles — `/sync` is lightweight and `/build` benefits from cumulative context about what has been built.
+After `/plan` completes, run `/clear` before starting the build loop — `/sync` will re-establish all necessary context from GitHub.
+
+**Between build cycles:** After each `/build` completes, increment a persistent build counter and check if it's time to clear context. Note: `.forge-build-count` must be in the repository's `.gitignore` to prevent accidental commits.
+
+```bash
+COUNT=$(cat .forge-build-count 2>/dev/null || echo 0)
+COUNT=$((COUNT + 1))
+echo "$COUNT" > .forge-build-count
+
+if [ "$COUNT" -ge 3 ]; then
+  echo "0" > .forge-build-count
+  # Run /clear before the next /forge invocation
+fi
+```
+
+After every **3 completed builds**, run `/clear` before re-invoking `/forge`. This prevents context exhaustion during long sessions with many issues. The counter persists in `.forge-build-count` so it survives context clearing. `/sync` will re-establish all necessary state from GitHub after clearing.
+
+**Pre-emptive status file:** Write `.forge-exit-status` as `needs-restart` at the start of every `/forge` invocation (before `/sync`). Update it to `complete` or `needs-human` only after `/sync` confirms the appropriate state. This ensures a valid exit status exists even if the session terminates abruptly due to context exhaustion:
+
+```bash
+echo "needs-restart" > .forge-exit-status
+```
+
+**If context compaction occurs** (PreCompact hook fires), the next action after compaction should be to re-run `/forge` — the PreCompact hook already prints recovery instructions. Do not attempt to continue a partially-completed `/build` after compaction; instead, let `/sync` detect the in-progress issue and handle it.
 
 ## Rules
 
@@ -205,3 +241,5 @@ After `/plan` completes, run `/clear` before starting the build loop — `/sync`
 - **Loop automatically.** Don't ask "should I continue?" — just keep building until something blocks you.
 - **Be observable.** Print clear status messages so the human can follow along in the terminal.
 - **Don't modify code directly.** The orchestrator routes to sub-skills. It doesn't write application code itself.
+- **Handle 403 errors carefully.** Only treat a 403 as secondary rate limiting (sleep 60s + retry once) when the error output mentions `secondary rate limit`. All other 403s are auth/permission errors — surface them immediately instead of retrying.
+- **Guard against context exhaustion.** Write `.forge-exit-status` as `needs-restart` at the start of each invocation. Run `/clear` after every 3 builds. After compaction, re-run `/forge` to resync state and continue.
