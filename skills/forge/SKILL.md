@@ -145,6 +145,23 @@ Action: Run /revise
 Message: "Found {N} issues needing PR revision. Starting with Issue #{X} — {title}"
 ```
 
+#### Case B4: Issues with `agent:done` label (PR awaiting merge)
+An issue has an open PR that hasn't been merged yet. The sequential lifecycle requires merge before moving on.
+
+```
+Action: Stop the loop. Display the PR URL and status.
+Message: "Issue #{X} has an open PR awaiting merge:
+  PR #{P}: {url} — status: {review decision}
+
+  Merge or close the PR before the next issue can be built."
+```
+
+Write `.forge-exit-status` as `needs-human` and return — do not proceed to build new issues.
+
+```bash
+echo "needs-human" > .forge-exit-status
+```
+
 #### Case C: Open issues with `agent:ready` label
 Issues are ready to be built.
 
