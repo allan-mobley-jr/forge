@@ -195,12 +195,14 @@ Message: "All {N} remaining issues are blocked. Here's the dependency situation:
 #### Case E: All issues are closed
 The project is complete (or this phase of it is). Before announcing, check for audit instructions.
 
-1. Read `PROMPT.md` and look for audit instructions (e.g., a section describing what to verify after all issues are implemented, gaps to check for, or standards to validate against).
+1. Read the archived original prompt in `graveyard/` (the original `PROMPT.md` is archived there by `/plan`) and check for audit instructions (e.g., a section describing what to verify after all issues are implemented, gaps to check for, or standards to validate against). Also review the closed issues to understand what was built.
 
 2. **If audit instructions are present:** Follow them — review the codebase against the original requirements, file `triage`-labeled issues for any gaps or missing functionality discovered, then re-invoke `/forge` to process them.
 
    ```bash
-   gh issue create --title "{gap title}" --body "{description}" --label "triage"
+   gh issue create --title "{gap title}" --label "triage" --body-file - <<'EOF'
+   {description}
+   EOF
    ```
 
 3. **If no audit instructions are present** (or audit is complete with no gaps found): Announce completion and write the exit status.
