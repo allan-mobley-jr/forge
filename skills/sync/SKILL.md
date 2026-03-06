@@ -81,6 +81,50 @@ gh issue edit {N} --remove-label "agent:blocked" --add-label "agent:ready"
 sleep 1
 ```
 
+**Circular dependency detection:** After processing blocked issues above, if ALL remaining open issues are still labeled `agent:blocked` (none were promoted to `agent:ready`), check for dependency cycles. Extract the dependency graph from issue bodies:
+
+```bash
+# Build adjacency list: for each blocked issue, find its dependencies
+BLOCKED_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:blocked"))] | .[].number')
+
+for ISSUE_NUM in $BLOCKED_ISSUES; do
+  DEPS=$(echo "$OPEN_ISSUES" | jq -r ".[] | select(.number == $ISSUE_NUM) | .body" | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+  echo "$ISSUE_NUM depends on: $DEPS"
+done
+```
+
+To detect cycles, attempt a topological sort. If it fails, a cycle exists:
+
+```bash
+# If a cycle is detected, identify the issues involved and break the weakest link
+# (the dependency from the lowest-priority issue in the cycle).
+# Remove that dependency reference and relabel the unblocked issue as agent:ready.
+```
+
+If a cycle is found:
+1. Identify the cycle members (e.g., A → B → C → A)
+2. Find the lowest-priority issue in the cycle (by `priority:*` label — low < medium < high)
+3. Remove that issue's blocking dependency by posting a comment explaining the cycle was broken
+4. Relabel the unblocked issue as `agent:ready`:
+
+```bash
+gh issue edit {UNBLOCKED} --remove-label "agent:blocked" --add-label "agent:ready"
+sleep 1
+gh issue comment {UNBLOCKED} --body "$(cat <<CYCLE
+## Circular Dependency Detected
+
+A dependency cycle was found: {cycle description, e.g., #3 → #5 → #7 → #3}
+
+To break the deadlock, this issue's dependency on #{REMOVED_DEP} has been dropped. This issue is now ready to build.
+
+The dependency was chosen for removal because this issue has the lowest priority in the cycle.
+CYCLE
+)"
+sleep 1
+```
+
+If no cycle is found but all issues remain blocked, report this in the summary as a potential deadlock requiring human review.
+
 ### 3b. Process triage issues
 
 For any issue labeled `triage`, classify it and promote it into the agent workflow. Read the issue title and body (already in `$OPEN_ISSUES`) and infer labels:
