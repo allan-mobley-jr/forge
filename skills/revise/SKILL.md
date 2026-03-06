@@ -9,29 +9,41 @@ allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEd
 
 # /revise — Address PR Review Feedback
 
-You are the Forge revision agent. Your job is to pick up one issue labeled `agent:revision-needed`, read the PR review comments left by the human reviewer, apply fixes on the existing branch, and push updates to the same PR. You handle exactly one issue per invocation — then return control to `/forge`.
+You are the Forge revision agent. Your job is to pick up the `agent:done` issue whose PR has `CHANGES_REQUESTED`, read the PR review comments left by the human reviewer, apply fixes on the existing branch, and push updates to the same PR. You handle exactly one issue per invocation — then return control to `/forge`.
 
 ## Revision Cycle
 
-### Step 1: Find the next revision-needed issue
+### Step 1: Find the issue needing revision
+
+The `/forge` orchestrator identifies the `agent:done` issue with `CHANGES_REQUESTED` on its PR and routes here. Find it:
 
 ```bash
-gh issue list --state open --label "agent:revision-needed" --json number,title,body,labels --jq 'sort_by(.number) | .[0]'
+# Get all agent:done issues
+DONE_ISSUES=$(gh issue list --state open --label "agent:done" --json number,title,body,labels --jq 'sort_by(.number)')
+
+# For each, check if its PR has CHANGES_REQUESTED
+for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
+  PR_REVIEW=$(gh pr list --state open --json headRefName,reviewDecision \
+    --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | .[0]")
+  if [ -n "$PR_REVIEW" ] && [ "$PR_REVIEW" != "null" ]; then
+    ISSUE=$ISSUE_NUM
+    break
+  fi
+done
 ```
 
-If no issues have the `agent:revision-needed` label, report this and return to `/forge`.
+If no issues have `CHANGES_REQUESTED`, report this and return to `/forge`.
 
 ### Step 2: Find the linked PR
 
 The PR branch follows the naming convention `agent/issue-{N}-*`. Find it:
 
 ```bash
-ISSUE={number}
 PR_JSON=$(gh pr list --state open --json number,headRefName,url,reviewDecision \
   --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | sort_by(.number) | .[0]")
 ```
 
-If `PR_JSON` is empty or null, no open PR exists for this issue. The PR may have been closed. Relabel the issue back to `agent:ready` so `/build` can retry:
+If `PR_JSON` is empty or null, no open PR exists for this issue. Remove `agent:done` so the issue returns to backlog:
 
 ```bash
 PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty')
@@ -45,19 +57,18 @@ PR_URL=$(echo "$PR_JSON" | jq -r '.url')
 REVIEW_DECISION=$(echo "$PR_JSON" | jq -r '.reviewDecision')
 ```
 
-If no open PR is found for this issue, the PR may have been closed. Relabel the issue back to `agent:ready` so `/build` can retry:
+If no open PR is found for this issue, remove the label so the issue returns to backlog:
 
 ```bash
-gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:ready"
+gh issue edit $ISSUE --remove-label "agent:done"
 ```
 
 Report this and return to `/forge`.
 
-**Guard: If `reviewDecision` is `APPROVED`, the reviewer has approved despite any stale comment threads.** Remove `agent:revision-needed`, add `agent:done`, and return to `/forge` without making changes:
+**Guard: If `reviewDecision` is `APPROVED`, the reviewer has approved despite any stale comment threads.** Keep `agent:done` and return to `/forge` without making changes:
 
 ```bash
 if [ "$REVIEW_DECISION" = "APPROVED" ]; then
-  gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:done"
   # Return to /forge — reviewer approved, no revision needed
 fi
 ```
@@ -77,7 +88,7 @@ If the revision count has reached the limit, escalate instead of retrying:
 
 ```bash
 if [ "$REVISION_COUNT" -ge "$MAX_REVISIONS" ]; then
-  gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:needs-human"
+  gh issue edit $ISSUE --remove-label "agent:done" --add-label "agent:needs-human"
   gh issue comment $ISSUE --body "$(cat <<ESCALATE
 ## Revision Limit Reached
 
@@ -95,7 +106,7 @@ fi
 ### Step 3: Claim the issue
 
 ```bash
-gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:in-progress"
+gh issue edit $ISSUE --remove-label "agent:done" --add-label "agent:in-progress"
 echo $ISSUE > .forge-current-issue
 ```
 
@@ -337,7 +348,7 @@ After completing (success or failure), end with:
 - **One issue per invocation.** Never batch multiple revision issues.
 - **No review or test sub-agents.** The human IS the reviewer. Tests already exist from the original `/build`. Only spawn the debug agent if quality checks fail.
 - **Preserve existing tests.** Do not modify test files unless a review comment specifically asks for it. If your code changes cause test failures, fix the implementation to match the tests, not the other way around.
-- **Don't exceed the issue's scope.** Only address what the reviewer asked for. Don't refactor surrounding code or add features. If you discover bugs or improvements outside scope, file a `triage`-labeled issue instead of fixing inline.
+- **Don't exceed the issue's scope.** Only address what the reviewer asked for. Don't refactor surrounding code or add features. If you discover bugs or improvements outside scope, file a new issue (with `--label "ai-generated"`) instead of fixing inline.
 - **Every comment must be resolved or escalated.** Don't silently skip feedback.
 - **Always push before updating labels.** The branch must be updated on the remote before marking the issue done.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.

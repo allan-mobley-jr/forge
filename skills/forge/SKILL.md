@@ -67,12 +67,11 @@ All sub-skills (`/build`, `/revise`, `/plan`) should follow this same pattern: o
 
 Run `/sync` to read the current GitHub state. This produces a structured summary of:
 - Closed issues (completed work)
-- In-progress issues
-- Ready-to-build issues
-- Revision-needed issues (PRs with review feedback)
-- Blocked issues
+- In-progress issues (stale or resuming)
+- Issues awaiting merge (agent:done)
+- Issues with PRs needing revision (agent:done with CHANGES_REQUESTED)
 - Issues needing human input
-- Open PRs
+- Backlog issues (no agent label)
 
 ### Step 3.5: Write status file
 
@@ -85,18 +84,16 @@ cat > .forge-status.json <<EOF
   "issues": {
     "total": TOTAL,
     "closed": CLOSED,
-    "ready": READY,
     "in_progress": IN_PROGRESS,
-    "blocked": BLOCKED,
     "needs_human": NEEDS_HUMAN,
-    "revision_needed": REVISION,
-    "done_awaiting_merge": AWAITING
+    "done_awaiting_merge": AWAITING,
+    "backlog": BACKLOG
   }
 }
 EOF
 ```
 
-Replace TOTAL, CLOSED, READY, etc. with the actual counts from the `/sync` summary. Define TOTAL as the sum of labeled issue buckets only: TOTAL = CLOSED + READY + IN_PROGRESS + BLOCKED + NEEDS_HUMAN + REVISION + AWAITING. Do not include unlabeled or triage issues — they are outside the agent workflow and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
+Replace TOTAL, CLOSED, etc. with the actual counts from the `/sync` summary. Define TOTAL as the sum of all tracked issue states: TOTAL = CLOSED + IN_PROGRESS + NEEDS_HUMAN + AWAITING. Do not include backlog issues — they are unclaimed and including them would break the Stop hook's completion check (`closed == total`). This file is read by the PreCompact hook (for context recovery after compaction) and the Stop hook (for exit status detection by the `forge run` loop).
 
 ### Step 3.7: Clean up merged branches
 
@@ -116,17 +113,9 @@ This is non-blocking — failures are silently ignored. Do not delete branches t
 
 ### Step 4: Route based on state
 
-Evaluate the sync output and take the appropriate action:
+Evaluate the sync output and take the appropriate action. Find the lowest-numbered open issue and check its state:
 
-#### Case A: Zero issues exist
-The project has no issues filed yet. This means planning hasn't happened.
-
-```
-Action: Run /plan
-Message: "No issues found. Starting the planning phase..."
-```
-
-#### Case B: Issues exist with `agent:needs-human` label
+#### Case A: `agent:needs-human` on any issue
 At least one issue is blocked on a human decision. Surface these immediately.
 
 ```
@@ -139,30 +128,20 @@ Wait: Do not proceed to building until the user addresses these or explicitly sa
 
 If the user provides an answer in the chat:
 1. Post their answer as a comment on the issue
-2. Remove `agent:needs-human` label, add `agent:ready`
-3. Continue to Case C
+2. Remove `agent:needs-human` label
+3. Continue to next applicable case
 
-#### Case B2: Unlabeled issues exist (non-blocking)
-The sync summary shows issues in the "Unlabeled" row — open issues with no `agent:*` or `triage` label.
+#### Case B: `agent:done` on the current issue
+Check the PR review state:
 
-```
-Action: Surface them to the user, then continue to Case C/D/E
-Message: "These issues are not in the agent workflow: #X, #Y.
-  Add the `triage` label to include them, or close them if they're not needed."
-```
-
-Do not block on this — inform the user and proceed to the next applicable case.
-
-#### Case B3: Issues with `agent:revision-needed` label
-A PR has review comments that need to be addressed. This takes priority over building new issues because revising existing work gets PRs closer to merge.
+**If `CHANGES_REQUESTED`:** Route to `/revise`.
 
 ```
 Action: Run /revise
-Message: "Found {N} issues needing PR revision. Starting with Issue #{X} — {title}"
+Message: "Issue #{X} has review feedback on its PR. Starting revision..."
 ```
 
-#### Case B4: Issues with `agent:done` label (PR awaiting merge)
-An issue has an open PR that hasn't been merged yet. The sequential lifecycle requires merge before moving on.
+**Otherwise (awaiting review or approved):** Block. The sequential lifecycle requires merge before moving on.
 
 Look up the PR for the done issue using the `/sync` Open PRs data, or resolve it directly:
 
@@ -185,30 +164,31 @@ Write `.forge-exit-status` as `needs-human` and return — do not proceed to bui
 echo "needs-human" > .forge-exit-status
 ```
 
-#### Case C: Open issues with `agent:ready` label
-Issues are ready to be built.
+#### Case C: `agent:in-progress` on an issue (crash recovery)
+Check for an existing branch or PR:
+
+```bash
+REMOTE_BRANCH=$(git branch -r --list "origin/agent/issue-${ISSUE}-*" | head -1 | tr -d ' ')
+```
+
+If a branch exists, route to `/build` which will detect and resume from the existing branch.
 
 ```
 Action: Run /build
-Message: "Found {N} issues ready to build. Starting with Issue #{X} — {title}"
+Message: "Issue #{X} was interrupted mid-build. Resuming from existing branch..."
 ```
 
-#### Case D: Open issues but none are `agent:ready`
-All remaining issues are either blocked or in-progress. Check why:
+If no branch exists, the label is stale — `/sync` should have already cleaned it up, but if not, remove the label and continue to Case D.
 
-- If issues are `agent:blocked`: Check if their dependencies have been met since last sync. If so, relabel them `agent:ready` and proceed to Case C.
-- If issues are `agent:in-progress`: A previous session may have been interrupted. Check if there's an open PR for the issue:
-  ```bash
-  gh pr list --state open --json number,headRefName --jq '.[] | select(.headRefName | startswith("agent/issue-{N}-"))'
-  ```
-  If a PR exists, inform the user. If no PR or branch exists, relabel as `agent:ready` and proceed.
-- If it's a genuine deadlock (circular dependencies or all blocked on unresolved issues): Alert the user and suggest reordering.
+#### Case D: No `agent:*` label on the next issue (backlog)
+Issues are ready to be built. Pick the lowest-numbered open issue without an `agent:*` label.
 
 ```
-Message: "All {N} remaining issues are blocked. Here's the dependency situation: ..."
+Action: Run /build
+Message: "Found {N} backlog issues. Starting with Issue #{X} — {title}"
 ```
 
-#### Case E: All issues are closed
+#### Case E: No open issues
 All filed issues have been closed. Re-invoke `/plan` — it will detect `graveyard/` and enter audit mode, comparing the original requirements against what was built and filing new issues for any gaps.
 
 ```
@@ -251,9 +231,8 @@ After `/build` completes one issue (success or failure), **immediately re-invoke
 
 The loop continues until:
 - All issues are closed (Case E)
-- An issue needs human input (Case B)
-- A PR is awaiting merge (Case B4)
-- A deadlock is detected (Case D)
+- An issue needs human input (Case A)
+- A PR is awaiting merge (Case B)
 - The user interrupts (Ctrl+C)
 
 If `/build` returns without completing (no PR opened, no escalation posted), check the terminal output for infrastructure errors:

@@ -158,7 +158,7 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
 The agent reads PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria. On the first run, PROMPT.md contains your app description; after planning, it's archived to `graveyard/`. When all issues are eventually closed, `/forge` routes back to `/plan`, which detects `graveyard/` and enters audit mode — comparing the original requirements against closed issues and filing new issues for any gaps.
 
 **What /build does (one issue per cycle):**
-The agent picks the next `agent:ready` issue, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. Out-of-scope bugs or improvements discovered during implementation are filed as `triage` issues rather than fixed inline.
+The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
 
 **What /revise does:**
 When you request changes on a PR, the agent picks it up on the next cycle. It reads your review comments, applies fixes, re-runs quality checks, pushes, and re-requests your review.
@@ -194,53 +194,22 @@ Forge tracks all project state through GitHub Issue labels. There are no databas
 
 ### How Labels Work
 
-Every issue gets labels from three categories:
-
-**State** — Where the issue is in the workflow:
+Only one issue is ever active. The agent works on the lowest-numbered open issue. There are just 3 agent labels plus one metadata label:
 
 | Label | What it means |
 |-------|---------------|
-| `triage` | You filed this issue and want the agent to work on it. The agent will classify it and pick it up on the next cycle. |
-| `agent:ready` | The issue is ready to be built. The agent will claim it next. |
 | `agent:in-progress` | The agent is actively working on this issue right now. |
 | `agent:done` | The agent finished and opened a PR. Waiting for you to review and merge. |
-| `agent:revision-needed` | You requested changes on the PR. The agent will address your review comments on the next cycle. |
-| `agent:blocked` | This issue depends on another issue that hasn't been completed yet. The agent will automatically unblock it when dependencies close. |
 | `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
-
-**Type** — What kind of work this is:
-
-| Label | What it means |
-|-------|---------------|
-| `type:feature` | New functionality |
-| `type:bugfix` | Fixing something broken |
-| `type:config` | Infrastructure, configuration, deployment |
-| `type:design` | Visual or UX changes |
-
-**Priority** — How urgent (informational, does not change build order):
-
-| Label | What it means |
-|-------|---------------|
-| `priority:high` | Important — should be addressed first |
-| `priority:medium` | Normal priority (default) |
-| `priority:low` | Can wait |
-
-**Metadata:**
-
-| Label | What it means |
-|-------|---------------|
 | `ai-generated` | The agent created this issue or PR. Tells you at a glance what the agent filed vs. what you filed. |
+
+- **No `agent:*` label** = backlog. The issue is unclaimed and ready to build when its turn comes.
+- **Issue ordering = dependency order.** Lower-numbered issues are built first. `/plan` files issues in the right order so dependencies are naturally satisfied.
+- **Revision detection** is automatic: `/sync` checks if an `agent:done` issue's PR has `CHANGES_REQUESTED` and routes to `/revise` — no separate label needed.
 
 ### Filing Issues for the Agent
 
-When the agent plans a project, it creates issues with all the right labels automatically. But if you want to file an issue yourself and have the agent work on it:
-
-1. Create the issue on GitHub as you normally would
-2. Add the **`triage`** label — that's it
-
-The agent picks up `triage` issues on its next sync cycle, classifies them (adds type and priority labels), and promotes them to `agent:ready` so they enter the build queue.
-
-If you file an issue without any labels, the agent will notice and remind you — but it won't assume you want it to work on every issue you create. The `triage` label is your explicit "agent, handle this" signal.
+When the agent plans a project, it creates issues automatically. If you want to file an issue yourself and have the agent work on it, just create it on GitHub — that's it. The agent picks up the lowest-numbered open issue without an `agent:*` label on its next cycle.
 
 ### Labels You Can Use Freely
 
@@ -251,7 +220,6 @@ These labels are for your own organization and the agent ignores them:
 
 ### What Not to Do
 
-- **Don't add `agent:ready` manually** — use `triage` instead, which handles classification for you
 - **Don't remove `agent:in-progress`** while the agent is working — let `/sync` handle stale issues
 - **Don't create labels starting with `agent:`** — that namespace is reserved for the agent's state machine
 
@@ -356,9 +324,8 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 | PR quality checks keep failing | The agent gets 2 attempts (initial + debug retry). After that, the issue is labeled `agent:needs-human`. Check the branch — work-in-progress is always pushed. |
 | Rate limit warnings | GitHub allows 5,000 requests/hour. Forge throttles mutations with `sleep 1`, so this is rare. If it happens, wait for the reset time shown in the warning. |
 | Session ends unexpectedly | Context windows are finite. Use `forge run` for automatic restarts with fresh context. `/sync` recovers state from GitHub each time. |
-| Issues stuck as `agent:blocked` | Dependencies haven't resolved yet. Run `claude` — `/sync` promotes blocked issues when their dependencies close. If it's a circular dependency, the agent will alert you. |
 | "Not a Forge project" error | Run commands from the project root (where `PROMPT.md` and `CLAUDE.md` live). |
-| Want to add features after initial build | Create a GitHub Issue, add the `triage` label, and start a new session. The agent classifies and builds it. |
+| Want to add features after initial build | Create a GitHub Issue and start a new session. The agent picks it up by issue number order. |
 
 ## Commands
 
