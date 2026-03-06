@@ -47,7 +47,6 @@ If any dependency is still `OPEN`, skip this issue and try the next ready one. I
 ```bash
 ISSUE={number}
 gh issue edit $ISSUE --remove-label "agent:ready" --add-label "agent:in-progress"
-sleep 1
 echo $ISSUE > .forge-current-issue
 ```
 
@@ -75,7 +74,6 @@ git add <files modified so far>
 git commit -m "wip: timeout after ${ELAPSED}s on issue #${ISSUE}" || true
 git push -u origin HEAD 2>/dev/null || true
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-sleep 1
 gh issue comment $ISSUE --body "$(cat <<TIMEOUT
 ## Build Timeout
 
@@ -87,7 +85,6 @@ Work-in-progress has been pushed to the branch if possible. A human should eithe
 3. Increase the timeout for complex issues
 TIMEOUT
 )"
-sleep 1
 ```
 
 Return to `/forge` so other ready issues can proceed.
@@ -242,9 +239,7 @@ Update the issue:
 ```bash
 PR_URL=$(gh pr view --json url -q .url)
 gh issue comment $ISSUE --body "PR opened: $PR_URL"
-sleep 1
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:done"
-sleep 1
 ```
 
 ### Step 9: On failure — escalate
@@ -262,7 +257,6 @@ git push -u origin agent/issue-{N}-{slug}
 
 # Escalate
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-sleep 1
 gh issue comment $ISSUE --body "$(cat <<'EOF'
 ## Build Failed
 
@@ -279,7 +273,6 @@ gh issue comment $ISSUE --body "$(cat <<'EOF'
 **Branch:** `agent/issue-{N}-{slug}` (pushed with current state)
 EOF
 )"
-sleep 1
 ```
 
 ### Step 10: Return to orchestrator

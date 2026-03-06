@@ -62,10 +62,9 @@ Create milestones on GitHub. Note: `gh` does not have a built-in milestone comma
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 gh api "repos/$REPO/milestones" -f title="Phase 0: Infrastructure" -f state="open" -f description="Project scaffold, configuration, and base layout"
-sleep 1
 ```
 
-Create one milestone per phase. Maximum 5 milestones. **Wait 1 second between each milestone creation** (`sleep 1`) to stay within GitHub's secondary rate limits.
+Create one milestone per phase. Maximum 5 milestones.
 
 ### Step 4b: Rate limit checkpoint
 
@@ -115,10 +114,7 @@ EOF
   --label "type:feature" \
   --label "agent:ready" \
   --milestone "Phase 0: Infrastructure"
-sleep 1
 ```
-
-**Wait 1 second after each issue creation** (`sleep 1`). GitHub's secondary rate limits cap content-generating requests at 80/minute and 500/hour. With up to 40 issues plus comments, pausing between mutations prevents hitting these limits.
 
 **Label rules:**
 - All issues get a `type:` label (`type:feature`, `type:config`, `type:design`, `type:bugfix`)
@@ -133,10 +129,9 @@ After all issues are filed, go back and comment on each issue to document what i
 
 ```bash
 gh issue comment {N} --body "Unblocks: #{X}, #{Y}"
-sleep 1
 ```
 
-**Wait 1 second after each comment** (`sleep 1`). This creates a bidirectional dependency map in the issue comments.
+This creates a bidirectional dependency map in the issue comments.
 
 ### Step 6b: Validate dependency graph
 
@@ -283,7 +278,7 @@ gh api rate_limit --jq '.resources.core | "Rate limit: \(.remaining)/\(.limit) r
 
 If fewer than 500 requests remain, warn the user and suggest waiting until the reset time before filing a large plan.
 
-**All mutation calls** (`gh issue create`, `gh issue comment`, `gh api repos/.../milestones`) **must be followed by `sleep 1`**. This is the single most effective rate limit mitigation — it keeps forge well within GitHub's secondary limits (80 content-generating requests/minute, 500/hour) for projects of any size.
+Rate limiting for GitHub mutations is handled automatically by the PostToolUse hook — no explicit `sleep` commands are needed in skill code.
 
 ## Rules
 

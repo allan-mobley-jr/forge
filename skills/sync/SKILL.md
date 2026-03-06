@@ -73,7 +73,6 @@ MERGED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[
 
 ```bash
 gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:needs-human"
-sleep 1
 gh issue comment {N} --body "$(cat <<STALE
 ## Previous PR Was Closed Without Merging
 
@@ -85,21 +84,18 @@ A human should review the closed PR feedback and either:
 3. Close the issue if it's no longer needed
 STALE
 )"
-sleep 1
 ```
 
 - **If a merged PR exists** (`MERGED_PR > 0`): The PR was merged but the issue label was never updated (session crashed after merge). Mark as done:
 
 ```bash
 gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:done"
-sleep 1
 ```
 
 - **If no closed PR exists at all**: The issue was likely abandoned by a crashed session (no PR was ever opened). Relabel as `agent:ready` to retry:
 
 ```bash
 gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:ready"
-sleep 1
 ```
 
 **Blocked issues with met dependencies:** For any issue labeled `agent:blocked`, extract its body from the already-fetched `$OPEN_ISSUES` to find dependency references:
@@ -112,7 +108,6 @@ This uses the data already in memory — no additional API call needed. Check if
 
 ```bash
 gh issue edit {N} --remove-label "agent:blocked" --add-label "agent:ready"
-sleep 1
 ```
 
 **Circular dependency detection:** After processing blocked issues above, if ALL remaining open issues are still labeled `agent:blocked` (none were promoted to `agent:ready`), check for dependency cycles. Extract the dependency graph from issue bodies:
@@ -156,7 +151,6 @@ If a cycle is found:
 
 ```bash
 gh issue edit {UNBLOCKED} --remove-label "agent:blocked" --add-label "agent:ready"
-sleep 1
 gh issue comment {UNBLOCKED} --body "$(cat <<'CYCLE'
 ## Circular Dependency Detected
 
@@ -167,7 +161,6 @@ To break the deadlock, this issue's dependency on #{REMOVED_DEP} has been droppe
 The dependency was chosen for removal because this issue has the lowest priority in the cycle.
 CYCLE
 )"
-sleep 1
 ```
 
 If no cycle is found but all issues remain blocked, report this in the summary as a potential deadlock requiring human review.
@@ -191,11 +184,9 @@ For any issue labeled `triage`, classify it and promote it into the agent workfl
 ```bash
 # If dependencies are met (or none referenced):
 gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:ready"
-sleep 1
 
 # If dependencies are still open:
 gh issue edit {N} --remove-label "triage" --add-label "type:{inferred}" --add-label "priority:medium" --add-label "agent:blocked"
-sleep 1
 ```
 
 ### 3c. Detect stuck `agent:done` issues
@@ -211,13 +202,11 @@ If no open PR exists for an `agent:done` issue, determine why:
    If a merged PR exists but the issue is still open (GitHub's `Closes #N` didn't fire), close it:
    ```bash
    gh issue close {N}
-   sleep 1
    ```
 
 2. **PR was closed without merging** — Relabel so the agent can retry:
    ```bash
    gh issue edit {N} --remove-label "agent:done" --add-label "agent:ready"
-   sleep 1
    ```
 
 ### 3d. Detect PRs needing revision
@@ -230,7 +219,6 @@ DONE_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | 
 for ISSUE_NUM in $DONE_ISSUES; do
   if echo "$OPEN_PRS" | jq -e ".[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")" >/dev/null 2>&1; then
     gh issue edit "$ISSUE_NUM" --remove-label "agent:done" --add-label "agent:revision-needed"
-    sleep 1
   fi
 done
 ```
@@ -275,7 +263,7 @@ Next action: {one of the following}
 ## Rate Limit Notes
 
 - The batched open-issues query (Step 2) reduces API calls from 7 to 3 per sync cycle.
-- All mutation calls (`gh issue edit`) must be followed by `sleep 1` to respect GitHub's secondary rate limits.
+- Rate limiting for GitHub mutations is handled automatically by the PostToolUse hook — no explicit `sleep` commands are needed.
 - Dependency checks in Step 3 use the `body` field already fetched in the batched query — avoid re-fetching issue bodies when the data is already in `$OPEN_ISSUES`.
 
 ## Output only

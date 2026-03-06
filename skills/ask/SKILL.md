@@ -71,11 +71,9 @@ Replace the bracketed placeholders with actual content before posting.
 ```bash
 # Mark as needing human input
 gh issue edit "$ISSUE" --add-label "agent:needs-human"
-sleep 1
 
 # Remove in-progress if present
 gh issue edit "$ISSUE" --remove-label "agent:in-progress" 2>/dev/null || true
-sleep 1
 ```
 
 ### 4. Return control
