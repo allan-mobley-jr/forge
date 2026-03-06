@@ -223,7 +223,14 @@ gh issue list --state open --label "ai-generated" --limit 1000 --json number --j
 ```
 
 - **If new issues exist:** Continue the loop — re-invoke `/forge` to process them.
-- **If no new issues:** The project is complete. Announce completion and write the exit status.
+- **If no new issues:** The project is complete. Close any milestones that have no remaining open issues, then announce completion.
+
+   ```bash
+   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+   gh api "repos/$REPO/milestones" --jq '.[] | select(.open_issues == 0) | .number' | while read num; do
+     gh api "repos/$REPO/milestones/$num" -X PATCH -f state="closed"
+   done
+   ```
 
    ```
    Action: Announce completion
