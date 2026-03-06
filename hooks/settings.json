@@ -109,7 +109,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys,time; d=json.load(sys.stdin); cmd=d.get('tool_input',{}).get('command',''); gh_muts=['gh issue create','gh issue comment','gh issue edit','gh pr create','gh label create']; api_flags=[' -f ',' -X POST',' -X PATCH',' -X PUT',' -X DELETE']; is_mut=any(m in cmd for m in gh_muts) or ('gh api' in cmd and any(f in cmd for f in api_flags)); time.sleep(1) if is_mut else None\""
+            "command": "python3 -c \"import json,sys,time; d=json.load(sys.stdin); cmd=d.get('tool_input',{}).get('command',''); gh_muts=['gh issue create','gh issue comment','gh issue edit','gh issue close','gh pr create','gh pr comment','gh pr edit','gh label create']; api_flags=[' -f ',' -X POST',' -X PATCH',' -X PUT',' -X DELETE']; is_mut=any(m in cmd for m in gh_muts) or ('gh api' in cmd and any(f in cmd for f in api_flags)); time.sleep(1) if is_mut else None\""
           }
         ]
       }
