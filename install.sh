@@ -592,7 +592,23 @@ if total > 0:
                     needs-human)
                         echo ""
                         echo "[forge] Action required. Review open PRs and check GitHub issues."
-                        exit 1
+                        echo "[forge] Polling for PR review changes every 60s (Ctrl+C to stop)..."
+                        while true; do
+                            sleep 60
+                            # Check if any open agent PR has CHANGES_REQUESTED
+                            review_change=$(gh pr list --state open --json headRefName,reviewDecision \
+                                --jq '[.[] | select(.headRefName | startswith("agent/")) | select(.reviewDecision == "CHANGES_REQUESTED")] | length' 2>/dev/null || echo "0")
+                            # Check if any open agent PR was merged (no longer open)
+                            agent_prs=$(gh pr list --state open --json headRefName \
+                                --jq '[.[] | select(.headRefName | startswith("agent/"))] | length' 2>/dev/null || echo "1")
+                            if [ "$review_change" -gt 0 ]; then
+                                echo "[forge] Review comments detected. Restarting to handle revisions..."
+                                break
+                            elif [ "$agent_prs" -eq 0 ]; then
+                                echo "[forge] PR merged. Restarting to continue build loop..."
+                                break
+                            fi
+                        done
                         ;;
                     error)
                         echo ""
