@@ -176,7 +176,8 @@ REMOTE_BRANCH=$(git branch -r --list "origin/agent/issue-${ISSUE}-*" | head -1 |
 If a branch exists, check whether the issue has an open PR with `CHANGES_REQUESTED` before routing. This handles the case where a `/revise` session crashed mid-revision:
 
 ```bash
-PR_REVIEW=$(echo "$OPEN_PRS" | jq -r "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | length")
+PR_REVIEW=$(gh pr list --state open --json headRefName,reviewDecision \
+  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | length")
 ```
 
 - If `PR_REVIEW > 0`: route to `/revise` (the crash happened during a revision cycle)

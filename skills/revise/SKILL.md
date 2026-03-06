@@ -210,6 +210,7 @@ git merge origin/main --no-edit
    ```bash
    if [ $? -ne 0 ] || echo "$QUALITY_ERROR" | grep -qiE '(error|failed|FAIL)'; then
      git revert HEAD --no-edit
+     git push origin $PR_BRANCH
      gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
      gh issue comment $ISSUE --body "$(cat <<COMMENT
    ## Merge Conflict Resolution Failed Quality Checks

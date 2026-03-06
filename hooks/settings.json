@@ -18,6 +18,7 @@
       "Bash(git show *)",
       "Bash(git status *)",
       "Bash(git stash *)",
+      "Bash(git revert *)",
       "Bash(gh issue *)",
       "Bash(gh pr *)",
       "Bash(gh api *)",

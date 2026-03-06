@@ -603,7 +603,8 @@ step_19_branch_protection() {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           {
-            "context": "Quality Checks"          }
+            "context": "Quality Checks"
+          }
         ]
       }
     },
