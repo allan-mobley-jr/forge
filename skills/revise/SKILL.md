@@ -104,6 +104,7 @@ git merge origin/main --no-edit
 
 4. **If any complex conflicts remain**, abort the merge and escalate:
    ```bash
+   REMAINING_CONFLICTS=$(git diff --name-only --diff-filter=U)
    git merge --abort
    gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
    sleep 1
@@ -113,7 +114,7 @@ git merge origin/main --no-edit
    While syncing PR branch \`${PR_BRANCH}\` with main, merge conflicts arose in files where both sides modified the same logic:
 
    **Conflicted files:**
-   $(echo "$CONFLICTS" | sed 's/^/- /')
+   $(echo "$REMAINING_CONFLICTS" | sed 's/^/- /')
 
    Some conflicts were too complex for automated resolution (both sides modified the same logic).
 
@@ -132,32 +133,38 @@ git merge origin/main --no-edit
    git commit --no-edit
    ```
 
-   Run all four quality checks to catch regressions from the merge resolution:
+   Run all four quality checks to catch regressions from the merge resolution, capturing any failures:
    ```bash
-   pnpm lint
-   pnpm tsc --noEmit
-   pnpm test
-   pnpm build
+   QUALITY_ERROR=$(
+     {
+       pnpm lint &&
+       pnpm tsc --noEmit &&
+       pnpm test &&
+       pnpm build
+     } 2>&1
+   ) || true
    ```
 
    **If any check fails after conflict resolution**, the resolution introduced a regression. Abort:
    ```bash
-   git reset --hard HEAD~1
-   gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-   sleep 1
-   gh issue comment $ISSUE --body "$(cat <<COMMENT
+   if [ $? -ne 0 ] || echo "$QUALITY_ERROR" | grep -qiE '(error|failed|FAIL)'; then
+     git reset --hard HEAD~1
+     gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
+     sleep 1
+     gh issue comment $ISSUE --body "$(cat <<COMMENT
    ## Merge Conflict Resolution Failed Quality Checks
 
    Auto-resolved merge conflicts in \`${PR_BRANCH}\`, but quality checks failed after resolution:
 
    \`\`\`
-   {error output}
+   $QUALITY_ERROR
    \`\`\`
 
    The merge resolution has been reverted. Human review needed.
    COMMENT
-   )"
-   sleep 1
+     )"
+     sleep 1
+   fi
    ```
    Return to `/forge` after escalating.
 
