@@ -130,6 +130,7 @@ This is where you write code. Follow these principles:
 4. **Use the Task tool for complex research.** If you need to understand an API or library, spawn a research sub-agent rather than guessing.
 5. **Work incrementally.** Make small, logical changes. Don't try to implement everything in one giant edit.
 6. **Test as you go.** Run the dev server (`pnpm dev`) to verify changes work when practical.
+7. **File triage issues for out-of-scope discoveries.** If you find bugs, missing error handling, or improvement opportunities outside the current issue's scope, file a `triage`-labeled issue for each one rather than fixing it inline. Stay focused on the current issue.
 
 ### Step 6b: Review and test (sub-agents)
 
@@ -288,7 +289,7 @@ After completing (success or failure), end with:
 - **Commit message format:** `feat: {title} (closes #{N})` for features, `fix:` for bugfixes, `chore:` for config.
 - **PR body must reference the issue** with `Closes #{N}`.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
-- **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for.
+- **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for. If you discover something worth fixing, file a `triage` issue (see principle 7 in Step 6).
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.
 - **Respect the build timeout.** Check elapsed time before Steps 6, 6b, 6c, 7, and 8. If the 30-minute limit is reached, commit WIP and escalate rather than continuing.
