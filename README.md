@@ -145,7 +145,10 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
   │        │                             Posts question on issue     │
   │        │                             Labels agent:needs-human    │
   │        │                                                         │
-  │        └── All issues closed ──────▶ Done                        │
+  │        ├── PR awaiting merge ────▶ Stop loop, wait for merge     │
+  │        │                           (forge run polls for changes) │
+  │        │                                                         │
+  │        └── All issues closed ──────▶ Audit + Done                │
   │                                                                  │
   │   After each action, /forge loops back to /sync automatically.   │
   └──────────────────────────────────────────────────────────────────┘
@@ -155,7 +158,7 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
 The agent reads your PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria.
 
 **What /build does (one issue per cycle):**
-The agent picks the next `agent:ready` issue, creates a feature branch, implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in.
+The agent picks the next `agent:ready` issue, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. Out-of-scope bugs or improvements discovered during implementation are filed as `triage` issues rather than fixed inline.
 
 **What /revise does:**
 When you request changes on a PR, the agent picks it up on the next cycle. It reads your review comments, applies fixes, re-runs quality checks, pushes, and re-requests your review.
@@ -178,7 +181,9 @@ Every PR must be approved by you before it merges. CI runs automatically on ever
   You review on GitHub
        │
        ├── Approve + Merge ──▶ Vercel deploys to production
-       └── Request Changes ──▶ Agent addresses on next cycle (/revise)
+       │                       forge run auto-detects and continues
+       └── Request Changes ──▶ forge run auto-detects and revises
+                               (auto-detection is forge run only)
 ```
 
 Nothing ships without your sign-off. The agent escalates when it's stuck instead of guessing.
@@ -264,7 +269,7 @@ Runs an interactive session where you can observe progress and interrupt with Ct
 forge run
 ```
 
-Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. The loop exits when all issues are closed, the agent needs human input, or safety limits are reached.
+Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. When a PR is opened and awaiting merge, `forge run` polls GitHub every 60 seconds — if you merge the PR or request changes, it automatically restarts the session to continue building or revising. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
 
 ```bash
 forge run --max-sessions 10   # limit restart count (default: 20)
