@@ -49,7 +49,6 @@ If no open PR is found for this issue, the PR may have been closed. Relabel the 
 
 ```bash
 gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:ready"
-sleep 1
 ```
 
 Report this and return to `/forge`.
@@ -59,7 +58,6 @@ Report this and return to `/forge`.
 ```bash
 if [ "$REVIEW_DECISION" = "APPROVED" ]; then
   gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:done"
-  sleep 1
   # Return to /forge — reviewer approved, no revision needed
 fi
 ```
@@ -80,7 +78,6 @@ If the revision count has reached the limit, escalate instead of retrying:
 ```bash
 if [ "$REVISION_COUNT" -ge "$MAX_REVISIONS" ]; then
   gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:needs-human"
-  sleep 1
   gh issue comment $ISSUE --body "$(cat <<ESCALATE
 ## Revision Limit Reached
 
@@ -91,7 +88,6 @@ This issue has been revised **${REVISION_COUNT}** times (limit: ${MAX_REVISIONS}
 Human review is needed to determine the next approach — the automated revision cycle is not converging.
 ESCALATE
 )"
-  sleep 1
   # Return to /forge — do not attempt another revision
 fi
 ```
@@ -100,7 +96,6 @@ fi
 
 ```bash
 gh issue edit $ISSUE --remove-label "agent:revision-needed" --add-label "agent:in-progress"
-sleep 1
 echo $ISSUE > .forge-current-issue
 ```
 
@@ -139,7 +134,6 @@ git merge origin/main --no-edit
    REMAINING_CONFLICTS=$(git diff --name-only --diff-filter=U)
    git merge --abort
    gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-   sleep 1
    gh issue comment $ISSUE --body "$(cat <<COMMENT
    ## Merge Conflict — Human Review Needed
 
@@ -156,7 +150,6 @@ git merge origin/main --no-edit
 
    COMMENT
    )"
-   sleep 1
    ```
    Return to `/forge` after escalating.
 
@@ -182,7 +175,6 @@ git merge origin/main --no-edit
    if [ $? -ne 0 ] || echo "$QUALITY_ERROR" | grep -qiE '(error|failed|FAIL)'; then
      git reset --hard HEAD~1
      gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-     sleep 1
      gh issue comment $ISSUE --body "$(cat <<COMMENT
    ## Merge Conflict Resolution Failed Quality Checks
 
@@ -195,7 +187,6 @@ git merge origin/main --no-edit
    The merge resolution has been reverted. Human review needed.
    COMMENT
      )"
-     sleep 1
    fi
    ```
    Return to `/forge` after escalating.
@@ -284,7 +275,6 @@ Addressed review feedback:
 All quality checks pass (lint, typecheck, test, build).
 EOF
 )"
-sleep 1
 ```
 
 Re-request review from the original reviewer(s):
@@ -293,14 +283,12 @@ Re-request review from the original reviewer(s):
 # Get reviewers who requested changes
 REVIEWERS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --jq '[.[] | select(.state == "CHANGES_REQUESTED") | .user.login] | unique | join(",")')
 gh pr edit $PR_NUMBER --add-reviewer "$REVIEWERS"
-sleep 1
 ```
 
 ### Step 10: Update issue label
 
 ```bash
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:done"
-sleep 1
 ```
 
 ### Step 11: On failure — escalate
@@ -315,7 +303,6 @@ git push origin $PR_BRANCH
 
 # Escalate
 gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-sleep 1
 gh issue comment $ISSUE --body "$(cat <<'COMMENT'
 ## Revision Failed
 
@@ -337,7 +324,6 @@ gh issue comment $ISSUE --body "$(cat <<'COMMENT'
 **Branch:** `$PR_BRANCH` (pushed with current state)
 COMMENT
 )"
-sleep 1
 ```
 
 ### Step 12: Return to orchestrator
