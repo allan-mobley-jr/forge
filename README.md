@@ -182,7 +182,8 @@ Every PR must be approved by you before it merges. CI runs automatically on ever
        │
        ├── Approve + Merge ──▶ Vercel deploys to production
        │                       forge run auto-detects and continues
-       └── Request Changes ──▶ forge run auto-detects and revises (/revise)
+       └── Request Changes ──▶ forge run auto-detects and revises
+                               (auto-detection is forge run only)
 ```
 
 Nothing ships without your sign-off. The agent escalates when it's stuck instead of guessing.
@@ -268,7 +269,7 @@ Runs an interactive session where you can observe progress and interrupt with Ct
 forge run
 ```
 
-Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. When a PR is opened and awaiting merge, `forge run` polls GitHub every 60 seconds — if you merge the PR or request changes, it automatically restarts the session to continue building or revising. The loop exits when all issues are closed or safety limits are reached.
+Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. When a PR is opened and awaiting merge, `forge run` polls GitHub every 60 seconds — if you merge the PR or request changes, it automatically restarts the session to continue building or revising. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
 
 ```bash
 forge run --max-sessions 10   # limit restart count (default: 20)
