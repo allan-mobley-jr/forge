@@ -71,7 +71,7 @@ Count prior revision attempts by looking for "## Revision Summary" comments alre
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 # gh pr comment posts to the issues API endpoint, so count there
-REVISION_COUNT=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate --jq '[.[] | select(.body | test("## Revision Summary"))] | length' 2>/dev/null || echo 0)
+REVISION_COUNT=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --paginate 2>/dev/null | jq -s 'add | map(select(.body | test("^## Revision Summary"))) | length' || echo 0)
 MAX_REVISIONS=3
 ```
 
