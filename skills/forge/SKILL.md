@@ -209,7 +209,7 @@ Message: "All {N} remaining issues are blocked. Here's the dependency situation:
 ```
 
 #### Case E: All issues are closed
-All filed issues have been closed. Re-invoke `/plan` — it will read PROMPT.md (which now contains post-planning audit instructions) and file new issues if gaps are found.
+All filed issues have been closed. Re-invoke `/plan` — it will detect `graveyard/` and enter audit mode, comparing the original requirements against what was built and filing new issues for any gaps.
 
 ```
 Action: Run /plan
