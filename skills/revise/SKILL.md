@@ -106,7 +106,33 @@ fi
 
 ```bash
 gh issue edit $ISSUE --remove-label "agent:done" --add-label "agent:in-progress"
-echo $ISSUE > .forge-current-issue
+mkdir -p .forge-temp
+echo $ISSUE > .forge-temp/current-issue
+```
+
+### Step 3.5: Record revision start time
+
+```bash
+BUILD_START=$(date +%s)
+BUILD_TIMEOUT=1800  # 30 minutes per revision
+```
+
+Before each subsequent major step (Steps 5, 6, 7, 8), check elapsed time:
+
+```bash
+ELAPSED=$(( $(date +%s) - BUILD_START ))
+if [ "$ELAPSED" -ge "$BUILD_TIMEOUT" ]; then
+  echo "Revision timeout reached (${ELAPSED}s >= ${BUILD_TIMEOUT}s)"
+fi
+```
+
+If timeout is reached, commit WIP, push, keep `agent:in-progress`, and return to `/forge`:
+
+```bash
+git add <files modified so far>
+git commit -m "wip: revision timeout on issue #${ISSUE}" || true
+git push origin $PR_BRANCH 2>/dev/null || true
+gh issue comment $ISSUE --body "Revision timed out after ${ELAPSED}s. WIP pushed. Next session will resume."
 ```
 
 ### Step 4: Checkout the existing branch and sync with main
@@ -183,7 +209,7 @@ git merge origin/main --no-edit
    **If any check fails after conflict resolution**, the resolution introduced a regression. Abort:
    ```bash
    if [ $? -ne 0 ] || echo "$QUALITY_ERROR" | grep -qiE '(error|failed|FAIL)'; then
-     git reset --hard HEAD~1
+     git revert HEAD --no-edit
      gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
      gh issue comment $ISSUE --body "$(cat <<COMMENT
    ## Merge Conflict Resolution Failed Quality Checks
@@ -350,5 +376,6 @@ After completing (success or failure), end with:
 - **Don't exceed the issue's scope.** Only address what the reviewer asked for. Don't refactor surrounding code or add features. If you discover bugs or improvements outside scope, file a new issue (with `--label "ai-generated"`) instead of fixing inline.
 - **Every comment must be resolved or escalated.** Don't silently skip feedback.
 - **Always push before updating labels.** The branch must be updated on the remote before marking the issue done.
-- **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
+- **Write `.forge-temp/current-issue`** so the Stop hook knows which issue to comment on.
+- **Respect the revision timeout.** Check elapsed time before Steps 5, 6, 7, and 8. If the 30-minute limit is reached, commit WIP and push — the next session resumes from the branch.
 - **Commit message format:** `fix: {descriptive message} (#N)` — always use `fix:` prefix for revisions. Use a specific description per commit when splitting atomic commits (e.g., `fix: rename handler to match convention (#N)`).

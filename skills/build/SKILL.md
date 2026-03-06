@@ -46,7 +46,8 @@ If a PR already exists, skip this issue — it's already being handled. Report t
 
 ```bash
 gh issue edit $ISSUE --add-label "agent:in-progress"
-echo $ISSUE > .forge-current-issue
+mkdir -p .forge-temp
+echo $ISSUE > .forge-temp/current-issue
 ```
 
 ### Step 3.5: Record build start time
@@ -269,7 +270,8 @@ If quality checks fail after 2 attempts (initial + debug-assisted retry):
 ERROR_OUTPUT="[paste the actual error output here]"
 
 # Push what you have (so the human can see it)
-git add -A
+# Stage only tracked/modified files — never use git add -A
+git add <files modified so far>
 git commit -m "wip: {issue title} (needs help on #{N})"
 git push -u origin agent/issue-{N}-{slug}
 
@@ -306,7 +308,7 @@ After completing (success or failure), end with:
 - **Always push before opening a PR.** The branch must exist on the remote.
 - **Commit message format:** `feat:` for features, `fix:` for bugfixes, `chore:` for config. Only the final commit includes `(closes #{N})`. Split commits by logical change — one concern per commit.
 - **PR body must reference the issue** with `Closes #{N}`.
-- **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
+- **Write `.forge-temp/current-issue`** so the Stop hook knows which issue to comment on.
 - **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for. If you discover something worth fixing, file a new issue (with `--label "ai-generated"`).
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.
