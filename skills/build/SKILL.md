@@ -51,6 +51,47 @@ sleep 1
 echo $ISSUE > .forge-current-issue
 ```
 
+### Step 3.5: Record build start time
+
+```bash
+BUILD_START=$(date +%s)
+BUILD_TIMEOUT=1800  # 30 minutes per build
+```
+
+Before each subsequent major step (Steps 6, 6b, 6c, 7, and 8), check elapsed time:
+
+```bash
+ELAPSED=$(( $(date +%s) - BUILD_START ))
+if [ "$ELAPSED" -ge "$BUILD_TIMEOUT" ]; then
+  echo "Build timeout reached (${ELAPSED}s >= ${BUILD_TIMEOUT}s)"
+  # Fall through to timeout handling below
+fi
+```
+
+If the timeout is reached mid-build, commit work-in-progress and escalate:
+
+```bash
+git add <files modified so far>
+git commit -m "wip: timeout after ${ELAPSED}s on issue #${ISSUE}" || true
+git push -u origin HEAD 2>/dev/null || true
+gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
+sleep 1
+gh issue comment $ISSUE --body "$(cat <<TIMEOUT
+## Build Timeout
+
+This build exceeded the per-build timeout of ${BUILD_TIMEOUT}s (elapsed: ${ELAPSED}s).
+
+Work-in-progress has been pushed to the branch if possible. A human should either:
+1. Continue the build manually
+2. Re-scope the issue into smaller pieces
+3. Increase the timeout for complex issues
+TIMEOUT
+)"
+sleep 1
+```
+
+Return to `/forge` so other ready issues can proceed.
+
 ### Step 4: Prepare the branch
 
 ```bash
@@ -242,3 +283,4 @@ After completing (success or failure), end with:
 - **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for.
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.
+- **Respect the build timeout.** Check elapsed time before Steps 6, 6b, 6c, 7, and 8. If the 30-minute limit is reached, commit WIP and escalate rather than continuing.
