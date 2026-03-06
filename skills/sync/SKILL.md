@@ -84,21 +84,27 @@ sleep 1
 **Circular dependency detection:** After processing blocked issues above, if ALL remaining open issues are still labeled `agent:blocked` (none were promoted to `agent:ready`), check for dependency cycles. Extract the dependency graph from issue bodies:
 
 ```bash
-# Build adjacency list: for each blocked issue, find its dependencies
+# Build dependency edges for tsort
 BLOCKED_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:blocked"))] | .[].number')
 
+EDGES=""
 for ISSUE_NUM in $BLOCKED_ISSUES; do
-  DEPS=$(echo "$OPEN_ISSUES" | jq -r ".[] | select(.number == $ISSUE_NUM) | .body" | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
-  echo "$ISSUE_NUM depends on: $DEPS"
+  # Extract dependencies only from the "## Dependencies" section to avoid false edges
+  DEPS=$(echo "$OPEN_ISSUES" | jq -r ".[] | select(.number == $ISSUE_NUM) | .body" | sed -n '/^## Dependencies/,/^##/p' | grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+  for DEP in $DEPS; do
+    EDGES="${EDGES}${DEP} ${ISSUE_NUM}\n"
+  done
 done
 ```
 
-To detect cycles, attempt a topological sort. If it fails, a cycle exists:
+Detect cycles using `tsort` (available on macOS and Linux). `tsort` prints cycle members to stderr:
 
 ```bash
-# If a cycle is detected, identify the issues involved and break the weakest link
-# (the dependency from the lowest-priority issue in the cycle).
-# Remove that dependency reference and relabel the unblocked issue as agent:ready.
+TSORT_OUTPUT=$(echo -e "$EDGES" | tsort 2>&1)
+if echo "$TSORT_OUTPUT" | grep -q "tsort:.*loop"; then
+  # Cycle detected — extract the involved issues from tsort's error output
+  CYCLE_MEMBERS=$(echo "$TSORT_OUTPUT" | grep -oE '[0-9]+' | sort -u)
+fi
 ```
 
 If a cycle is found:
