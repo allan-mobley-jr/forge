@@ -225,7 +225,11 @@ Every issue gets labels from three categories:
 | `priority:medium` | Normal priority (default) |
 | `priority:low` | Can wait |
 
-There is also an `ai-generated` label that the agent adds to every issue and PR it creates, so you can tell at a glance what the agent filed vs. what you filed.
+**Metadata:**
+
+| Label | What it means |
+|-------|---------------|
+| `ai-generated` | The agent created this issue or PR. Tells you at a glance what the agent filed vs. what you filed. |
 
 ### Filing Issues for the Agent
 
