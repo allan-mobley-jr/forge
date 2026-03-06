@@ -182,12 +182,19 @@ If fewer than 50 requests remain, commit locally but do not push or create the P
 
 ### Step 8: On success — commit and open PR
 
-```bash
-# Stage only the files you created or modified for this issue.
-# Do NOT use git add -A or git add . — this can stage unintended files.
-git add <specific files>
+**Atomic commits:** Split your work into one commit per logical change. Each commit should be describable in a single short sentence without "and." For example, if you added a component, installed a package, and updated a config file for unrelated reasons, that's three commits.
 
-# Commit with conventional commit format
+```bash
+# Stage only the files for one logical change at a time.
+# Do NOT use git add -A or git add . — this can stage unintended files.
+git add <files for change 1>
+git commit -m "feat: add hero section component"
+
+git add <files for change 2>
+git commit -m "chore: install framer-motion"
+
+# Only the FINAL commit gets (closes #{N})
+git add <remaining files>
 git commit -m "feat: {issue title} (closes #{N})"
 
 # Push the branch
@@ -286,7 +293,7 @@ After completing (success or failure), end with:
 - **One issue per invocation.** Never batch multiple issues.
 - **Always start from an up-to-date main.** Pull before branching.
 - **Always push before opening a PR.** The branch must exist on the remote.
-- **Commit message format:** `feat: {title} (closes #{N})` for features, `fix:` for bugfixes, `chore:` for config.
+- **Commit message format:** `feat:` for features, `fix:` for bugfixes, `chore:` for config. Only the final commit includes `(closes #{N})`. Split commits by logical change — one concern per commit.
 - **PR body must reference the issue** with `Closes #{N}`.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
 - **Don't modify files outside the issue's scope.** Stay focused on what the issue asks for. If you discover something worth fixing, file a `triage` issue (see principle 7 in Step 6).
