@@ -343,6 +343,12 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} Claude Code not installed"
         fi
 
+        if command -v jq &>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} jq $(jq --version 2>/dev/null)"
+        else
+            echo -e "  ${YELLOW}⚠${NC} jq not installed (used by skills; install with: brew install jq)"
+        fi
+
         # 3. Check artifact freshness
         echo ""
         echo "Artifacts:"
@@ -602,8 +608,8 @@ if total > 0:
                                 echo "[forge] Failed to query GitHub PRs. Run 'gh auth refresh' or check connectivity."
                                 exit 1
                             fi
-                            review_change=$(echo "$agent_pr_json" | jq '[.[] | select(.reviewDecision == "CHANGES_REQUESTED")] | length')
-                            agent_prs=$(echo "$agent_pr_json" | jq 'length')
+                            review_change=$(echo "$agent_pr_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for x in d if x.get('reviewDecision')=='CHANGES_REQUESTED'))")
+                            agent_prs=$(echo "$agent_pr_json" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
                             if [ "$review_change" -gt 0 ]; then
                                 echo "[forge] Review comments detected. Restarting to handle revisions..."
                                 break

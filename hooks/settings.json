@@ -59,6 +59,11 @@
       "Bash(gh repo delete*)",
       "Bash(pnpm publish*)",
       "Bash(npm publish*)",
+      "Bash(cat .env*)",
+      "Bash(cat ./.env*)",
+      "Bash(cat */.env*)",
+      "Bash(cat .git/*)",
+      "Bash(cat .vercel/*)",
       "Read(.env*)",
       "Write(.env*)",
       "Write(pnpm-lock.yaml)"
