@@ -61,7 +61,41 @@ These `jq` filters run locally and cost zero API calls.
 gh pr list --state open --json headRefName --jq '.[] | select(.headRefName | startswith("agent/issue-{N}-")) | .headRefName'
 ```
 
-If no PR or branch exists, the issue was likely abandoned by a crashed session. Relabel it:
+If no open PR exists, determine why before relabeling:
+
+```bash
+# Check for closed PRs for this issue (both merged and unmerged)
+CLOSED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt == null)] | length")
+MERGED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt != null)] | length")
+```
+
+- **If a closed (unmerged) PR exists** (`CLOSED_PR > 0`): The previous attempt was explicitly abandoned or rejected. Relabel as `agent:needs-human` so a human can decide the next approach:
+
+```bash
+gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:needs-human"
+sleep 1
+gh issue comment {N} --body "$(cat <<STALE
+## Previous PR Was Closed Without Merging
+
+A prior PR for this issue was closed without being merged. Rebuilding from scratch may repeat the same problems.
+
+A human should review the closed PR feedback and either:
+1. Re-scope the issue with updated guidance
+2. Relabel as \`agent:ready\` to retry with a fresh approach
+3. Close the issue if it's no longer needed
+STALE
+)"
+sleep 1
+```
+
+- **If a merged PR exists** (`MERGED_PR > 0`): The PR was merged but the issue label was never updated (session crashed after merge). Mark as done:
+
+```bash
+gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:done"
+sleep 1
+```
+
+- **If no closed PR exists at all**: The issue was likely abandoned by a crashed session (no PR was ever opened). Relabel as `agent:ready` to retry:
 
 ```bash
 gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:ready"
@@ -80,6 +114,63 @@ This uses the data already in memory — no additional API call needed. Check if
 gh issue edit {N} --remove-label "agent:blocked" --add-label "agent:ready"
 sleep 1
 ```
+
+**Circular dependency detection:** After processing blocked issues above, if ALL remaining open issues are still labeled `agent:blocked` (none were promoted to `agent:ready`), check for dependency cycles. Extract the dependency graph from issue bodies:
+
+```bash
+# Only run cycle detection if all open issues are blocked
+BLOCKED_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:blocked"))] | .[].number')
+BLOCKED_COUNT=$(printf '%s\n' $BLOCKED_ISSUES | sed '/^$/d' | wc -l | tr -d ' ')
+OPEN_COUNT=$(echo "$OPEN_ISSUES" | jq 'length')
+
+if [ "$OPEN_COUNT" -gt 0 ] && [ "$OPEN_COUNT" -eq "$BLOCKED_COUNT" ]; then
+  # Build dependency edges for tsort — only include edges between blocked issues
+  EDGES=""
+  for ISSUE_NUM in $BLOCKED_ISSUES; do
+    # Extract dependencies only from the "## Dependencies" section to avoid false edges
+    RAW_DEPS=$(echo "$OPEN_ISSUES" | jq -r ".[] | select(.number == $ISSUE_NUM) | .body" | sed -n '/^## Dependencies/,/^##/p' | grep -oE '#[0-9]+' | tr -d '#')
+    # Intersect with blocked issues so the graph only includes open blocked issues
+    DEPS=$(comm -12 <(printf '%s\n' $RAW_DEPS | sort -u) <(printf '%s\n' $BLOCKED_ISSUES | sort -u))
+    for DEP in $DEPS; do
+      EDGES="${EDGES}${DEP} ${ISSUE_NUM}\n"
+    done
+  done
+fi
+```
+
+Detect cycles using `tsort` (available on macOS and Linux). `tsort` prints cycle members to stderr:
+
+```bash
+TSORT_OUTPUT=$(echo -e "$EDGES" | tsort 2>&1)
+if echo "$TSORT_OUTPUT" | grep -q "tsort:.*loop"; then
+  # Cycle detected — extract the involved issues from tsort's error output
+  CYCLE_MEMBERS=$(echo "$TSORT_OUTPUT" | grep -oE '[0-9]+' | sort -u)
+fi
+```
+
+If a cycle is found:
+1. Identify the cycle members (e.g., A → B → C → A)
+2. Find the lowest-priority issue in the cycle (by `priority:*` label — low < medium < high)
+3. Relabel the unblocked issue as `agent:ready`
+4. Post a comment explaining the cycle was broken:
+
+```bash
+gh issue edit {UNBLOCKED} --remove-label "agent:blocked" --add-label "agent:ready"
+sleep 1
+gh issue comment {UNBLOCKED} --body "$(cat <<'CYCLE'
+## Circular Dependency Detected
+
+A dependency cycle was found: {cycle description, e.g., #3 → #5 → #7 → #3}
+
+To break the deadlock, this issue's dependency on #{REMOVED_DEP} has been dropped. This issue is now ready to build.
+
+The dependency was chosen for removal because this issue has the lowest priority in the cycle.
+CYCLE
+)"
+sleep 1
+```
+
+If no cycle is found but all issues remain blocked, report this in the summary as a potential deadlock requiring human review.
 
 ### 3b. Process triage issues
 
@@ -189,4 +280,4 @@ Next action: {one of the following}
 
 ## Output only
 
-This skill produces output. It does not modify any code or create any files. It only reads GitHub state and relabels issues when needed: promoting blocked issues whose dependencies are met, recovering stale in-progress issues, classifying triage issues, and resetting stuck done issues.
+This skill produces output. It does not modify any code or create any files. It only reads GitHub state and relabels issues when needed: promoting blocked issues whose dependencies are met, recovering stale in-progress issues, classifying triage issues, resetting stuck done issues, and breaking dependency cycles (with an explanatory comment posted on the affected issue).
