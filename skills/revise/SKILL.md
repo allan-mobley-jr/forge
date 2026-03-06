@@ -252,13 +252,16 @@ pnpm build
 
 ### Step 8: On success — commit and push
 
-```bash
-# Stage only the files you modified to address review feedback.
-# Do NOT use git add -A or git add . — this can stage unintended files.
-git add <specific files>
+**Atomic commits:** If your revision touches multiple independent concerns (e.g., fixing a naming issue in one file and adding error handling in another), split into separate commits — one per logical change.
 
-# Commit with conventional commit format referencing the issue
-git commit -m "fix: address review feedback (#$ISSUE)"
+```bash
+# Stage only the files for one logical change at a time.
+# Do NOT use git add -A or git add . — this can stage unintended files.
+git add <files for concern 1>
+git commit -m "fix: rename handler to match convention (#$ISSUE)"
+
+git add <files for concern 2>
+git commit -m "fix: add error boundary for fetch failures (#$ISSUE)"
 
 # Push to the existing branch (the PR updates automatically)
 git push origin $PR_BRANCH
@@ -352,4 +355,4 @@ After completing (success or failure), end with:
 - **Every comment must be resolved or escalated.** Don't silently skip feedback.
 - **Always push before updating labels.** The branch must be updated on the remote before marking the issue done.
 - **Write `.forge-current-issue`** so the Stop hook knows which issue to comment on.
-- **Commit message format:** `fix: address review feedback (#N)` — always use `fix:` prefix for revisions.
+- **Commit message format:** `fix: {descriptive message} (#N)` — always use `fix:` prefix for revisions. Use a specific description per commit when splitting atomic commits (e.g., `fix: rename handler to match convention (#N)`).
