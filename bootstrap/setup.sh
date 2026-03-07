@@ -708,7 +708,7 @@ step_19b_repo_settings() {
     if ! gh api "repos/$repo" \
         -X PATCH \
         -H "Accept: application/vnd.github+json" \
-        --input - <<'SETTINGS' 2>/dev/null; then
+        --input - <<'SETTINGS' >/dev/null 2>/dev/null; then
 {
   "delete_branch_on_merge": true,
   "allow_update_branch": true,
