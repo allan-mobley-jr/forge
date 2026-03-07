@@ -252,15 +252,8 @@ case "${1:-}" in
         if [ ! -f .claude/skills/.vendor-skills-installed ]; then
             echo "  Installing vendor skills..."
             mkdir -p .claude/skills
-            pnpm dlx skills add https://github.com/vercel-labs/next-skills --skill next-best-practices 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-react-best-practices 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill web-design-guidelines 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill deploy-to-vercel 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/before-and-after --skill before-and-after 2>/dev/null || true
-            pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills 2>/dev/null || true
+            source "$FORGE_REPO/bootstrap/vendor-skills.sh"
+            install_vendor_skills || true
             touch .claude/skills/.vendor-skills-installed
             echo -e "  ${GREEN}✓${NC} Vendor skills installed"
         fi
