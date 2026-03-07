@@ -19,6 +19,7 @@ fi
 FORGE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="$(pwd)"
 FORGE_CONFIG_DIR="$HOME/.forge"
+PROMPT_BACKUP="${TMPDIR:-/tmp}/.forge-prompt-backup"
 
 # Colors
 RED='\033[0;31m'
@@ -62,13 +63,15 @@ print_summary() {
 
 # --- Error trap ---
 
+restore_prompt() {
+    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f "$PROMPT_BACKUP" ]; then
+        mv "$PROMPT_BACKUP" "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
+    fi
+}
+
 on_error() {
     local exit_code=$?
-    # Restore PROMPT.md if stranded during scaffolding
-    local backup="${TMPDIR:-/tmp}/.forge-prompt-backup"
-    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f "$backup" ]; then
-        mv "$backup" "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
-    fi
+    restore_prompt
     echo ""
     fail "Bootstrap failed (exit code $exit_code)."
     echo ""
@@ -78,6 +81,7 @@ on_error() {
     exit $exit_code
 }
 trap on_error ERR
+trap 'restore_prompt; exit 130' INT TERM
 
 # --- Preflight ---
 
@@ -298,9 +302,8 @@ step_10_git_init() {
 step_10b_scaffold() {
     local label="10b. Next.js app scaffolded"
     # Restore PROMPT.md if stranded by a previous interrupted run
-    local backup="${TMPDIR:-/tmp}/.forge-prompt-backup"
-    if [ ! -f PROMPT.md ] && [ -f "$backup" ]; then
-        mv "$backup" PROMPT.md
+    if [ ! -f PROMPT.md ] && [ -f "$PROMPT_BACKUP" ]; then
+        mv "$PROMPT_BACKUP" PROMPT.md
         warn "Restored PROMPT.md from previous interrupted run"
     fi
     if [ -f package.json ]; then
@@ -309,11 +312,11 @@ step_10b_scaffold() {
     fi
     info "  Scaffolding Next.js app..."
     # create-next-app refuses non-empty directories — move PROMPT.md outside project
-    mv PROMPT.md "$backup"
+    mv PROMPT.md "$PROMPT_BACKUP"
     pnpm dlx create-next-app@latest . \
         --typescript --tailwind --eslint --app --src-dir \
         --turbopack --use-pnpm --disable-git --yes
-    mv "$backup" PROMPT.md
+    mv "$PROMPT_BACKUP" PROMPT.md
     ok "$label"
 }
 
