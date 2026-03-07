@@ -248,6 +248,7 @@ Read and understand all comments. Group line-level comments by file path for eff
 
 Also read:
 - `CLAUDE.md` — project conventions
+- `SPECIFICATION.md` — architectural decisions and rationale (if the reviewer questions a design choice, check whether SPECIFICATION.md explains the reasoning)
 - The issue body — original requirements and acceptance criteria
 - The files referenced in comments — understand context before modifying
 

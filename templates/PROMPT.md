@@ -37,6 +37,8 @@ Any other details, constraints, or preferences:
 - Specific performance requirements?
 - Accessibility needs?
 
+> After you run `/plan`, Forge generates a `SPECIFICATION.md` from your prompt — a structured interpretation covering architecture, technology stack, design system, and constraints. This becomes the persistent reference document for the entire build.
+
 ---
 
 ## Tips for Writing a Good PROMPT.md

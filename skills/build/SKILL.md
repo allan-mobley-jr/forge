@@ -134,7 +134,8 @@ If resuming from a WIP branch (Step 4 found an existing branch), also read the m
 
 Also read:
 - `CLAUDE.md` — project conventions
-- `PROMPT.md` — original requirements
+- `SPECIFICATION.md` — architectural decisions, stack rationale, design system, and constraints (prefer this over PROMPT.md for understanding WHY things are built a certain way)
+- `PROMPT.md` — original requirements (pre-planning) or audit instructions (post-planning)
 - Existing source code — understand what's already built before adding to it
 
 ### Step 6: Implement
