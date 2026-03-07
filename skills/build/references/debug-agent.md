@@ -77,6 +77,18 @@ Prescribe fixes in this order:
 If all errors have clear fixes: "None — all errors have deterministic fixes."]
 ```
 
+## Vendor Skill Awareness
+
+When diagnosing Next.js-specific errors, reference the `next-best-practices` vendor skill pattern that documents the correct approach. Common patterns to check:
+
+- **Server Component errors** — component using client-only APIs without `'use client'` directive
+- **Server Action errors** — missing `'use server'` directive, incorrect form action binding
+- **Streaming errors** — missing Suspense boundaries around async components
+- **Cache errors** — stale data from incorrect revalidation strategy
+- **Middleware errors** — incorrect matcher config or response handling
+
+For each diagnosis, include the relevant vendor skill pattern name so the build agent can look up the canonical solution.
+
 ## Guidelines
 
 - **Be precise.** Reference exact file paths, approximate line numbers, and specific error codes.
