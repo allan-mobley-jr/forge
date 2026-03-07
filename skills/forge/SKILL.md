@@ -270,11 +270,11 @@ If `graveyard/` is already committed from a previous session, skip this step.
 
 ```bash
 git checkout -b forge/archive-prompt
-git add graveyard/ PROMPT.md .claude/settings.json
+git add graveyard/ PROMPT.md SPECIFICATION.md .claude/settings.json
 git commit -m "Archive original prompt after planning phase"
 git push -u origin forge/archive-prompt
 gh pr create --title "Archive original prompt" \
-  --body "Housekeeping: archives PROMPT.md to graveyard/ and locks it down after initial planning."
+  --body "Housekeeping: archives PROMPT.md to graveyard/, generates SPECIFICATION.md, and locks both down after initial planning."
 git checkout main
 ```
 
