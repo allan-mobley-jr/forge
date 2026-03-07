@@ -401,6 +401,22 @@ PLAYWRIGHT
     ok "$label"
 }
 
+# Step 10e: Generate AGENTS.md (Next.js docs index)
+step_10e_agents_md() {
+    local label="10e. AGENTS.md (Next.js docs index)"
+    if [ -f AGENTS.md ]; then
+        skip "$label"
+        return
+    fi
+    info "  Generating AGENTS.md via Next.js codemod..."
+    pnpm dlx @next/codemod@latest update-agents-md . 2>/dev/null || true
+    if [ -f AGENTS.md ]; then
+        ok "$label"
+    else
+        add_warning "AGENTS.md not generated — your Next.js version may not support it yet."
+    fi
+}
+
 # Step 11: Initial commit
 step_11_initial_commit() {
     local label="11. Initial commit"
@@ -782,6 +798,7 @@ step_10_git_init
 step_10b_scaffold
 step_10c_test_deps
 step_10d_test_config
+step_10e_agents_md
 step_11_initial_commit
 step_12_github_repo
 step_13_push
