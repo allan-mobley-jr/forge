@@ -256,7 +256,7 @@ case "${1:-}" in
             pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-react-best-practices 2>/dev/null || true
             pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill web-design-guidelines 2>/dev/null || true
             pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli 2>/dev/null || true
-            pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-deploy 2>/dev/null || true
+            pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill deploy-to-vercel 2>/dev/null || true
             pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser 2>/dev/null || true
             pnpm dlx skills add https://github.com/vercel-labs/before-and-after --skill before-and-after 2>/dev/null || true
             pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli 2>/dev/null || true

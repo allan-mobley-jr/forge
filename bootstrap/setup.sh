@@ -543,7 +543,7 @@ step_15b_vendor_skills() {
 
     # Vercel platform
     pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli $skills_flags 2>/dev/null || failed=1
-    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-deploy $skills_flags 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill deploy-to-vercel $skills_flags 2>/dev/null || failed=1
 
     # Browser automation & visual testing
     pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser $skills_flags 2>/dev/null || failed=1
