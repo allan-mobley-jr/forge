@@ -448,12 +448,12 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} GitHub not authenticated — run: gh auth login"
         fi
 
-        local vercel_cmd="vercel"
-        command -v vercel &>/dev/null || vercel_cmd="${PNPM_HOME:-$HOME/Library/pnpm}/vercel"
-        if "$vercel_cmd" whoami &>/dev/null 2>&1; then
-            echo -e "  ${GREEN}✓${NC} Vercel authenticated"
-        else
-            echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
+        if command -v vercel &>/dev/null || [ -x "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" ]; then
+            if (vercel whoami &>/dev/null 2>&1 || "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" whoami &>/dev/null 2>&1); then
+                echo -e "  ${GREEN}✓${NC} Vercel authenticated"
+            else
+                echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
+            fi
         fi
 
         # 6. Check disk space
