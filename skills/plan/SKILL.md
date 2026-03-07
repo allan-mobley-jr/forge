@@ -206,7 +206,11 @@ Read three sources to understand the full picture:
 
 1. **Specification** — the structured architectural blueprint generated during initial planning:
    ```bash
-   cat SPECIFICATION.md
+   if [ -f SPECIFICATION.md ]; then
+     cat SPECIFICATION.md
+   else
+     echo "No SPECIFICATION.md found — this may be a legacy project. Proceeding without it."
+   fi
    ```
 
 2. **Original requirements** — read all files in `graveyard/`:
@@ -234,7 +238,7 @@ ORIGINAL REQUIREMENTS:
 [contents of graveyard/*.md]
 
 SPECIFICATION (structured interpretation of requirements):
-[contents of SPECIFICATION.md]
+[contents of SPECIFICATION.md, or omit this section if SPECIFICATION.md does not exist]
 
 CLOSED ISSUES (what was built):
 [summary of closed issue titles and objectives]
