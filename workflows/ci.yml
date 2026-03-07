@@ -36,22 +36,36 @@ jobs:
     name: E2E Tests
     needs: quality
     runs-on: ubuntu-latest
-    if: hashFiles('e2e/**') != ''
     steps:
       - uses: actions/checkout@v4
+      - name: Check for E2E tests
+        id: check
+        run: |
+          if [ -d e2e ] && find e2e -type f \( -name '*.spec.*' -o -name '*.test.*' \) 2>/dev/null | grep -q .; then
+            echo "has_tests=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No E2E test files found — skipping"
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@v4
+        if: steps.check.outputs.has_tests == 'true'
         with:
           version: 9
       - uses: actions/setup-node@v4
+        if: steps.check.outputs.has_tests == 'true'
         with:
           node-version: '20'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
+        if: steps.check.outputs.has_tests == 'true'
       - name: Install Playwright (Chromium only)
+        if: steps.check.outputs.has_tests == 'true'
         run: pnpm exec playwright install --with-deps chromium
       - name: Build
+        if: steps.check.outputs.has_tests == 'true'
         run: pnpm build
         env:
           SKIP_ENV_VALIDATION: true
       - name: Run E2E tests
+        if: steps.check.outputs.has_tests == 'true'
         run: pnpm test:e2e
