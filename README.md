@@ -100,7 +100,9 @@ Create a directory, write a `PROMPT.md` describing your app, and run `forge init
        ├──▶ Install test stack (Vitest, Playwright, Testing Library)
        ├──▶ Create GitHub repo + push
        ├──▶ Link Vercel project
+       ├──▶ Generate AGENTS.md (Next.js framework docs index via @next/codemod)
        ├──▶ Install Claude Code skills (/forge, /plan, /build, /revise, /sync, /ask)
+       ├──▶ Install vendor skills (next-best-practices, web-design-guidelines, etc.)
        ├──▶ Install hooks (file guards, rate limiting, session management)
        ├──▶ Install CI pipeline (lint, typecheck, test, build, E2E)
        ├──▶ Generate CLAUDE.md from template
@@ -158,7 +160,7 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
 The agent reads PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria. On the first run, PROMPT.md contains your app description; after planning, it's archived to `graveyard/`. When all issues are eventually closed, `/forge` routes back to `/plan`, which detects `graveyard/` and enters audit mode — comparing the original requirements against closed issues and filing new issues for any gaps.
 
 **What /build does (one issue per cycle):**
-The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns a review sub-agent and test sub-agent in parallel. It applies fixes, runs quality checks (lint, typecheck, test, build), and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
+The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns up to 3 sub-agents in parallel: a review agent, a test agent, and (for UI-affecting issues) a visual check agent that takes screenshots and compares against baselines. It applies fixes, runs quality checks (lint, typecheck, test, build), deploys a Vercel preview if available, and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
 
 **What /revise does:**
 When you request changes on a PR, the agent picks it up on the next cycle. It reads your review comments, applies fixes, re-runs quality checks, pushes, and re-requests your review.
@@ -338,7 +340,7 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 | `forge run` | Run the autonomous build loop (headless, with restarts) |
 | `forge status` | Show current project progress (issue counts, completion %) |
 | `forge update` | Update Forge to the latest version |
-| `forge upgrade` | Update Forge artifacts (skills, hooks, CLAUDE.md) in the current project |
+| `forge upgrade` | Update Forge artifacts (skills, vendor skills, hooks, CLAUDE.md, AGENTS.md) in the current project |
 | `forge doctor` | Check tool versions, auth, disk space, and project health |
 | `forge uninstall` | Remove Forge from your system (keeps existing projects) |
 | `forge version` | Show installed version |
