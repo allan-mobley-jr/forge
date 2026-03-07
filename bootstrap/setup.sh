@@ -247,6 +247,15 @@ step_08_vercel() {
         skip "$label"
         return
     fi
+    # Ensure PNPM_HOME is configured for global installs
+    if [ -z "${PNPM_HOME:-}" ]; then
+        info "  Setting up PNPM_HOME..."
+        pnpm setup 2>/dev/null
+        # Source the updated shell config to pick up PNPM_HOME
+        if [ -f "$HOME/.zshrc" ]; then
+            source "$HOME/.zshrc" 2>/dev/null || true
+        fi
+    fi
     pnpm i -g vercel
     ok "$label"
 }
