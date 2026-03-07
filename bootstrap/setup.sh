@@ -442,6 +442,9 @@ step_12_github_repo() {
     printf "  Repository name [${default_name}]: "
     read -r repo_name
     repo_name="${repo_name:-$default_name}"
+    # Prompt for organization (default: personal account)
+    printf "  GitHub organization (leave blank for personal account): "
+    read -r org_name
     # Prompt for visibility (default: private)
     printf "  Visibility (public/private) [private]: "
     read -r visibility
@@ -450,8 +453,9 @@ step_12_github_repo() {
         warn "Invalid choice '$visibility' — defaulting to private"
         visibility="private"
     fi
-    info "  Creating GitHub repository: $repo_name ($visibility)"
-    gh repo create "$repo_name" --"$visibility" --source=. --push
+    local full_name="${org_name:+$org_name/}$repo_name"
+    info "  Creating GitHub repository: $full_name ($visibility)"
+    gh repo create "$full_name" --"$visibility" --source=. --push
     ok "$label"
 }
 
