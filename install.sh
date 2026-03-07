@@ -362,8 +362,8 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} gh CLI not installed"
         fi
 
-        if command -v vercel &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} Vercel CLI $(vercel --version 2>/dev/null | head -1)"
+        if command -v vercel &>/dev/null || [ -x "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" ]; then
+            echo -e "  ${GREEN}✓${NC} Vercel CLI $( (vercel --version 2>/dev/null || "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" --version 2>/dev/null) | head -1)"
         else
             echo -e "  ${YELLOW}⚠${NC} Vercel CLI not installed"
         fi
@@ -386,7 +386,7 @@ case "${1:-}" in
 
         artifacts_outdated=false
 
-        if diff -rq .claude/skills/ "$FORGE_REPO/skills/" &>/dev/null; then
+        if diff -rq --exclude='.*' --exclude='*.installed' .claude/skills/ "$FORGE_REPO/skills/" &>/dev/null; then
             echo -e "  ${GREEN}✓${NC} Skills up-to-date"
         else
             echo -e "  ${YELLOW}⚠${NC} Skills outdated"
@@ -448,7 +448,9 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} GitHub not authenticated — run: gh auth login"
         fi
 
-        if vercel whoami &>/dev/null 2>&1; then
+        local vercel_cmd="vercel"
+        command -v vercel &>/dev/null || vercel_cmd="${PNPM_HOME:-$HOME/Library/pnpm}/vercel"
+        if "$vercel_cmd" whoami &>/dev/null 2>&1; then
             echo -e "  ${GREEN}✓${NC} Vercel authenticated"
         else
             echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
