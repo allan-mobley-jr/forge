@@ -130,6 +130,31 @@ Server Components that use `async/await` for data fetching need special handling
   ```
 - If a Server Component imports server-only modules, mock those modules entirely
 
+## Visual Regression Tests
+
+For issues that deliver visible UI changes, include a visual regression test specification in addition to functional tests. This enables the visual check agent (if available) to validate the UI.
+
+Output a `Visual Specs` section listing:
+- URL paths to check (e.g., `/`, `/dashboard`, `/settings`)
+- Viewports: desktop (1280x720) and mobile (375x812)
+- Dynamic content masks: areas with changing data that should be excluded from comparison (e.g., timestamps, user avatars)
+
+Format:
+```
+### Visual Specs
+
+| Page | Path | Viewports | Masks |
+|------|------|-----------|-------|
+| Homepage | / | desktop, mobile | none |
+| Dashboard | /dashboard | desktop | .timestamp, .avatar |
+```
+
+If the issue has no visible UI changes (API routes, utilities, config), omit this section.
+
+## Playwright Agents Note
+
+For complex E2E test failures that involve flaky selectors or timing issues, note these as candidates for Playwright's built-in auto-healing capabilities via the `playwright-cli` vendor skill.
+
 ## Guidelines
 
 - **Output complete, runnable files.** Every test file must be copy-pasteable and pass when the implementation is correct.

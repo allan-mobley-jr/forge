@@ -42,6 +42,8 @@ Read the four reference files and spawn sub-agents via the **Task tool**, runnin
 
 **Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data (PROMPT.md) as a context section at the end → spawn the Task. Sub-agents are read-only advisors — they return structured text, they do not write files or run commands.
 
+**Vendor skill context:** Before spawning each sub-agent, check which vendor skills are installed by listing `.claude/skills/` for vendor skill directories. Include the list of installed vendor skills in each sub-agent's context prompt so they can reference vendor skill patterns in their analysis.
+
 Each agent will return a structured analysis. Wait for all four to complete. If a sub-agent returns empty or incoherent output, re-spawn it once with the same prompt. If it fails again, proceed with the remaining agents' output and note the gap in the synthesis.
 
 ### Step 3: Synthesize the research
@@ -54,6 +56,7 @@ Combine the four agent outputs into a unified implementation plan:
    - **Milestone 0: Infrastructure** (always first) — project scaffold, env vars, config, base layout, auth setup if needed
    - **Milestones 1-4** — feature milestones in dependency order
 4. **Order within milestones** — within each milestone, order issues by dependency. Issue ordering IS the dependency graph — lower-numbered issues are built first.
+5. **Note recommended vendor skills** — if the stack agent recommended additional vendor skills (e.g., `neon-postgres`, `supabase`, `stripe`), include the install commands in the first issue's Implementation Notes so `/build` can run them during the infrastructure phase.
 
 ### Step 4: Create milestones
 
@@ -92,6 +95,7 @@ For each issue in the backlog, file it using `gh issue create`. Each issue must 
 - [Specific file paths to create or modify]
 - [Packages to install, APIs to call]
 - [Patterns to use — e.g., "use Server Components for data fetching"]
+- [Vendor skill hints — e.g., "Use Server Actions per next-best-practices", "Follow web-design-guidelines for form accessibility"]
 - [Pitfalls to avoid]
 
 ## Acceptance Criteria
@@ -150,6 +154,9 @@ cat > SPECIFICATION.md <<'SPEC_EOF'
 
 ## Constraints & Risks
 [Technical risks with mitigations, complexity hotspots, security, performance, external deps]
+
+## Vendor Skills Configuration
+[List vendor skills installed beyond defaults, with rationale — e.g., "stripe: project handles payments"]
 
 ## Decisions Log
 [Conflicts resolved during synthesis: what was chosen over what, and why]

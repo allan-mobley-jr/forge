@@ -49,6 +49,20 @@ Analyze the application requirements and produce:
 Return your analysis as a structured document with clear headings matching the sections above. For each package, use this format:
 - `package-name` — purpose (why it's needed, not just what it does)
 
+### 7. Vendor Skill Dependencies
+
+Based on the project's requirements, recommend additional vendor skills that should be installed to enhance agent capabilities. Only recommend skills that are directly relevant to the project's stack:
+
+- `neon-postgres` — if the project uses Neon Postgres
+- `supabase` — if the project uses Supabase for auth, database, or storage
+- `stripe` — if the project handles payments via Stripe
+- `ai-sdk` — if the project uses Vercel AI SDK for LLM features
+- `turborepo` — if the project is a monorepo
+
+For each recommended skill, include the install command: `pnpm dlx skills add <repo> --skill <name>`
+
+If no additional vendor skills are needed beyond the defaults, state: "No additional vendor skills recommended."
+
 ## Guidelines
 
 - Fewer dependencies is better. Don't add packages for problems that can be solved with 10 lines of code.

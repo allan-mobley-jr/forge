@@ -401,6 +401,22 @@ PLAYWRIGHT
     ok "$label"
 }
 
+# Step 10e: Generate AGENTS.md (Next.js docs index)
+step_10e_agents_md() {
+    local label="10e. AGENTS.md (Next.js docs index)"
+    if [ -f AGENTS.md ]; then
+        skip "$label"
+        return
+    fi
+    info "  Generating AGENTS.md via Next.js codemod..."
+    pnpm dlx @next/codemod@latest update-agents-md . 2>/dev/null || true
+    if [ -f AGENTS.md ]; then
+        ok "$label"
+    else
+        add_warning "AGENTS.md not generated — your Next.js version may not support it yet."
+    fi
+}
+
 # Step 11: Initial commit
 step_11_initial_commit() {
     local label="11. Initial commit"
@@ -476,6 +492,45 @@ step_15_copy_skills() {
     ok "$label"
 }
 
+# Step 15b: Install official vendor skills
+step_15b_vendor_skills() {
+    local label="15b. Official vendor skills"
+    if [ -f .claude/skills/.vendor-skills-installed ]; then
+        skip "$label"
+        return
+    fi
+    info "  Installing official vendor skills..."
+    mkdir -p .claude/skills
+    local failed=0
+
+    # Core Next.js / React knowledge
+    pnpm dlx skills add https://github.com/vercel-labs/next-skills --skill next-best-practices 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-react-best-practices 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill web-design-guidelines 2>/dev/null || failed=1
+
+    # Vercel platform
+    pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-deploy 2>/dev/null || failed=1
+
+    # Browser automation & visual testing
+    pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/before-and-after --skill before-and-after 2>/dev/null || failed=1
+
+    # Testing
+    pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli 2>/dev/null || failed=1
+
+    # Self-discovery meta-skill
+    pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills 2>/dev/null || failed=1
+
+    if [ "$failed" -eq 0 ]; then
+        touch .claude/skills/.vendor-skills-installed
+        ok "$label"
+    else
+        touch .claude/skills/.vendor-skills-installed
+        add_warning "Some vendor skills failed to install. Run individual 'pnpm dlx skills add' commands manually."
+    fi
+}
+
 # Step 16: Copy hooks
 step_16_copy_hooks() {
     local label="16. Hooks configuration"
@@ -536,9 +591,12 @@ step_18b_commit_config() {
         skip "$label"
         return
     fi
-    # Ensure Forge temp directory is gitignored
+    # Ensure Forge temp directory and vendor sentinel are gitignored
     if ! grep -Fq '.forge-temp/' .gitignore 2>/dev/null; then
         printf '\n# Forge session temp files\n.forge-temp/\n' >> .gitignore
+    fi
+    if ! grep -Fq '.vendor-skills-installed' .gitignore 2>/dev/null; then
+        printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
     fi
     mkdir -p .forge-temp
     git add .claude/ .github/ .gitignore
@@ -740,11 +798,13 @@ step_10_git_init
 step_10b_scaffold
 step_10c_test_deps
 step_10d_test_config
+step_10e_agents_md
 step_11_initial_commit
 step_12_github_repo
 step_13_push
 step_14_vercel_link
 step_15_copy_skills
+step_15b_vendor_skills
 step_16_copy_hooks
 step_17_copy_ci
 step_18_generate_claude_md

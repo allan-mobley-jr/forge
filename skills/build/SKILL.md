@@ -150,24 +150,52 @@ This is where you write code. Follow these principles:
 6. **Test as you go.** Run the dev server (`pnpm dev`) to verify changes work when practical.
 7. **File new issues for out-of-scope discoveries.** If you find bugs, missing error handling, or improvement opportunities outside the current issue's scope, file a new issue (with `--label "ai-generated"`) for each one rather than fixing it inline. Stay focused on the current issue.
 
-### Step 6b: Review and test (sub-agents)
+### Step 6a: Preview deployment (when available)
 
-After implementation is complete, spawn two sub-agents **in parallel** via the Task tool:
+If `.vercel/project.json` exists, attempt a preview deployment:
+
+```bash
+PREVIEW_URL=$(vercel deploy 2>/dev/null | tail -1)
+```
+
+If deployment succeeds, save the preview URL for inclusion in the PR body.
+If it fails, note the failure but do not block — local quality checks are the gate.
+
+### Step 6b: Review, test, and visual check (sub-agents)
+
+After implementation is complete, spawn sub-agents **in parallel** via the Task tool:
 
 1. **Review agent** — Read `.claude/skills/build/references/review-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the list of files changed (with contents), and the project's CLAUDE.md as context.
 
 2. **Test agent** — Read `.claude/skills/build/references/test-agent.md` and spawn a Task the same way. Include the issue body so it can determine whether to skip.
 
-**Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data as a context section at the end → spawn the Task. Both agents are read-only advisors — they return structured text output. They do not write files, run commands, or modify the project. You (the build agent) interpret their output and act on it.
+3. **Visual check agent** (conditional) — Only spawn if ALL of these are true:
+   - The issue delivers visible UI changes (not API routes, config, or utilities)
+   - The `agent-browser` vendor skill is available (check `.claude/skills/` for its directory)
 
-### Step 6c: Apply review feedback and write tests
+   If spawning, the visual check agent should:
+   - Start the dev server (`pnpm dev`)
+   - Navigate to affected pages (from the issue's implementation notes)
+   - Take screenshots at 1280x720 (desktop) and 375x812 (mobile)
+   - Compare against baselines in `.forge-temp/screenshots/` if they exist
+   - Return a structured report of visual differences
+
+   Prompt the agent with: "You are a visual QA agent. Start the dev server, navigate to the specified pages, take screenshots at desktop (1280x720) and mobile (375x812) viewports, compare against any existing baselines in .forge-temp/screenshots/, and report visual differences."
+
+**Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data as a context section at the end → spawn the Task. The review and test agents are read-only advisors — they return structured text output and do not write files or run commands. The visual check agent is an exception: it runs commands (dev server, browser) to capture screenshots, but does not modify source code. You (the build agent) interpret all sub-agent output and act on it.
+
+### Step 6c: Apply review feedback, write tests, and process visual output
 
 Process the sub-agent outputs:
 
 1. **Review: must-fix items** — Apply each must-fix change. These are blocking. If the review agent returned "None," skip this step.
 2. **Review: suggestions** — Save the suggestions list for the PR body. Do not apply them now.
 3. **Test: test files** — Write each test file to disk at the path specified by the test agent. If the test agent returned "Skipped," no test files are needed.
-4. **Run tests** — If test files were written:
+4. **Visual: regression check** — If the visual check agent was spawned, evaluate its output:
+   - **Intentional changes** — expected visual differences from the implemented feature. Update baselines by saving new screenshots to `.forge-temp/screenshots/`.
+   - **Unintentional regressions** — unexpected visual differences. Fix the implementation to resolve them.
+   - Save the visual check summary for the PR body.
+5. **Run tests** — If test files were written:
    ```bash
    pnpm test
    ```
@@ -242,14 +270,20 @@ Closes #{N}
 [Summary from test agent: number of test files, number of test cases, key scenarios covered.
 Or: "Tests skipped — [reason from test agent]"]
 
+## Visual Check
+
+[Summary from visual check agent: pages checked, viewports, any regressions found.
+Or: "Visual check skipped — non-UI issue." or "Visual check skipped — agent-browser not available."]
+
+## Preview
+
+[Preview URL from Step 6a, if deployment succeeded.
+Or: "Preview deployment skipped — no Vercel project linked." or "Preview deployment failed — check local build."]
+
 ## Review Notes
 
 [List any non-blocking suggestions from the review agent here.
 Or: "No additional suggestions."]
-
----
-
-> Preview deploy will appear below. Check it before approving.
 EOF
 )"
 ```
