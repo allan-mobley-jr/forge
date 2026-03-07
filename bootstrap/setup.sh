@@ -650,7 +650,9 @@ step_19_branch_protection() {
     fi
     # Check if a forge ruleset already exists
     local existing
-    existing=$(gh api "repos/$repo/rulesets" -q '[.[] | select(.name == "forge-main-protection")] | length' 2>/dev/null || echo "0")
+    if ! existing=$(gh api "repos/$repo/rulesets" -q '[.[] | select(.name == "forge-main-protection")] | length' 2>/dev/null); then
+        existing="0"
+    fi
     if [ "$existing" != "0" ]; then
         skip "$label"
         return
