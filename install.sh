@@ -272,7 +272,7 @@ case "${1:-}" in
 
         # 4c. Generate AGENTS.md if missing
         if [ ! -f AGENTS.md ]; then
-            pnpm dlx @next/codemod@latest update-agents-md . 2>/dev/null || true
+            pnpm dlx @next/codemod@latest update-agents-md . --force 2>/dev/null || true
             [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
         fi
 
