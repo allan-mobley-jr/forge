@@ -506,7 +506,7 @@ step_14b_vercel_git_connect() {
     if vercel git connect --yes 2>/dev/null; then
         ok "$label"
     else
-        add_warning "Vercel git connect failed — grant Vercel access to the repo at https://vercel.com/dashboard/integrations then re-run forge init --resume."
+        add_warning "Vercel git connect failed — grant the Vercel GitHub App access to this repo at https://github.com/settings/installations then re-run forge init --resume."
     fi
 }
 
