@@ -426,11 +426,11 @@ step_10e_agents_md() {
         return
     fi
     info "  Generating AGENTS.md via Next.js codemod..."
-    pnpm dlx @next/codemod@latest update-agents-md . 2>/dev/null || true
+    pnpm dlx @next/codemod@latest update-agents-md . --force 2>/dev/null || true
     if [ -f AGENTS.md ]; then
         ok "$label"
     else
-        add_warning "AGENTS.md not generated — your Next.js version may not support it yet."
+        add_warning "AGENTS.md not generated — codemod failed (check Next.js version or network)."
     fi
 }
 
