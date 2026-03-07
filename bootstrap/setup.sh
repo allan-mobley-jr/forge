@@ -508,23 +508,23 @@ step_15b_vendor_skills() {
     local failed=0
 
     # Core Next.js / React knowledge
-    pnpm dlx skills add https://github.com/vercel-labs/next-skills --skill next-best-practices 2>/dev/null || failed=1
-    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-react-best-practices 2>/dev/null || failed=1
-    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill web-design-guidelines 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/next-skills --skill next-best-practices --yes 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-react-best-practices --yes 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill web-design-guidelines --yes 2>/dev/null || failed=1
 
     # Vercel platform
-    pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli 2>/dev/null || failed=1
-    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-deploy 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli --yes 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-deploy --yes 2>/dev/null || failed=1
 
     # Browser automation & visual testing
-    pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser 2>/dev/null || failed=1
-    pnpm dlx skills add https://github.com/vercel-labs/before-and-after --skill before-and-after 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser --yes 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/before-and-after --skill before-and-after --yes 2>/dev/null || failed=1
 
     # Testing
-    pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli --yes 2>/dev/null || failed=1
 
     # Self-discovery meta-skill
-    pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills --yes 2>/dev/null || failed=1
 
     if [ "$failed" -eq 0 ]; then
         touch .claude/skills/.vendor-skills-installed
