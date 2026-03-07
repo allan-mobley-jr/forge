@@ -487,7 +487,7 @@ step_13_push() {
     ok "$label"
 }
 
-# Step 14: Vercel project linked to GitHub repo
+# Step 14: Vercel project linked
 step_14_vercel_link() {
     local label="14. Vercel project linked"
     if [ -f .vercel/project.json ]; then
@@ -496,9 +496,18 @@ step_14_vercel_link() {
     fi
     info "  Creating Vercel project..."
     vercel link --yes
-    info "  Connecting GitHub repo..."
-    vercel git connect --yes
     ok "$label"
+}
+
+# Step 14b: Connect GitHub repo to Vercel (non-critical)
+step_14b_vercel_git_connect() {
+    local label="14b. Vercel GitHub integration"
+    info "  Connecting GitHub repo to Vercel..."
+    if vercel git connect --yes 2>/dev/null; then
+        ok "$label"
+    else
+        add_warning "Vercel git connect failed — grant the Vercel GitHub App access to this repo at https://github.com/settings/installations then run: vercel git connect --yes"
+    fi
 }
 
 # Step 15: Copy skills
@@ -827,6 +836,7 @@ step_11_initial_commit
 step_12_github_repo
 step_13_push
 step_14_vercel_link
+step_14b_vercel_git_connect
 step_15_copy_skills
 step_15b_vendor_skills
 step_16_copy_hooks

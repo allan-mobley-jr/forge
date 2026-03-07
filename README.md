@@ -8,7 +8,7 @@ Forge is an autonomous development system that turns a plain-English description
 
 - macOS
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Pro subscription, Max subscription, or API key
-- GitHub account
+- GitHub account with the [Vercel GitHub App](https://github.com/apps/vercel) installed
 - Vercel account
 
 The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
