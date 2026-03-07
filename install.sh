@@ -253,9 +253,12 @@ case "${1:-}" in
             echo "  Installing vendor skills..."
             mkdir -p .claude/skills
             source "$FORGE_REPO/bootstrap/vendor-skills.sh"
-            install_vendor_skills || true
-            touch .claude/skills/.vendor-skills-installed
-            echo -e "  ${GREEN}✓${NC} Vendor skills installed"
+            if install_vendor_skills; then
+                touch .claude/skills/.vendor-skills-installed
+                echo -e "  ${GREEN}✓${NC} Vendor skills installed"
+            else
+                echo -e "  ${YELLOW}!${NC} Some vendor skills failed to install; will retry on next upgrade."
+            fi
         fi
 
         # Ensure vendor skills sentinel is gitignored
