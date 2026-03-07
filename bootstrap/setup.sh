@@ -323,7 +323,7 @@ step_10b_scaffold() {
 # Step 10c: Install test dependencies
 step_10c_test_deps() {
     local label="10c. Test dependencies installed"
-    if pnpm list vitest &>/dev/null 2>&1; then
+    if node -e "const p=require('./package.json'); process.exit(p.devDependencies?.vitest ? 0 : 1)" 2>/dev/null; then
         skip "$label"
         return
     fi
