@@ -182,7 +182,7 @@ After implementation is complete, spawn sub-agents **in parallel** via the Task 
 
    Prompt the agent with: "You are a visual QA agent. Start the dev server, navigate to the specified pages, take screenshots at desktop (1280x720) and mobile (375x812) viewports, compare against any existing baselines in .forge-temp/screenshots/, and report visual differences."
 
-**Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data as a context section at the end → spawn the Task. All agents are read-only advisors — they return structured text output. They do not write files, run commands, or modify the project. You (the build agent) interpret their output and act on it.
+**Sub-agent invocation pattern:** Read the reference file → use its full text as the Task prompt → append input data as a context section at the end → spawn the Task. The review and test agents are read-only advisors — they return structured text output and do not write files or run commands. The visual check agent is an exception: it runs commands (dev server, browser) to capture screenshots, but does not modify source code. You (the build agent) interpret all sub-agent output and act on it.
 
 ### Step 6c: Apply review feedback, write tests, and process visual output
 

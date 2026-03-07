@@ -56,10 +56,7 @@ Combine the four agent outputs into a unified implementation plan:
    - **Milestone 0: Infrastructure** (always first) — project scaffold, env vars, config, base layout, auth setup if needed
    - **Milestones 1-4** — feature milestones in dependency order
 4. **Order within milestones** — within each milestone, order issues by dependency. Issue ordering IS the dependency graph — lower-numbered issues are built first.
-5. **Install recommended vendor skills** — if the stack agent recommended additional vendor skills (e.g., `neon-postgres`, `supabase`, `stripe`), install them now:
-   ```bash
-   pnpm dlx skills add <repo> --skill <name> 2>/dev/null || true
-   ```
+5. **Note recommended vendor skills** — if the stack agent recommended additional vendor skills (e.g., `neon-postgres`, `supabase`, `stripe`), include the install commands in the first issue's Implementation Notes so `/build` can run them during the infrastructure phase.
 
 ### Step 4: Create milestones
 

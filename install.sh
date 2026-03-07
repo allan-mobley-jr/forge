@@ -239,10 +239,13 @@ case "${1:-}" in
             fi
         done
 
-        # 4. Update skills (clean replacement)
+        # 4. Update skills (clean replacement — preserve vendor sentinel)
+        local had_vendor_sentinel=false
+        [ -f .claude/skills/.vendor-skills-installed ] && had_vendor_sentinel=true
         rm -rf .claude/skills/
         mkdir -p .claude/skills
         cp -r "$FORGE_REPO/skills/"* .claude/skills/
+        [ "$had_vendor_sentinel" = true ] && touch .claude/skills/.vendor-skills-installed
         echo -e "  ${GREEN}✓${NC} Skills updated"
 
         # 4b. Install vendor skills if not already present
@@ -260,6 +263,11 @@ case "${1:-}" in
             pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills 2>/dev/null || true
             touch .claude/skills/.vendor-skills-installed
             echo -e "  ${GREEN}✓${NC} Vendor skills installed"
+        fi
+
+        # Ensure vendor skills sentinel is gitignored
+        if [ -f .gitignore ] && ! grep -Fq '.vendor-skills-installed' .gitignore 2>/dev/null; then
+            printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
         fi
 
         # 4c. Generate AGENTS.md if missing
