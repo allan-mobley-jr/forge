@@ -46,6 +46,19 @@ Analyze the application requirements and recommend:
 
 Return your analysis as a structured document with clear headings matching the 5 sections above. Be specific about Tailwind classes and component names where helpful. Do not produce full mockups — focus on patterns and decisions.
 
+### 6. Vendor Skill Design Rules
+
+Reference the `web-design-guidelines` vendor skill patterns in your analysis. These cover 100+ rules including:
+
+- Semantic HTML structure and ARIA landmarks
+- Color contrast ratios and focus indicators
+- Responsive design breakpoints and touch targets (minimum 44x44px)
+- Animation and motion preferences (`prefers-reduced-motion`)
+- Form accessibility (label association, error announcement, focus management)
+- Visual hierarchy and spacing consistency
+
+For each design recommendation, note if a specific `web-design-guidelines` rule applies so the build agent can validate compliance.
+
 ## Guidelines
 
 - Prefer Tailwind utility classes over custom CSS.

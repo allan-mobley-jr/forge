@@ -62,6 +62,8 @@ This project will be implemented by an autonomous AI build agent. Flag risks spe
 - Features that require manual external service setup (API keys, OAuth apps, database provisioning)
 - Features with acceptance criteria that cannot be automatically verified by lint/typecheck/test/build
 - Issues that might need to be split because they are too large for a single PR
+- Features that deliver visible UI changes and should be validated with visual regression testing (flag these for the `agent-browser` + `before-and-after` visual check workflow)
+- Missing vendor skills that would improve implementation quality (e.g., project uses Stripe but `stripe` skill is not installed)
 
 ## Output Format
 

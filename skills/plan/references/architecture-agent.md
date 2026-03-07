@@ -42,6 +42,13 @@ Analyze the application requirements and recommend:
 
 Return your analysis as a structured document with clear headings matching the 5 sections above. Use bullet points. Be specific about file paths. Do not include implementation code — just the architectural decisions and file structure.
 
+### 6. Vendor Skill & Framework Patterns
+
+- Consult `AGENTS.md` (if present) for canonical Next.js framework documentation on App Router, Server Components, Server Actions, streaming, middleware, and caching strategies.
+- Consult `SPECIFICATION.md` (if present) for prior architectural decisions and rationale.
+- Reference `next-best-practices` patterns where applicable: App Router conventions, React Server Components, Server Actions, streaming with Suspense, middleware for auth/redirects, and cache/revalidation strategies.
+- For each architectural decision, note which `next-best-practices` pattern applies so the build agent can reference it during implementation.
+
 ## Guidelines
 
 - Prefer simplicity. Server Components by default. Client Components only when needed.
