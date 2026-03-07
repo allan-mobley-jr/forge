@@ -250,10 +250,13 @@ step_08_vercel() {
     # Ensure PNPM_HOME is configured for global installs
     if [ -z "${PNPM_HOME:-}" ]; then
         info "  Setting up PNPM_HOME..."
-        pnpm setup 2>/dev/null
-        # Source the updated shell config to pick up PNPM_HOME
-        if [ -f "$HOME/.zshrc" ]; then
-            source "$HOME/.zshrc" 2>/dev/null || true
+        pnpm setup
+        # Extract PNPM_HOME from shell config (pnpm setup writes it there)
+        local pnpm_home
+        pnpm_home=$(grep -m1 'export PNPM_HOME=' "$HOME/.zshrc" 2>/dev/null | sed 's/export PNPM_HOME="//' | sed 's/"$//')
+        if [ -n "${pnpm_home:-}" ]; then
+            export PNPM_HOME="$pnpm_home"
+            export PATH="$PNPM_HOME:$PATH"
         fi
     fi
     pnpm i -g vercel
