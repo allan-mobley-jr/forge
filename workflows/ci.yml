@@ -41,10 +41,11 @@ jobs:
       - name: Check for E2E tests
         id: check
         run: |
-          if find e2e -name '*.spec.*' -o -name '*.test.*' 2>/dev/null | grep -q .; then
+          if [ -d e2e ] && find e2e -type f \( -name '*.spec.*' -o -name '*.test.*' \) 2>/dev/null | grep -q .; then
             echo "has_tests=true" >> "$GITHUB_OUTPUT"
           else
             echo "No E2E test files found — skipping"
+            echo "has_tests=false" >> "$GITHUB_OUTPUT"
           fi
       - uses: pnpm/action-setup@v4
         if: steps.check.outputs.has_tests == 'true'
