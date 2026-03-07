@@ -476,6 +476,45 @@ step_15_copy_skills() {
     ok "$label"
 }
 
+# Step 15b: Install official vendor skills
+step_15b_vendor_skills() {
+    local label="15b. Official vendor skills"
+    if [ -f .claude/skills/.vendor-skills-installed ]; then
+        skip "$label"
+        return
+    fi
+    info "  Installing official vendor skills..."
+    mkdir -p .claude/skills
+    local failed=0
+
+    # Core Next.js / React knowledge
+    pnpm dlx skills add https://github.com/vercel-labs/next-skills --skill next-best-practices 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-react-best-practices 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill web-design-guidelines 2>/dev/null || failed=1
+
+    # Vercel platform
+    pnpm dlx skills add https://github.com/vercel/vercel --skill vercel-cli 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/agent-skills --skill vercel-deploy 2>/dev/null || failed=1
+
+    # Browser automation & visual testing
+    pnpm dlx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser 2>/dev/null || failed=1
+    pnpm dlx skills add https://github.com/vercel-labs/before-and-after --skill before-and-after 2>/dev/null || failed=1
+
+    # Testing
+    pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli 2>/dev/null || failed=1
+
+    # Self-discovery meta-skill
+    pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills 2>/dev/null || failed=1
+
+    if [ "$failed" -eq 0 ]; then
+        touch .claude/skills/.vendor-skills-installed
+        ok "$label"
+    else
+        touch .claude/skills/.vendor-skills-installed
+        add_warning "Some vendor skills failed to install. Run individual 'pnpm dlx skills add' commands manually."
+    fi
+}
+
 # Step 16: Copy hooks
 step_16_copy_hooks() {
     local label="16. Hooks configuration"
@@ -536,9 +575,12 @@ step_18b_commit_config() {
         skip "$label"
         return
     fi
-    # Ensure Forge temp directory is gitignored
+    # Ensure Forge temp directory and vendor sentinel are gitignored
     if ! grep -Fq '.forge-temp/' .gitignore 2>/dev/null; then
         printf '\n# Forge session temp files\n.forge-temp/\n' >> .gitignore
+    fi
+    if ! grep -Fq '.vendor-skills-installed' .gitignore 2>/dev/null; then
+        printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
     fi
     mkdir -p .forge-temp
     git add .claude/ .github/ .gitignore
@@ -745,6 +787,7 @@ step_12_github_repo
 step_13_push
 step_14_vercel_link
 step_15_copy_skills
+step_15b_vendor_skills
 step_16_copy_hooks
 step_17_copy_ci
 step_18_generate_claude_md
