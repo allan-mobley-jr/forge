@@ -83,7 +83,8 @@ fi
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
-    retry git -C "$FORGE_REPO" pull --quiet
+    git -C "$FORGE_REPO" fetch --quiet
+    git -C "$FORGE_REPO" reset --hard origin/main --quiet
     echo -e "${GREEN}Forge updated.${NC}"
 else
     echo -e "${BLUE}Installing Forge...${NC}"
@@ -205,13 +206,7 @@ case "${1:-}" in
         fi
         ;;
     update)
-        # Pull first so install.sh is up-to-date before bash parses it.
-        # Then re-run the full installer, which is idempotent:
-        # - pulls the repo again (no-op, already up-to-date)
-        # - regenerates this CLI from the updated heredoc
-        # - skips PATH setup if already configured
-        git -C "$FORGE_REPO" pull
-        bash "$FORGE_REPO/install.sh"
+        curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
         exit $?
         ;;
     upgrade)
@@ -424,7 +419,8 @@ if plugins:
             artifacts_outdated=true
         fi
 
-        if diff -q .claude/settings.json "$FORGE_REPO/hooks/settings.json" &>/dev/null; then
+        if jq -S '{permissions, hooks}' .claude/settings.json 2>/dev/null | \
+           diff -q - <(jq -S '{permissions, hooks}' "$FORGE_REPO/hooks/settings.json") &>/dev/null; then
             echo -e "  ${GREEN}✓${NC} Hooks up-to-date"
         else
             echo -e "  ${YELLOW}⚠${NC} Hooks outdated"
