@@ -282,7 +282,7 @@ Before spawning audit sub-agents, explore the actual built codebase to understan
 - Read key files (layout components, main pages, API routes) to understand the actual architecture
 
 Compile a codebase summary including:
-- Route structure (actual `app/` directory layout)
+- Route structure (actual `src/app/` directory layout)
 - Key components and their relationships
 - Data fetching patterns in use
 - State management approach
