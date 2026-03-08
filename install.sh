@@ -270,9 +270,9 @@ case "${1:-}" in
             printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
         fi
 
-        # 4c. Generate AGENTS.md if missing
+        # 4c. Generate AGENTS.md if missing (silently no-ops until codemod ships stable)
         if [ ! -f AGENTS.md ]; then
-            pnpm dlx @next/codemod@latest update-agents-md . --force 2>/dev/null || true
+            pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 || true
             [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
         fi
 
