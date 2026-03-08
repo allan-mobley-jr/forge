@@ -46,7 +46,6 @@ Official vendor skills provide framework-specific knowledge (auto-invoked via pr
 | `agent-browser` | Headless browser for visual testing |
 | `before-and-after` | Screenshot comparison |
 | `playwright-cli` | Browser test automation |
-| `find-skills` | Self-discovery of new skills mid-session |
 
 ### State Machine
 
@@ -116,6 +115,8 @@ For fully autonomous headless operation, use `forge run` from the project root. 
 - Do not read, print, or log environment variables or secrets.
 - Do not modify CI workflows (`.github/workflows/`) — these are managed by Forge.
 - Protected files/dirs are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `.claude/skills/`, `pnpm-lock.yaml`, `.vercel/`, `node_modules/`, and `.github/workflows/` (write-only). `PROMPT.md` and `SPECIFICATION.md` become protected after the initial planning phase.
+- Do not install, discover, or invoke third-party skills, plugins, or MCP servers. Only use the Forge skills and vendor skills listed above.
+- Do not run `npx skills add`, `npx skills find`, `pnpm dlx skills`, or any skill discovery commands.
 
 ## Do Not
 
@@ -125,6 +126,8 @@ For fully autonomous headless operation, use `forge run` from the project root. 
 - Work on code without a corresponding GitHub Issue.
 - Merge PRs without human approval.
 - Modify `CLAUDE.md` or files in `.claude/skills/`, or modify `PROMPT.md` or `SPECIFICATION.md` outside the `/plan` archival step (protected after initial planning).
+- Install or search for third-party skills at runtime.
+- Use MCP server tools — Forge uses vendor skills and CLI tools, not MCP.
 
 ## Reference
 

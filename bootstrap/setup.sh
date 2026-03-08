@@ -570,6 +570,23 @@ step_16_copy_hooks() {
     fi
     mkdir -p .claude
     cp "$FORGE_REPO/hooks/settings.json" .claude/settings.json
+    # Disable any user-installed plugins at project level
+    if [ -f "$HOME/.claude/settings.json" ]; then
+        python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    user = json.load(f)
+with open(sys.argv[2]) as f:
+    proj = json.load(f)
+plugins = user.get('enabledPlugins', {})
+if plugins:
+    proj['enabledPlugins'] = {k: False for k in plugins}
+    with open(sys.argv[2], 'w') as f:
+        json.dump(proj, f, indent=2)
+        f.write('\n')
+    print(f'  Disabled {len(plugins)} user plugin(s) at project level')
+" "$HOME/.claude/settings.json" .claude/settings.json 2>/dev/null || true
+    fi
     ok "$label"
 }
 

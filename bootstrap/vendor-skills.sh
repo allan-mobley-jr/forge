@@ -22,8 +22,5 @@ install_vendor_skills() {
     # Testing
     pnpm dlx skills add https://github.com/microsoft/playwright-cli --skill playwright-cli $skills_flags 2>/dev/null || failed=1
 
-    # Self-discovery meta-skill
-    pnpm dlx skills add https://github.com/vercel-labs/skills --skill find-skills $skills_flags 2>/dev/null || failed=1
-
     return $failed
 }
