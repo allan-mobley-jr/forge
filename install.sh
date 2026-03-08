@@ -11,9 +11,7 @@ FORGE_REPO="$FORGE_HOME/repo"
 FORGE_BIN="$FORGE_HOME/bin"
 FORGE_REMOTE="https://github.com/allan-mobley-jr/forge.git"
 
-# CLI-only mode: skip banner/clone/PATH, just regenerate the CLI binary.
-# Used by `forge update` to refresh the CLI after pulling the repo.
-if [ "${FORGE_CLI_ONLY:-}" != "1" ]; then
+# --- Step 1: Ensure git, clone/update repo, show banner ---
 
 # --- Retry helper ---
 
@@ -93,8 +91,6 @@ else
     retry git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
     echo -e "${GREEN}Forge installed to $FORGE_REPO${NC}"
 fi
-
-fi  # end FORGE_CLI_ONLY != 1
 
 # --- Step 3: Create the forge command ---
 
@@ -209,13 +205,13 @@ case "${1:-}" in
         fi
         ;;
     update)
-        echo "Updating Forge..."
+        # Pull first so install.sh is up-to-date before bash parses it.
+        # Then re-run the full installer, which is idempotent:
+        # - pulls the repo again (no-op, already up-to-date)
+        # - regenerates this CLI from the updated heredoc
+        # - skips PATH setup if already configured
         git -C "$FORGE_REPO" pull
-        # Regenerate CLI from updated repo
-        FORGE_CLI_ONLY=1 bash "$FORGE_REPO/install.sh"
-        echo "Forge updated to latest version."
-        echo ""
-        echo "  Run 'forge doctor' inside a project to check health."
+        bash "$FORGE_REPO/install.sh"
         ;;
     upgrade)
         # Colors for upgrade output
@@ -869,8 +865,6 @@ FORGE_CMD
 
 chmod +x "$FORGE_BIN/forge"
 
-if [ "${FORGE_CLI_ONLY:-}" != "1" ]; then
-
 # --- Step 4: Add to PATH ---
 
 SHELL_RC=""
@@ -916,5 +910,3 @@ if [ -n "$SHELL_RC" ]; then
     echo -e "  ${YELLOW}Note:${NC} Restart your terminal or run ${BOLD}source $SHELL_RC${NC} to use the forge command."
     echo ""
 fi
-
-fi  # end FORGE_CLI_ONLY != 1
