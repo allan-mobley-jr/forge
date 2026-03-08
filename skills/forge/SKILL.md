@@ -131,12 +131,17 @@ RESPONSE=$(gh issue view "$ISSUE" --json comments --jq '
   .comments
   | . as $c
   | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last
-  | .key as $qi | .value.author.login as $agent
-  | [$c[range($qi + 1; $c | length)] | select(.author.login != $agent)] | last
-  | .body')
+  | if . == null then null
+    else
+      .key as $qi | .value.author.login as $agent
+      | [$c[range($qi + 1; $c | length)] | select(.author.login != $agent)] | last
+      | .body
+    end')
 
-# Post acknowledgment
-gh issue comment "$ISSUE" --body "Acknowledged response. Resuming work on this issue."
+# Post acknowledgment referencing the response
+gh issue comment "$ISSUE" --body "Acknowledged response. Resuming work on this issue.
+
+> ${RESPONSE}"
 
 # Relabel: needs-human → in-progress
 gh issue edit "$ISSUE" --remove-label "agent:needs-human" --add-label "agent:in-progress"
@@ -154,9 +159,11 @@ Process responded issues before surfacing awaiting ones. If multiple issues have
 In headless mode (`forge run`), check if 24 hours have elapsed since the agent question was posted. If so, apply the stated default:
 
 ```bash
-# Get the question comment timestamp
-QUESTION_TIME=$(gh issue view "$ISSUE" --json comments --jq '
-  [.comments[] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last | .createdAt')
+# Get the question comment timestamp and body in a single API call
+QUESTION_JSON=$(gh issue view "$ISSUE" --json comments --jq '
+  [.comments[] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last | {createdAt, body}')
+QUESTION_TIME=$(echo "$QUESTION_JSON" | jq -r '.createdAt')
+QUESTION_BODY=$(echo "$QUESTION_JSON" | jq -r '.body')
 
 # Check if 24h have elapsed (86400 seconds)
 QUESTION_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$QUESTION_TIME" +%s 2>/dev/null || date -d "$QUESTION_TIME" +%s)
@@ -164,10 +171,8 @@ NOW_EPOCH=$(date +%s)
 ELAPSED=$(( NOW_EPOCH - QUESTION_EPOCH ))
 
 if [ "$ELAPSED" -ge 86400 ]; then
-  # Extract the default option from the question comment
-  DEFAULT_TEXT=$(gh issue view "$ISSUE" --json comments --jq '
-    [.comments[] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last | .body' \
-    | grep -A1 "Default if no response" | tail -1)
+  # Extract the default option from the question comment body
+  DEFAULT_TEXT=$(echo "$QUESTION_BODY" | grep -A1 "Default if no response" | tail -1)
 
   gh issue comment "$ISSUE" --body "No response received within 24 hours. Applying stated default: ${DEFAULT_TEXT}"
   gh issue edit "$ISSUE" --remove-label "agent:needs-human" --add-label "agent:in-progress"

@@ -712,7 +712,7 @@ print('waiting')
                                     break
                                 fi
 
-                                # Check 24h timeout on oldest question
+                                # Check 24h timeout on most recent question
                                 timeout_hit=$(echo "$needs_human_json" | python3 -c "
 import json, sys, re
 from datetime import datetime, timezone
