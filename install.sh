@@ -391,17 +391,23 @@ case "${1:-}" in
         artifacts_outdated=false
 
         forge_skills_ok=true
-        for skill in forge plan build revise sync ask; do
-            if [ -d ".claude/skills/$skill" ] && [ -d "$FORGE_REPO/skills/$skill" ]; then
-                if ! diff -rq ".claude/skills/$skill" "$FORGE_REPO/skills/$skill" &>/dev/null; then
+        if [ -d "$FORGE_REPO/skills" ]; then
+            for forge_skill_dir in "$FORGE_REPO/skills"/*/; do
+                [ -d "$forge_skill_dir" ] || continue
+                skill="$(basename "$forge_skill_dir")"
+                if [ -d ".claude/skills/$skill" ]; then
+                    if ! diff -rq --exclude='.*' ".claude/skills/$skill" "$forge_skill_dir" &>/dev/null; then
+                        forge_skills_ok=false
+                        break
+                    fi
+                else
                     forge_skills_ok=false
                     break
                 fi
-            else
-                forge_skills_ok=false
-                break
-            fi
-        done
+            done
+        else
+            forge_skills_ok=false
+        fi
         if $forge_skills_ok; then
             echo -e "  ${GREEN}✓${NC} Skills up-to-date"
         else
