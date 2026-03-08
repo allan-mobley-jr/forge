@@ -27,6 +27,15 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 - GitHub is the sole state machine — no local state files
 - Shell scripts target macOS (zsh) with Homebrew assumed
 
+## Issue Workflow
+
+When working through GitHub issues, use `/fix-issue <number>` (or `/fix-issue` for the next open issue). This enforces the full cycle: branch, plan, implement, self-review, PR, wait for merge. One issue at a time — never start the next until the current PR is merged.
+
+After a PR merges, clean up before moving on:
+```
+git checkout main && git pull && git branch -d <branch> && git remote prune origin
+```
+
 ## Git Workflow
 
 ### Atomic commits
