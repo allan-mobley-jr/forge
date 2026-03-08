@@ -25,7 +25,7 @@ If you are the main session, run `/forge` to begin. If you were spawned as a sub
 Main session → /forge (orchestrator skill)
   ├── /sync   — reads GitHub issue/PR state, returns structured summary
   ├── /plan   — spawns 4 research sub-agents in parallel, files GitHub Issues
-  ├── /build  — claims one issue, implements, spawns review+test+debug sub-agents, opens PR
+  ├── /build  — claims one issue, spawns triage+research+plan+advocate sub-agents, implements, spawns review+test+debug sub-agents, opens PR
   ├── /revise — addresses PR review comments, pushes fixes to existing branch
   └── /ask    — escalates blocking questions to human via GitHub comments
 ```
