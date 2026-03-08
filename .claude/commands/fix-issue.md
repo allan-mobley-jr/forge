@@ -1,7 +1,7 @@
 ---
 name: fix-issue
 description: Work through a GitHub issue end-to-end — branch, plan, implement, review, PR, wait for merge. Use when tackling issues from the backlog one at a time.
-allowed-tools: Bash(gh *), Bash(git *), Read, Glob, Grep, Edit, Write, Agent
+allowed-tools: Bash(gh *), Bash(git *), Read, Glob, Grep, Edit, Write
 ---
 
 # /fix-issue — Issue-to-PR Workflow
@@ -22,18 +22,18 @@ Work through one GitHub issue from start to finish. One issue at a time, sequent
 If no issue number is given, find the lowest-numbered open issue:
 
 ```bash
-gh issue list --state open --limit 1 --json number,title,body --jq '.[0]'
+gh issue list --state open --limit 100 --json number,title,body --jq 'sort_by(.number) | .[0]'
 ```
 
 Read the issue thoroughly. Understand what needs to change and why.
 
 ### Step 2: Create a branch
 
-Branch name format: `fix/<issue-number>-<short-slug>`
+Branch name format: `fix/<issue-number>-<short-slug>` for bugs, `feat/<number>-<slug>` for features.
 
 ```bash
 git checkout main && git pull
-git checkout -b fix/<number>-<slug>
+git checkout -b fix/<number>-<slug>   # or feat/<number>-<slug>
 ```
 
 The slug should be 2-4 words from the issue title, kebab-case. Example: `fix/94-doctor-skills-outdated`
@@ -97,10 +97,11 @@ After creating the PR, stop and tell the user:
 
 ```
 PR created: <url>
-Waiting for review. Run /fix-issue to pick up the next issue, or /resolve-pr-comments if review feedback comes in.
+Waiting for review. Run /resolve-pr-comments when review feedback comes in.
+After the PR merges, run /fix-issue to pick up the next issue.
 ```
 
-Do NOT start the next issue automatically. Wait for the user to direct you.
+Do NOT start the next issue automatically. Wait for the current PR to merge first.
 
 ## Rules
 
