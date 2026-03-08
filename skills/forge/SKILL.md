@@ -134,23 +134,35 @@ If the user provides an answer in the chat:
 3. Continue to next applicable case
 
 #### Case B: `agent:done` on the current issue
-Check the PR review state:
 
-**If `CHANGES_REQUESTED`:** Route to `/revise`.
+Look up the PR for the done issue using the `/sync` Open PRs data, or resolve it directly:
+
+```bash
+PR_JSON=$(gh pr list --state open --json number,url,headRefName,reviewDecision,statusCheckRollup \
+  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | .[0]")
+```
+
+Check CI status and review state in priority order:
+
+**1. If CI checks are failing:** Route to `/revise` for CI repair. A reviewer won't merge a red PR, so fix CI before handling review feedback.
+
+```bash
+HAS_CI_FAILURE=$(echo "$PR_JSON" | jq '[.statusCheckRollup // [] | .[] | select(.conclusion == "FAILURE" or .conclusion == "failure")] | length > 0')
+```
+
+```
+Action: Run /revise
+Message: "Issue #{X} has failing CI checks on its PR. Starting CI repair..."
+```
+
+**2. If `CHANGES_REQUESTED`:** Route to `/revise` for review revision.
 
 ```
 Action: Run /revise
 Message: "Issue #{X} has review feedback on its PR. Starting revision..."
 ```
 
-**Otherwise (awaiting review or approved):** Block. The sequential lifecycle requires merge before moving on.
-
-Look up the PR for the done issue using the `/sync` Open PRs data, or resolve it directly:
-
-```bash
-gh pr list --state open --json number,url,headRefName,reviewDecision \
-  --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | .[0]"
-```
+**3. Otherwise (awaiting review or approved):** Block. The sequential lifecycle requires merge before moving on.
 
 ```
 Action: Stop the loop. Display the resolved PR URL and review status.
