@@ -351,7 +351,10 @@ step_10b2_fix_pnpm_workspace() {
     info "  Adding packages field to pnpm-workspace.yaml..."
     local tmp
     tmp=$(mktemp)
-    printf 'packages:\n  - '\''.'\''\n' > "$tmp"
+    cat > "$tmp" <<'EOF'
+packages:
+  - '.'
+EOF
     cat pnpm-workspace.yaml >> "$tmp"
     mv "$tmp" pnpm-workspace.yaml
     ok "$label"
