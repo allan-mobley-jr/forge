@@ -59,7 +59,8 @@ Be specific about the technical situation.]
 Option [A or B] — [one sentence explaining why this is the safe default]
 
 ---
-*Forge will check for your response on next session start.*
+*To respond, add a comment below. Choose an option or provide a custom answer.*
+*Forge will check for your response on next session start. In headless mode (`forge run`), the default option above is applied automatically after 24 hours.*
 COMMENT
 )"
 ```

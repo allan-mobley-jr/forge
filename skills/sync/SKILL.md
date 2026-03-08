@@ -154,6 +154,38 @@ done
 
 CI failures take priority over review state — a reviewer won't merge a red PR anyway. Do NOT relabel the issue — just report the state so `/forge` can route to `/revise`.
 
+### 3f. Detect responses to `agent:needs-human` issues
+
+For each `agent:needs-human` issue, check whether a human has responded after the agent's question. Use the `comments` field already fetched in the batched `$OPEN_ISSUES` query — zero additional API calls:
+
+```bash
+NEEDS_HUMAN=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:needs-human"))] | .[].number')
+
+for ISSUE_NUM in $NEEDS_HUMAN; do
+  HAS_RESPONSE=$(echo "$OPEN_ISSUES" | jq --arg num "$ISSUE_NUM" '
+    [.[] | select(.number == ($num | tonumber))][0].comments // []
+    | . as $c
+    | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last
+    | if . == null then false
+      else
+        .key as $qi | .value.author.login as $agent
+        | [$c[range($qi + 1; $c | length)] | select(.author.login != $agent)]
+        | length > 0
+      end')
+
+  if [ "$HAS_RESPONSE" = "true" ]; then
+    echo "Issue #${ISSUE_NUM} has a human response after the agent question"
+  fi
+done
+```
+
+The detection logic:
+1. Find the last comment whose body starts with `## Agent Question`, `## Build Failed`, `## Revision Limit Reached`, or `## Merge Conflict` (all known escalation headers)
+2. Check if any comment **after** that index is from a **different** `author.login`
+3. If yes, report as "responded" — `/forge` will handle resumption
+
+Report both responded and awaiting issues in the summary so `/forge` can route appropriately.
+
 ### 4. Produce the summary
 
 Output a structured summary in this exact format:
@@ -169,12 +201,15 @@ Backlog:          {count}  (no agent label)
 ------------------------------------
 CI failing:       {list of agent:done issues with failing CI checks}
 Revision needed:  {list of agent:done issues with CHANGES_REQUESTED}
+Human responded:  {list of agent:needs-human issues with a response detected}
+Human awaiting:   {list of agent:needs-human issues still waiting for a response}
 Next action: {one of the following}
 ```
 
 **Next action** should be one of:
 - `Plan needed` — zero issues exist
-- `Surface blocking questions` — issues need human input
+- `Resume Issue #{N} — human responded` — a human answered the agent's question (highest priority)
+- `Surface blocking questions` — issues need human input (no response yet)
 - `Repair CI — Issue #{N}` — CI checks failing on agent:done PR (highest build priority)
 - `Revise Issue #{N} — {title}` — PR needs revision (agent:done with CHANGES_REQUESTED)
 - `Build Issue #{N} — {title}` — issues in backlog (pick the lowest-numbered backlog issue)
@@ -186,7 +221,7 @@ Next action: {one of the following}
 
 - **No issues at all**: Report "Plan needed" as next action
 - **Multiple needs-human issues**: List all of them with their question summaries
-- **Mix of states**: Prioritize in this order: needs-human (surface first), then CI-failing (repair next), then revision-needed (revise next), then agent:done awaiting merge (block), then in-progress (resume), then backlog (build next)
+- **Mix of states**: Prioritize in this order: human-responded (resume first), then needs-human awaiting (surface next), then CI-failing (repair next), then revision-needed (revise next), then agent:done awaiting merge (block), then in-progress (resume), then backlog (build next)
 
 ## Rate Limit Notes
 
