@@ -419,15 +419,16 @@ PLAYWRIGHT
 }
 
 # Step 10e: Generate AGENTS.md (Next.js docs index)
-# The agents-md subcommand is canary-only as of March 2026.
-# This step silently no-ops until it ships in a stable release.
+# Try @latest first; fall back to @canary where the subcommand already exists.
 step_10e_agents_md() {
     local label="10e. AGENTS.md (Next.js docs index)"
     if [ -f AGENTS.md ]; then
         skip "$label"
         return
     fi
-    pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 || true
+    pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 \
+      || pnpm dlx @next/codemod@canary agents-md --output AGENTS.md >/dev/null 2>&1 \
+      || true
     if [ -f AGENTS.md ]; then
         ok "$label"
     fi

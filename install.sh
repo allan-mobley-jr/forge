@@ -270,9 +270,11 @@ case "${1:-}" in
             printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
         fi
 
-        # 4c. Generate AGENTS.md if missing (silently no-ops until codemod ships stable)
+        # 4c. Generate AGENTS.md if missing (try @latest, fall back to @canary)
         if [ ! -f AGENTS.md ]; then
-            pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 || true
+            pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 \
+              || pnpm dlx @next/codemod@canary agents-md --output AGENTS.md >/dev/null 2>&1 \
+              || true
             [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
         fi
 
