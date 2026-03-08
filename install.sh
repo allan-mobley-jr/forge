@@ -279,12 +279,16 @@ case "${1:-}" in
         if [ -f "$HOME/.claude/settings.json" ]; then
             python3 -c "
 import json, sys
-user = json.load(open(sys.argv[1]))
-proj = json.load(open(sys.argv[2]))
+with open(sys.argv[1]) as f:
+    user = json.load(f)
+with open(sys.argv[2]) as f:
+    proj = json.load(f)
 plugins = user.get('enabledPlugins', {})
 if plugins:
     proj['enabledPlugins'] = {k: False for k in plugins}
-    json.dump(proj, open(sys.argv[2], 'w'), indent=2)
+    with open(sys.argv[2], 'w') as f:
+        json.dump(proj, f, indent=2)
+        f.write('\n')
 " "$HOME/.claude/settings.json" .claude/settings.json 2>/dev/null || true
         fi
         echo -e "  ${GREEN}✓${NC} Hooks updated"
