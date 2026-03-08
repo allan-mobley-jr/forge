@@ -4,7 +4,7 @@ description: >
   Address PR review comments on an existing branch. Reads reviewer feedback,
   applies fixes, runs quality checks, and pushes to the same PR. Used by the
   Forge orchestrator when a human requests changes on a PR.
-allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task
+allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task, WebSearch, WebFetch
 ---
 
 # /revise — Address PR Review Feedback
@@ -252,17 +252,36 @@ Also read:
 - The issue body — original requirements and acceptance criteria
 - The files referenced in comments — understand context before modifying
 
-### Step 6: Address each comment
+### Step 5.5: Evaluate comments
 
-Process review feedback systematically:
+Before applying any fixes, evaluate whether each review comment is correct. Spawn a **comment evaluator agent** via the Task tool. Read `.claude/skills/revise/references/comment-evaluator-agent.md` and spawn a Task with its contents as the prompt. Append all review comments, the project's CLAUDE.md, SPECIFICATION.md, the current code in referenced files, and the issue body as context.
+
+The evaluator returns a verdict for each comment:
+
+| Verdict | Action |
+|---------|--------|
+| APPLY | Comment is correct — apply the fix in Step 6 |
+| CHALLENGE | Comment appears incorrect — reply on the PR thread with evidence, do NOT apply |
+| RESEARCH | Comment needs verification — search the web, then re-categorize as APPLY or CHALLENGE |
+| ESCALATE | Ambiguous or can't determine — collect for escalation in Step 11 |
+
+**Handle RESEARCH verdicts:** For each RESEARCH comment, use WebSearch/WebFetch to look up the claim (e.g., API documentation, WCAG standards, deprecation notices). Based on the findings, re-categorize as APPLY or CHALLENGE.
+
+**Handle CHALLENGE verdicts:** For each CHALLENGE comment, reply on the PR thread with the evaluator's evidence:
+
+```bash
+gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies" \
+  -f body="[Evidence-based pushback explaining why the current approach is correct]"
+```
+
+### Step 6: Address APPLY comments
+
+Process only the comments categorized as APPLY (or re-categorized from RESEARCH to APPLY):
 
 1. **Group line-level comments by file.** Open each file once, apply all relevant fixes, then move to the next file.
 2. **Address top-level review body comments.** These may describe broader concerns that span multiple files.
-3. **For each comment, determine if it is actionable:**
-   - Clear code change request (e.g., "rename this variable," "add error handling here," "use a different approach for X") — apply the fix.
-   - Architectural question or ambiguous feedback — if you can reasonably infer the right approach from context (CLAUDE.md, issue body, existing code patterns), do so. If not, collect these for escalation in Step 11.
 
-**Do not skip comments.** Every comment must be either addressed with a code change or flagged for escalation.
+**Do not skip comments.** Every comment must be either applied, challenged with evidence, or flagged for escalation.
 
 ### Step 7: Quality checks
 
@@ -296,24 +315,46 @@ git commit -m "fix: add error boundary for fetch failures (#$ISSUE)"
 git push origin $PR_BRANCH
 ```
 
-### Step 9: Post summary and re-request review
+### Step 9: Post summary, resolve threads, and re-request review
 
-Post a comment on the PR summarizing what was changed for each review comment:
+Post a comment on the PR summarizing what was changed, what was challenged, and what was escalated:
 
 ```bash
 gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
 ## Revision Summary
 
-Addressed review feedback:
-
-- **[file:line]** — [brief description of change made in response to comment]
+### Applied
 - **[file:line]** — [brief description of change made in response to comment]
 - ...
+
+### Challenged
+- **[file:line]** — [brief summary of why the suggestion was not applied, with evidence]
+- ...
+
+### Escalated
+- **[file:line]** — [brief summary of what needs human input]
+- ...
+
+[Or omit empty sections]
 
 All quality checks pass (lint, typecheck, test, build).
 EOF
 )"
 ```
+
+**Resolve PR comment threads** for APPLY comments (signals "addressed"). Get thread IDs and resolve via GraphQL:
+
+```bash
+gh api graphql -f query='{ repository(owner: "OWNER", name: "REPO") { pullRequest(number: PR_NUM) { reviewThreads(first: 100) { nodes { id isResolved comments(first: 1) { nodes { body } } } } } } }'
+```
+
+For each APPLY comment whose thread was found:
+
+```bash
+gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "THREAD_ID"}) { thread { isResolved } } }'
+```
+
+Leave CHALLENGE and ESCALATE threads open — they need continued dialogue or human input.
 
 Re-request review from the original reviewer(s):
 
