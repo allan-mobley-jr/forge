@@ -503,9 +503,9 @@ step_14_vercel_link() {
 step_14b_vercel_git_connect() {
     local label="14b. Vercel GitHub integration"
     info "  Connecting GitHub repo to Vercel..."
-    local output
-    output=$(vercel git connect --yes 2>&1) || true
-    if echo "$output" | grep -q "already connected" || echo "$output" | grep -q "Connected"; then
+    local output status=0
+    output=$(vercel git connect --yes 2>&1) || status=$?
+    if [ "$status" -eq 0 ] || echo "$output" | grep -q "already connected"; then
         ok "$label"
     else
         add_warning "Vercel git connect failed — grant the Vercel GitHub App access to this repo at https://github.com/settings/installations then run: vercel git connect --yes"
