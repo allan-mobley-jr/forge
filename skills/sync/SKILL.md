@@ -138,6 +138,22 @@ done
 
 This uses data already in memory — no additional API calls for detection. Do NOT relabel the issue — just report the state so `/forge` can route to `/revise`.
 
+### 3e. Detect CI failures on `agent:done` PRs
+
+For any issue labeled `agent:done`, check if its linked PR has failing CI checks. Use the `statusCheckRollup` data already fetched in `$OPEN_PRS` — no additional API calls:
+
+```bash
+for ISSUE_NUM in $DONE_ISSUES; do
+  HAS_CI_FAILURE=$(echo "$OPEN_PRS" | jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\"))] | .[0].statusCheckRollup // [] | [.[] | select(.conclusion == \"FAILURE\" or .conclusion == \"failure\")] | length > 0")
+  if [ "$HAS_CI_FAILURE" = "true" ]; then
+    # Report in summary — /forge will route to /revise in CI repair mode
+    echo "Issue #${ISSUE_NUM} has failing CI checks on its PR"
+  fi
+done
+```
+
+CI failures take priority over review state — a reviewer won't merge a red PR anyway. Do NOT relabel the issue — just report the state so `/forge` can route to `/revise`.
+
 ### 4. Produce the summary
 
 Output a structured summary in this exact format:
@@ -151,6 +167,7 @@ Needs human:      {count}  (agent:needs-human)
 In progress:      {count}  (agent:in-progress — likely stale or resuming)
 Backlog:          {count}  (no agent label)
 ------------------------------------
+CI failing:       {list of agent:done issues with failing CI checks}
 Revision needed:  {list of agent:done issues with CHANGES_REQUESTED}
 Next action: {one of the following}
 ```
@@ -158,6 +175,7 @@ Next action: {one of the following}
 **Next action** should be one of:
 - `Plan needed` — zero issues exist
 - `Surface blocking questions` — issues need human input
+- `Repair CI — Issue #{N}` — CI checks failing on agent:done PR (highest build priority)
 - `Revise Issue #{N} — {title}` — PR needs revision (agent:done with CHANGES_REQUESTED)
 - `Build Issue #{N} — {title}` — issues in backlog (pick the lowest-numbered backlog issue)
 - `Await merge — Issue #{N}` — agent:done PR is awaiting human review/merge
@@ -168,7 +186,7 @@ Next action: {one of the following}
 
 - **No issues at all**: Report "Plan needed" as next action
 - **Multiple needs-human issues**: List all of them with their question summaries
-- **Mix of states**: Prioritize in this order: needs-human (surface first), then revision-needed (revise next), then agent:done awaiting merge (block), then in-progress (resume), then backlog (build next)
+- **Mix of states**: Prioritize in this order: needs-human (surface first), then CI-failing (repair next), then revision-needed (revise next), then agent:done awaiting merge (block), then in-progress (resume), then backlog (build next)
 
 ## Rate Limit Notes
 

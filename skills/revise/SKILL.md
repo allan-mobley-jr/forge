@@ -1,44 +1,57 @@
 ---
 name: revise
 description: >
-  Address PR review comments on an existing branch. Reads reviewer feedback,
-  applies fixes, runs quality checks, and pushes to the same PR. Used by the
-  Forge orchestrator when a human requests changes on a PR.
+  Address PR review comments or CI failures on an existing branch. Reads
+  reviewer feedback or CI failure logs, applies fixes, runs quality checks,
+  and pushes to the same PR. Used by the Forge orchestrator when a human
+  requests changes on a PR or when CI checks fail.
 allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task, WebSearch, WebFetch
 ---
 
 # /revise — Address PR Review Feedback
 
-You are the Forge revision agent. Your job is to pick up the `agent:done` issue whose PR has `CHANGES_REQUESTED`, read the PR review comments left by the human reviewer, apply fixes on the existing branch, and push updates to the same PR. You handle exactly one issue per invocation — then return control to `/forge`.
+You are the Forge revision agent. Your job is to pick up the `agent:done` issue whose PR has failing CI checks or `CHANGES_REQUESTED`, diagnose and fix the problem, and push updates to the same PR. You handle exactly one issue per invocation — then return control to `/forge`.
 
 ## Revision Cycle
 
 ### Step 1: Find the issue needing revision
 
-The `/forge` orchestrator identifies the `agent:done` issue with `CHANGES_REQUESTED` on its PR and routes here. Find it by fetching all open PRs once and correlating locally:
+The `/forge` orchestrator routes here when an `agent:done` issue has failing CI checks or `CHANGES_REQUESTED` on its PR. Find it by fetching all open PRs once and correlating locally. **CI failures take priority** — a reviewer won't merge a red PR.
 
 ```bash
 # Get all agent:done issues and all open PRs in two calls
 DONE_ISSUES=$(gh issue list --state open --label "agent:done" --json number,title,body,labels --jq 'sort_by(.number)')
-OPEN_PRS=$(gh pr list --state open --json headRefName,reviewDecision -L 200)
+OPEN_PRS=$(gh pr list --state open --json headRefName,reviewDecision,statusCheckRollup -L 200)
 
-# Correlate locally — no per-issue API calls
+# Check for CI failures first (higher priority)
 for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
-  if echo "$OPEN_PRS" | jq -e "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | .[0]" >/dev/null 2>&1; then
+  HAS_CI_FAILURE=$(echo "$OPEN_PRS" | jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\"))] | .[0].statusCheckRollup // [] | [.[] | select(.conclusion == \"FAILURE\" or .conclusion == \"failure\")] | length > 0")
+  if [ "$HAS_CI_FAILURE" = "true" ]; then
     ISSUE=$ISSUE_NUM
+    CI_REPAIR_MODE=true
     break
   fi
 done
+
+# Then check for CHANGES_REQUESTED
+if [ -z "$ISSUE" ]; then
+  for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
+    if echo "$OPEN_PRS" | jq -e "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | .[0]" >/dev/null 2>&1; then
+      ISSUE=$ISSUE_NUM
+      break
+    fi
+  done
+fi
 ```
 
-If no issues have `CHANGES_REQUESTED`, report this and return to `/forge`.
+If no issues have CI failures or `CHANGES_REQUESTED`, report this and return to `/forge`.
 
 ### Step 2: Find the linked PR
 
 The PR branch follows the naming convention `agent/issue-{N}-*`. Find it:
 
 ```bash
-PR_JSON=$(gh pr list --state open --json number,headRefName,url,reviewDecision \
+PR_JSON=$(gh pr list --state open --json number,headRefName,url,reviewDecision,statusCheckRollup \
   --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | sort_by(.number) | .[0]")
 ```
 
@@ -64,15 +77,19 @@ gh issue edit $ISSUE --remove-label "agent:done"
 
 Report this and return to `/forge`.
 
-**Guard: If `reviewDecision` is `APPROVED`, the reviewer has approved despite any stale comment threads.** Keep `agent:done` and return to `/forge` without making changes:
+**Guard: If `reviewDecision` is `APPROVED` and this is NOT CI repair mode**, the reviewer has approved despite any stale comment threads. Keep `agent:done` and return to `/forge` without making changes:
 
 ```bash
-if [ "$REVIEW_DECISION" = "APPROVED" ]; then
+if [ "$REVIEW_DECISION" = "APPROVED" ] && [ "$CI_REPAIR_MODE" != "true" ]; then
   # Return to /forge — reviewer approved, no revision needed
 fi
 ```
 
-### Step 2.5: Check revision count
+An APPROVED PR can still have failing CI — the approval covers code quality, not CI status. CI repair mode must bypass this guard.
+
+### Step 2.5: Check revision count (review mode only)
+
+**Skip this step in CI repair mode** — CI repairs are not revisions and should not be blocked by the revision limit.
 
 Count prior revision attempts by looking for "## Revision Summary" comments already posted by previous `/revise` runs:
 
@@ -230,9 +247,39 @@ git merge origin/main --no-edit
 
    If all checks pass, proceed to Step 5.
 
-### Step 5: Fetch and read all review comments
+### Step 5: Fetch failure context
 
-Retrieve review comments using the GitHub API. Get both line-level comments and top-level review bodies:
+**If CI repair mode** (`CI_REPAIR_MODE=true`): fetch CI failure logs instead of review comments.
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+# Get the most recent failed workflow run on this branch
+FAILED_RUN=$(gh run list --branch $PR_BRANCH --status failure --limit 1 --json databaseId,name,conclusion --jq '.[0]')
+RUN_ID=$(echo "$FAILED_RUN" | jq -r '.databaseId // empty')
+
+if [ -z "$RUN_ID" ]; then
+  # No failed runs found — CI failure may have been resolved by a retry or re-run
+  # Return to /forge without making changes
+fi
+
+# Fetch the failed job logs (shows only failed steps)
+CI_LOGS=$(gh run view $RUN_ID --log-failed 2>&1 | tail -200)
+
+# Also get the list of failed jobs for context
+FAILED_JOBS=$(gh run view $RUN_ID --json jobs --jq '.jobs[] | select(.conclusion == "failure") | {name: .name, conclusion: .conclusion}')
+```
+
+Read the CI failure logs carefully. Identify which files need changes. Also read:
+- `CLAUDE.md` — project conventions
+- The failing source files — understand context before modifying
+- `.github/workflows/` — understand the CI configuration to determine if the failure is in code or CI config
+
+**Skip to Step 6** (Step 5.5 does not apply in CI repair mode — there are no review comments to evaluate).
+
+---
+
+**If review mode** (default): fetch review comments.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
@@ -252,7 +299,7 @@ Also read:
 - The issue body — original requirements and acceptance criteria
 - The files referenced in comments — understand context before modifying
 
-### Step 5.5: Evaluate comments
+### Step 5.5: Evaluate comments (review mode only)
 
 Before applying any fixes, evaluate whether each review comment is correct. Spawn a **comment evaluator agent** via the Task tool. Read `.claude/skills/revise/references/comment-evaluator-agent.md` and spawn a Task with its contents as the prompt. Append all review comments, the project's CLAUDE.md, SPECIFICATION.md, the current code in referenced files, and the issue body as context.
 
@@ -274,9 +321,17 @@ gh api "repos/$REPO/pulls/$PR_NUMBER/comments/$COMMENT_ID/replies" \
   -f body="[Evidence-based pushback explaining why the current approach is correct]"
 ```
 
-### Step 6: Address APPLY comments
+### Step 6: Apply fixes
 
-Process only the comments categorized as APPLY (or re-categorized from RESEARCH to APPLY):
+**If CI repair mode:** Diagnose the CI failure from the logs fetched in Step 5 and fix the root cause. Common CI-only failures include:
+- Platform-specific test failures (Linux CI vs macOS local)
+- CI-only lint rules or stricter configurations
+- Missing environment variables or dependencies in the CI environment
+- Build output differences between local and CI
+
+Fix the code to pass CI — do not modify the CI workflow configuration unless the issue specifically calls for it.
+
+**If review mode:** Process only the comments categorized as APPLY (or re-categorized from RESEARCH to APPLY):
 
 1. **Group line-level comments by file.** Open each file once, apply all relevant fixes, then move to the next file.
 2. **Address top-level review body comments.** These may describe broader concerns that span multiple files.
@@ -317,7 +372,26 @@ git push origin $PR_BRANCH
 
 ### Step 9: Post summary, resolve threads, and re-request review
 
-Post a comment on the PR summarizing what was changed, what was challenged, and what was escalated:
+**If CI repair mode:** Post a CI repair summary:
+
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+## CI Repair Summary
+
+**Failed checks:** [list of CI jobs that failed]
+**Root cause:** [brief diagnosis of what caused the failure]
+**Fix:** [brief description of changes made]
+
+All quality checks pass (lint, typecheck, test, build).
+EOF
+)"
+```
+
+Skip thread resolution (no review threads to resolve) and skip re-requesting review. Proceed to Step 10.
+
+---
+
+**If review mode:** Post a revision summary:
 
 ```bash
 gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
@@ -372,7 +446,7 @@ gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:done"
 
 ### Step 11: On failure — escalate
 
-If quality checks fail after 2 attempts (initial + debug-assisted retry), or if review comments contain feedback the agent cannot address:
+If quality checks fail after 2 attempts (initial + debug-assisted retry), if review comments contain feedback the agent cannot address, or if CI failures cannot be diagnosed:
 
 ```bash
 # Push what you have (so the human can see the attempt)
@@ -422,3 +496,5 @@ After completing (success or failure), end with:
 - **Write `.forge-temp/current-issue`** so the Stop hook knows which issue to comment on.
 - **Respect the revision timeout.** Check elapsed time before Steps 5, 6, 7, and 8. If the 30-minute limit is reached, commit WIP and push — the next session resumes from the branch.
 - **Commit message format:** `fix: {descriptive message} (#N)` — always use `fix:` prefix for revisions. Use a specific description per commit when splitting atomic commits (e.g., `fix: rename handler to match convention (#N)`).
+- **CI repair does not count as a revision.** The `## CI Repair Summary` header is distinct from `## Revision Summary` and does not increment the revision count checked in Step 2.5.
+- **Fix code, not CI config.** In CI repair mode, fix the application code to pass CI. Do not modify `.github/workflows/` unless the issue specifically involves CI configuration.
