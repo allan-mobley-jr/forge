@@ -248,19 +248,34 @@ step_07_git_config() {
 # Step 8: Vercel CLI
 step_08_vercel() {
     local label="8. Vercel CLI installed"
-    if command -v vercel &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    # Ensure PNPM_HOME is configured for global installs
+    # Ensure PNPM_HOME is on PATH so command -v can find globally-installed bins.
+    # On --resume, PNPM_HOME was written to .zshrc by a previous run but isn't
+    # in the current shell's PATH yet.
     if [ -z "${PNPM_HOME:-}" ]; then
-        info "  Setting up PNPM_HOME..."
-        pnpm setup
-        # Extract PNPM_HOME from shell config (pnpm setup writes it there)
         local pnpm_home
         pnpm_home=$(grep -m1 'export PNPM_HOME=' "$HOME/.zshrc" 2>/dev/null | sed 's/export PNPM_HOME="//' | sed 's/"$//')
         if [ -n "${pnpm_home:-}" ]; then
             export PNPM_HOME="$pnpm_home"
+        fi
+    fi
+    if [ -n "${PNPM_HOME:-}" ]; then
+        case ":$PATH:" in
+            *":$PNPM_HOME:"*) ;;
+            *) export PATH="$PNPM_HOME:$PATH" ;;
+        esac
+    fi
+    if command -v vercel &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    # Ensure PNPM_HOME is configured for global installs (first run)
+    if [ -z "${PNPM_HOME:-}" ]; then
+        info "  Setting up PNPM_HOME..."
+        pnpm setup
+        local pnpm_home_new
+        pnpm_home_new=$(grep -m1 'export PNPM_HOME=' "$HOME/.zshrc" 2>/dev/null | sed 's/export PNPM_HOME="//' | sed 's/"$//')
+        if [ -n "${pnpm_home_new:-}" ]; then
+            export PNPM_HOME="$pnpm_home_new"
             export PATH="$PNPM_HOME:$PATH"
         fi
     fi
