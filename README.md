@@ -13,6 +13,8 @@ Forge is an autonomous development system that turns a plain-English description
 
 The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
 
+> **Note:** Branch protection rulesets (required PR reviews + status checks before merging to `main`) require GitHub Pro or a public repository. On a free plan with a private repo, the agent can push directly to `main`. This is acceptable for solo projects but not recommended for team use.
+
 ## Quick Start
 
 ```bash
