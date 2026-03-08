@@ -195,7 +195,11 @@ ${QUALITY_ERROR}
 Remove any current agent workflow label and set `agent:needs-human`. This handles all calling contexts — `/build` issues have `agent:in-progress`, `/revise` issues may have `agent:done` or `agent:in-progress`.
 
 ```bash
-gh issue edit "$ISSUE" --remove-label "agent:in-progress" --add-label "agent:needs-human" 2>/dev/null || true
+# Always add needs-human first — this must succeed
+gh issue edit "$ISSUE" --add-label "agent:needs-human"
+
+# Best-effort removal of prior workflow labels
+gh issue edit "$ISSUE" --remove-label "agent:in-progress" 2>/dev/null || true
 gh issue edit "$ISSUE" --remove-label "agent:done" 2>/dev/null || true
 ```
 
