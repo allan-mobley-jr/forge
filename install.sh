@@ -244,7 +244,7 @@ case "${1:-}" in
         done
 
         # 4. Update skills (clean replacement — preserve vendor sentinel)
-        local had_vendor_sentinel=false
+        had_vendor_sentinel=false
         [ -f .claude/skills/.vendor-skills-installed ] && had_vendor_sentinel=true
         rm -rf .claude/skills/
         mkdir -p .claude/skills
