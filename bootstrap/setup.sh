@@ -256,8 +256,13 @@ step_08_vercel() {
         pnpm_home=$(grep -m1 'export PNPM_HOME=' "$HOME/.zshrc" 2>/dev/null | sed 's/export PNPM_HOME="//' | sed 's/"$//')
         if [ -n "${pnpm_home:-}" ]; then
             export PNPM_HOME="$pnpm_home"
-            export PATH="$PNPM_HOME:$PATH"
         fi
+    fi
+    if [ -n "${PNPM_HOME:-}" ]; then
+        case ":$PATH:" in
+            *":$PNPM_HOME:"*) ;;
+            *) export PATH="$PNPM_HOME:$PATH" ;;
+        esac
     fi
     if command -v vercel &>/dev/null; then
         skip "$label"
