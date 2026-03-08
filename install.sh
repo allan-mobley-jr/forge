@@ -212,6 +212,7 @@ case "${1:-}" in
         # - skips PATH setup if already configured
         git -C "$FORGE_REPO" pull
         bash "$FORGE_REPO/install.sh"
+        exit $?
         ;;
     upgrade)
         # Colors for upgrade output
