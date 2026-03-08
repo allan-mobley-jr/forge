@@ -83,7 +83,7 @@ fi
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
-    git -C "$FORGE_REPO" fetch --quiet
+    retry git -C "$FORGE_REPO" fetch --quiet
     git -C "$FORGE_REPO" reset --hard origin/main --quiet
     echo -e "${GREEN}Forge updated.${NC}"
 else
@@ -419,8 +419,13 @@ if plugins:
             artifacts_outdated=true
         fi
 
-        if jq -S '{permissions, hooks}' .claude/settings.json 2>/dev/null | \
-           diff -q - <(jq -S '{permissions, hooks}' "$FORGE_REPO/hooks/settings.json") &>/dev/null; then
+        if command -v jq &>/dev/null; then
+            hooks_match=$(jq -S '{permissions, hooks}' .claude/settings.json 2>/dev/null | \
+                diff -q - <(jq -S '{permissions, hooks}' "$FORGE_REPO/hooks/settings.json" 2>/dev/null) &>/dev/null && echo y || echo n)
+        else
+            hooks_match=$(diff -q .claude/settings.json "$FORGE_REPO/hooks/settings.json" &>/dev/null && echo y || echo n)
+        fi
+        if [ "$hooks_match" = "y" ]; then
             echo -e "  ${GREEN}✓${NC} Hooks up-to-date"
         else
             echo -e "  ${YELLOW}⚠${NC} Hooks outdated"
