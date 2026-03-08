@@ -427,7 +427,7 @@ step_10e_agents_md() {
         skip "$label"
         return
     fi
-    pnpm dlx @next/codemod@latest agents-md --output AGENTS.md 2>/dev/null || true
+    pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 || true
     if [ -f AGENTS.md ]; then
         ok "$label"
     fi
