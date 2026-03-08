@@ -77,15 +77,19 @@ gh issue edit $ISSUE --remove-label "agent:done"
 
 Report this and return to `/forge`.
 
-**Guard: If `reviewDecision` is `APPROVED`, the reviewer has approved despite any stale comment threads.** Keep `agent:done` and return to `/forge` without making changes:
+**Guard: If `reviewDecision` is `APPROVED` and this is NOT CI repair mode**, the reviewer has approved despite any stale comment threads. Keep `agent:done` and return to `/forge` without making changes:
 
 ```bash
-if [ "$REVIEW_DECISION" = "APPROVED" ]; then
+if [ "$REVIEW_DECISION" = "APPROVED" ] && [ "$CI_REPAIR_MODE" != "true" ]; then
   # Return to /forge — reviewer approved, no revision needed
 fi
 ```
 
-### Step 2.5: Check revision count
+An APPROVED PR can still have failing CI — the approval covers code quality, not CI status. CI repair mode must bypass this guard.
+
+### Step 2.5: Check revision count (review mode only)
+
+**Skip this step in CI repair mode** — CI repairs are not revisions and should not be blocked by the revision limit.
 
 Count prior revision attempts by looking for "## Revision Summary" comments already posted by previous `/revise` runs:
 
@@ -252,7 +256,12 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 # Get the most recent failed workflow run on this branch
 FAILED_RUN=$(gh run list --branch $PR_BRANCH --status failure --limit 1 --json databaseId,name,conclusion --jq '.[0]')
-RUN_ID=$(echo "$FAILED_RUN" | jq -r '.databaseId')
+RUN_ID=$(echo "$FAILED_RUN" | jq -r '.databaseId // empty')
+
+if [ -z "$RUN_ID" ]; then
+  # No failed runs found — CI failure may have been resolved by a retry or re-run
+  # Return to /forge without making changes
+fi
 
 # Fetch the failed job logs (shows only failed steps)
 CI_LOGS=$(gh run view $RUN_ID --log-failed 2>&1 | tail -200)
