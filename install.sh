@@ -275,6 +275,18 @@ case "${1:-}" in
 
         # 5. Update hooks
         cp "$FORGE_REPO/hooks/settings.json" .claude/settings.json
+        # Disable any user-installed plugins at project level
+        if [ -f "$HOME/.claude/settings.json" ]; then
+            python3 -c "
+import json, sys
+user = json.load(open(sys.argv[1]))
+proj = json.load(open(sys.argv[2]))
+plugins = user.get('enabledPlugins', {})
+if plugins:
+    proj['enabledPlugins'] = {k: False for k in plugins}
+    json.dump(proj, open(sys.argv[2], 'w'), indent=2)
+" "$HOME/.claude/settings.json" .claude/settings.json 2>/dev/null || true
+        fi
         echo -e "  ${GREEN}✓${NC} Hooks updated"
 
         # 6. Re-render CLAUDE.md
