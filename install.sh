@@ -390,7 +390,25 @@ case "${1:-}" in
 
         artifacts_outdated=false
 
-        if diff -rq --exclude='.*' --exclude='*.installed' .claude/skills/ "$FORGE_REPO/skills/" &>/dev/null; then
+        forge_skills_ok=true
+        if [ -d "$FORGE_REPO/skills" ]; then
+            for forge_skill_dir in "$FORGE_REPO/skills"/*/; do
+                [ -d "$forge_skill_dir" ] || continue
+                skill="$(basename "$forge_skill_dir")"
+                if [ -d ".claude/skills/$skill" ]; then
+                    if ! diff -rq --exclude='.*' ".claude/skills/$skill" "$forge_skill_dir" &>/dev/null; then
+                        forge_skills_ok=false
+                        break
+                    fi
+                else
+                    forge_skills_ok=false
+                    break
+                fi
+            done
+        else
+            forge_skills_ok=false
+        fi
+        if $forge_skills_ok; then
             echo -e "  ${GREEN}✓${NC} Skills up-to-date"
         else
             echo -e "  ${YELLOW}⚠${NC} Skills outdated"
