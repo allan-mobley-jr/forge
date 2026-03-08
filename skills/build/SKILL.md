@@ -378,26 +378,14 @@ ERROR_OUTPUT="[paste the actual error output here]"
 git add <files modified so far>
 git commit -m "wip: {issue title} (needs help on #{N})"
 git push -u origin agent/issue-{N}-{slug}
-
-# Escalate
-gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-gh issue comment $ISSUE --body "$(cat <<'EOF'
-## Build Failed
-
-**Attempts:** 2/2
-
-**Error:**
-\`\`\`
-{error output}
-\`\`\`
-
-**Debug agent diagnosis:**
-[Summary of what the debug agent identified and what fixes were attempted]
-
-**Branch:** `agent/issue-{N}-{slug}` (pushed with current state)
-EOF
-)"
 ```
+
+Invoke `/ask` with type `build-failure`, passing:
+- `ERROR_OUTPUT` — the quality check error output
+- `DEBUG_DIAGNOSIS` — summary of what the debug agent identified and what fixes were attempted
+- `BRANCH_NAME` — `agent/issue-{N}-{slug}`
+
+`/ask` handles the comment format and label management (`agent:in-progress` → `agent:needs-human`).
 
 ### Step 10: Return to orchestrator
 
