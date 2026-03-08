@@ -335,6 +335,28 @@ step_10b_scaffold() {
     ok "$label"
 }
 
+# Step 10b2: Fix pnpm-workspace.yaml missing packages field
+# create-next-app generates pnpm-workspace.yaml without a packages field,
+# which causes CI to fail at actions/setup-node@v4.
+step_10b2_fix_pnpm_workspace() {
+    local label="10b2. pnpm-workspace.yaml has packages field"
+    if [ ! -f pnpm-workspace.yaml ]; then
+        skip "$label (no pnpm-workspace.yaml)"
+        return
+    fi
+    if grep -q '^packages:' pnpm-workspace.yaml; then
+        skip "$label"
+        return
+    fi
+    info "  Adding packages field to pnpm-workspace.yaml..."
+    local tmp
+    tmp=$(mktemp)
+    printf 'packages:\n  - '\''.'\''\n' > "$tmp"
+    cat pnpm-workspace.yaml >> "$tmp"
+    mv "$tmp" pnpm-workspace.yaml
+    ok "$label"
+}
+
 # Step 10c: Install test dependencies
 step_10c_test_deps() {
     local label="10c. Test dependencies installed"
@@ -859,6 +881,7 @@ step_09_vercel_auth
 
 step_10_git_init
 step_10b_scaffold
+step_10b2_fix_pnpm_workspace
 step_10c_test_deps
 step_10d_test_config
 step_10e_agents_md
