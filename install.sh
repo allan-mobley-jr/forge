@@ -895,7 +895,7 @@ echo ""
 # Fish shell support
 FISH_CONFIG="$HOME/.config/fish/conf.d/forge.fish"
 if [ "$(basename "${SHELL:-}")" = "fish" ] || [ -d "$HOME/.config/fish" ]; then
-    if [ \! -f "$FISH_CONFIG" ]; then
+    if [ ! -f "$FISH_CONFIG" ]; then
         mkdir -p "$(dirname "$FISH_CONFIG")"
         echo '# Forge' > "$FISH_CONFIG"
         echo 'fish_add_path -g $HOME/.forge/bin' >> "$FISH_CONFIG"

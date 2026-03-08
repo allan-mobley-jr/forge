@@ -1,0 +1,16 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  shellcheck:
+    name: ShellCheck
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: brew install shellcheck
+      - name: Run shellcheck
+        run: shellcheck --severity=warning -x install.sh bootstrap/setup.sh
