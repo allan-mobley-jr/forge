@@ -69,6 +69,17 @@ This project will be implemented by an autonomous AI build agent. Flag risks spe
 
 Return your analysis as a structured document with clear headings. Use the risk format (Risk/Severity/Likelihood/Mitigation/Fallback) for section 1. Use bullet points for other sections.
 
+## Domain Research
+
+When the application involves regulated industries or specialized domains, search the web for:
+
+- **Regulatory requirements** — HIPAA, GDPR, PCI-DSS, SOC 2, FERPA, or industry-specific compliance
+- **Known security pitfalls** — domain-specific attack vectors, common vulnerabilities in similar apps
+- **Rate limits and quotas** — current limits for third-party APIs the project depends on
+- **Deprecation notices** — whether recommended packages or APIs have upcoming breaking changes
+
+Only perform domain research when the application involves compliance, regulation, or unfamiliar third-party services. Skip for standard web apps.
+
 ## Guidelines
 
 - Focus on risks that are likely and impactful. Don't list every theoretical concern.

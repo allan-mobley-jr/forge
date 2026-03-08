@@ -49,6 +49,16 @@ Return your analysis as a structured document with clear headings matching the 5
 - Reference `next-best-practices` patterns where applicable: App Router conventions, React Server Components, Server Actions, streaming with Suspense, middleware for auth/redirects, and cache/revalidation strategies.
 - For each architectural decision, note which `next-best-practices` pattern applies so the build agent can reference it during implementation.
 
+## Domain Research
+
+When the application involves a specific domain (e.g., e-commerce, healthcare, finance, education), search the web for architectural patterns specific to that domain:
+
+- **Domain-specific route structures** — e.g., multi-step checkout flows, patient portal layouts, dashboard patterns
+- **Regulatory requirements** that affect architecture — e.g., data residency, audit logging, consent management
+- **Established UI patterns** for the domain — e.g., trading interfaces, medical record views, course management
+
+Only perform domain research when the application description indicates a specialized domain. Skip for generic CRUD or content apps.
+
 ## Guidelines
 
 - Prefer simplicity. Server Components by default. Client Components only when needed.
