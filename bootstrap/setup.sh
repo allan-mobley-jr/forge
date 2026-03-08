@@ -694,8 +694,8 @@ step_19_branch_protection() {
   ]
 }
 RULESET
-        if echo "$api_output" | grep -qi "upgrade to GitHub Pro\|enable this feature"; then
-            info "  Branch protection requires GitHub Pro or a public repository."
+        if echo "$api_output" | grep -qi "upgrade to GitHub Pro"; then
+            ok "$label (skipped — requires GitHub Pro or public repo)"
             info "  The main branch is unprotected — the agent can push directly without PR review."
             info "  This is fine for solo development. Upgrade or make the repo public to enable protection."
         else
