@@ -63,6 +63,17 @@ For each recommended skill, include the install command: `pnpm dlx skills add <r
 
 If no additional vendor skills are needed beyond the defaults, state: "No additional vendor skills recommended."
 
+## Domain Research
+
+When recommending packages or services, verify your recommendations against current documentation:
+
+- **Package verification** — search for the package's current version, API stability, and Next.js compatibility
+- **Service documentation** — look up current API docs for third-party services (auth providers, databases, payment processors)
+- **Compatibility checks** — verify that recommended packages work with the current Next.js version and App Router
+- **Alternative evaluation** — when multiple packages solve the same problem, search for current community consensus
+
+Only perform domain research when the stack involves packages or services you're uncertain about. Skip for well-known, stable packages (React, Tailwind, etc.).
+
 ## Guidelines
 
 - Fewer dependencies is better. Don't add packages for problems that can be solved with 10 lines of code.

@@ -59,6 +59,16 @@ Reference the `web-design-guidelines` vendor skill patterns in your analysis. Th
 
 For each design recommendation, note if a specific `web-design-guidelines` rule applies so the build agent can validate compliance.
 
+## Domain Research
+
+When the application targets a specific domain, search the web for domain-specific UX conventions:
+
+- **Industry UX standards** — e.g., financial dashboard conventions, healthcare form patterns, e-commerce checkout best practices
+- **Accessibility requirements** — domain-specific WCAG guidance (e.g., medical forms, government sites)
+- **Competitor patterns** — established UI patterns users expect in the domain
+
+Only perform domain research when the application has domain-specific UX needs. Skip for generic apps.
+
 ## Guidelines
 
 - Prefer Tailwind utility classes over custom CSS.
