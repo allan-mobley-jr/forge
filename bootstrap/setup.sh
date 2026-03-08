@@ -641,11 +641,14 @@ step_19_branch_protection() {
     fi
     # The "Quality Checks" context below must match the job name in workflows/ci.yml.
     # Changing either one without the other will block all PRs.
-    local api_output
-    if ! api_output=$(gh api "repos/$repo/rulesets" \
+    # bash 3.2 (macOS default) cannot use heredocs inside $() command
+    # substitution, so redirect stderr to a temp file instead.
+    local api_errfile
+    api_errfile=$(mktemp)
+    if ! gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
-        --input - <<RULESET 2>&1); then
+        --input - <<RULESET >/dev/null 2>"$api_errfile"; then
 {
   "name": "forge-main-protection",
   "target": "branch",
@@ -694,6 +697,9 @@ step_19_branch_protection() {
   ]
 }
 RULESET
+        local api_output
+        api_output=$(cat "$api_errfile")
+        rm -f "$api_errfile"
         if echo "$api_output" | grep -qi "upgrade to GitHub Pro"; then
             ok "$label (skipped — requires GitHub Pro or public repo)"
             info "  The main branch is unprotected — the agent can push directly without PR review."
@@ -703,6 +709,7 @@ RULESET
         fi
         return
     fi
+    rm -f "$api_errfile"
     ok "$label"
 }
 
