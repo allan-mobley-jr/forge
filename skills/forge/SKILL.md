@@ -118,10 +118,74 @@ This is non-blocking — failures are silently ignored. Do not delete branches t
 Evaluate the sync output and take the appropriate action. Find the lowest-numbered open issue and check its state:
 
 #### Case A: `agent:needs-human` on any issue
-At least one issue is blocked on a human decision. Surface these immediately.
+
+Use the `/sync` summary to split needs-human issues into **responded** (human commented after the agent question) and **awaiting** (no response yet).
+
+**A1. Responded issues (human answered):**
+
+For each responded issue, read the human's response and resume work:
+
+```bash
+# Get the response text (last non-agent comment after the question)
+RESPONSE=$(gh issue view "$ISSUE" --json comments --jq '
+  .comments
+  | . as $c
+  | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last
+  | if . == null then null
+    else
+      .key as $qi | .value.author.login as $agent
+      | [$c[range($qi + 1; $c | length)] | select(.author.login != $agent)] | last
+      | .body
+    end')
+
+# Post acknowledgment referencing the response
+gh issue comment "$ISSUE" --body "Acknowledged response. Resuming work on this issue.
+
+> ${RESPONSE}"
+
+# Relabel: needs-human → in-progress
+gh issue edit "$ISSUE" --remove-label "agent:needs-human" --add-label "agent:in-progress"
+```
 
 ```
-Action: Display each needs-human issue with its question
+Action: Run /build (resume)
+Message: "Issue #{X} — human responded. Resuming build..."
+```
+
+Process responded issues before surfacing awaiting ones. If multiple issues have responses, handle the lowest-numbered one first.
+
+**A2. Awaiting issues (no response yet) — headless 24h timeout:**
+
+In headless mode (`forge run`), check if 24 hours have elapsed since the agent question was posted. If so, apply the stated default:
+
+```bash
+# Get the question comment timestamp and body in a single API call
+QUESTION_JSON=$(gh issue view "$ISSUE" --json comments --jq '
+  [.comments[] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last | {createdAt, body}')
+QUESTION_TIME=$(echo "$QUESTION_JSON" | jq -r '.createdAt')
+QUESTION_BODY=$(echo "$QUESTION_JSON" | jq -r '.body')
+
+# Check if 24h have elapsed (86400 seconds)
+QUESTION_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$QUESTION_TIME" +%s 2>/dev/null || date -d "$QUESTION_TIME" +%s)
+NOW_EPOCH=$(date +%s)
+ELAPSED=$(( NOW_EPOCH - QUESTION_EPOCH ))
+
+if [ "$ELAPSED" -ge 86400 ]; then
+  # Extract the default option from the question comment body
+  DEFAULT_TEXT=$(echo "$QUESTION_BODY" | grep -A1 "Default if no response" | tail -1)
+
+  gh issue comment "$ISSUE" --body "No response received within 24 hours. Applying stated default: ${DEFAULT_TEXT}"
+  gh issue edit "$ISSUE" --remove-label "agent:needs-human" --add-label "agent:in-progress"
+  # Continue to /build
+fi
+```
+
+The 24h timeout only applies in headless mode. In interactive mode, display the question and wait for user input.
+
+**A3. Awaiting issues (no response yet) — interactive:**
+
+```
+Action: Display each awaiting needs-human issue with its question
 Message: "The following issues need your input before work can continue:"
   - For each: show issue number, title, and the agent question comment
   - Ask the user to respond on GitHub or provide their answer here
@@ -130,7 +194,7 @@ Wait: Do not proceed to building until the user addresses these or explicitly sa
 
 If the user provides an answer in the chat:
 1. Post their answer as a comment on the issue
-2. Remove `agent:needs-human` label
+2. Remove `agent:needs-human` label, add `agent:in-progress`
 3. Continue to next applicable case
 
 #### Case B: `agent:done` on the current issue

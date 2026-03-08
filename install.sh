@@ -664,7 +664,7 @@ if total > 0:
                     needs-human)
                         echo ""
                         echo "[forge] Action required. Review open PRs and check GitHub issues."
-                        echo "[forge] Polling for PR review changes every 60s (Ctrl+C to stop)..."
+                        echo "[forge] Polling for changes every 60s (Ctrl+C to stop)..."
                         while true; do
                             # Fetch all open agent PRs in a single call
                             if ! agent_pr_json=$(gh pr list --state open -L 200 --json headRefName,reviewDecision \
@@ -681,6 +681,63 @@ if total > 0:
                                 echo "[forge] No open agent PRs detected. Restarting to continue build loop..."
                                 break
                             fi
+
+                            # Check for human responses on needs-human issues
+                            if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
+                                --json number,comments -L 200 2>/dev/null); then
+                                has_response=$(echo "$needs_human_json" | python3 -c "
+import json, sys, re
+issues = json.load(sys.stdin)
+pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)', re.MULTILINE)
+for issue in issues:
+    comments = issue.get('comments', [])
+    # Find last agent question comment
+    q_idx = -1
+    q_author = None
+    for i, c in enumerate(comments):
+        if pattern.search(c.get('body', '')):
+            q_idx = i
+            q_author = (c.get('author') or {}).get('login')
+    if q_idx >= 0 and q_author:
+        # Check for response from a different author after the question
+        for c in comments[q_idx + 1:]:
+            author = (c.get('author') or {}).get('login')
+            if author and author != q_author:
+                print('responded')
+                sys.exit(0)
+print('waiting')
+")
+                                if [ "$has_response" = "responded" ]; then
+                                    echo "[forge] Human response detected on a needs-human issue. Restarting..."
+                                    break
+                                fi
+
+                                # Check 24h timeout on most recent question
+                                timeout_hit=$(echo "$needs_human_json" | python3 -c "
+import json, sys, re
+from datetime import datetime, timezone
+issues = json.load(sys.stdin)
+pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)', re.MULTILINE)
+now = datetime.now(timezone.utc)
+for issue in issues:
+    comments = issue.get('comments', [])
+    for c in reversed(comments):
+        if pattern.search(c.get('body', '')):
+            created = c.get('createdAt', '')
+            if created:
+                t = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                if (now - t).total_seconds() >= 86400:
+                    print('timeout')
+                    sys.exit(0)
+            break
+print('waiting')
+")
+                                if [ "$timeout_hit" = "timeout" ]; then
+                                    echo "[forge] 24h timeout reached on a needs-human issue. Restarting to apply default..."
+                                    break
+                                fi
+                            fi
+
                             sleep 60
                         done
                         ;;
