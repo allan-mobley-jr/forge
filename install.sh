@@ -205,12 +205,12 @@ case "${1:-}" in
         fi
         ;;
     update)
-        # Re-run the full installer, which is idempotent:
-        # - pulls the repo (or skips if up-to-date)
+        # Pull first so install.sh is up-to-date before bash parses it.
+        # Then re-run the full installer, which is idempotent:
+        # - pulls the repo again (no-op, already up-to-date)
         # - regenerates this CLI from the updated heredoc
         # - skips PATH setup if already configured
-        # This avoids the chicken-and-egg problem where an old CLI
-        # can't regenerate itself because it predates the mechanism.
+        git -C "$FORGE_REPO" pull
         bash "$FORGE_REPO/install.sh"
         ;;
     upgrade)
