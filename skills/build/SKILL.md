@@ -101,10 +101,10 @@ Handle the triage verdict:
 
 | Verdict | Action |
 |---------|--------|
-| PROCEED | Continue to Step 3b |
-| NEEDS_CLARIFICATION | Escalate via `/ask` with the triage agent's questions. Remove `agent:in-progress`. Return to `/forge`. |
-| TOO_BROAD | File decomposed sub-issues (with `--label "ai-generated"`). Close the original issue with a comment linking to the sub-issues. Remove `agent:in-progress`. Return to `/forge`. |
-| REJECT | Add `agent:needs-human` label. Post a comment with the rejection rationale. Return to `/forge`. |
+| PROCEED | Wait for research agent (already running in parallel), then continue to Step 3c |
+| NEEDS_CLARIFICATION | Escalate via `/ask` with the triage agent's questions. Remove `agent:in-progress`. Discard research output. Return to `/forge`. |
+| TOO_BROAD | File decomposed sub-issues (with `--label "ai-generated"`). Close the original issue with a comment linking to the sub-issues. Remove `agent:in-progress`. Discard research output. Return to `/forge`. |
+| REJECT | Add `agent:needs-human` label. Post a comment with the rejection rationale. Discard research output. Return to `/forge`. |
 
 ### Step 3b: Research (all issues)
 
@@ -120,7 +120,7 @@ fi
 
 Spawn a **research agent** via the Task tool. Read `.claude/skills/build/references/research-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the project's SPECIFICATION.md, and the project's CLAUDE.md as context.
 
-For human-filed issues, the research agent runs **in parallel** with the triage agent (Step 3a) since they have independent inputs. For agent-filed issues, the research agent runs immediately after Step 3.5.
+**Parallelism with triage:** For human-filed issues, spawn the research agent at the same time as the triage agent in Step 3a — do not wait for triage to complete before starting research. Both agents have independent inputs. After both return, evaluate the triage verdict (Step 3a table) before proceeding. For agent-filed issues, the research agent runs immediately after Step 3.5 (triage is skipped).
 
 The research agent explores the codebase for relevant files, patterns, and dependencies. When the issue involves domain-specific knowledge (API integrations, accessibility standards, payment processing, etc.), it also searches the web for authoritative sources.
 
