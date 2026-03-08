@@ -79,6 +79,39 @@ gh api rate_limit --jq '.resources.core | "Rate limit: \(.remaining)/\(.limit) r
 
 If fewer than 100 requests remain, stop and inform the user. Save the synthesized plan to a comment on a tracking issue so the next session can resume filing. If the budget is insufficient, the milestones created in Step 4 are harmless — they'll be reused when the session resumes.
 
+### Step 4c: File README update issue
+
+Before filing any feature issues, file a README update issue so it gets the lowest issue number. `/build` will pick it up first, replacing the default Next.js boilerplate before any feature work begins.
+
+```bash
+gh issue create \
+  --title "Replace default README with project README" \
+  --body "$(cat <<'EOF'
+## Objective
+Replace the default Next.js boilerplate README with a project-specific README derived from SPECIFICATION.md, so GitHub repo visitors understand what the project is.
+
+## Dependencies
+None
+
+## Implementation Notes
+- Read SPECIFICATION.md for project purpose, stack, and architecture
+- Target audience: developers visiting the GitHub repo for the first time
+- Include: project description, tech stack, getting started, development commands
+- Remove all default create-next-app content
+
+## Acceptance Criteria
+- [ ] README.md describes the actual project (not Next.js boilerplate)
+- [ ] Includes project purpose, tech stack, and getting started instructions
+- [ ] pnpm lint passes
+- [ ] pnpm tsc --noEmit passes
+- [ ] pnpm test passes
+- [ ] pnpm build completes without error
+EOF
+)" \
+  --label "ai-generated" \
+  --milestone "Phase 0: Infrastructure"
+```
+
 ### Step 5: File issues
 
 For each issue in the backlog, file it using `gh issue create`. Each issue must follow this exact structure:
