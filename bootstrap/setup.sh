@@ -641,10 +641,11 @@ step_19_branch_protection() {
     fi
     # The "Quality Checks" context below must match the job name in workflows/ci.yml.
     # Changing either one without the other will block all PRs.
-    if ! gh api "repos/$repo/rulesets" \
+    local api_output
+    if ! api_output=$(gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
-        --input - <<RULESET 2>/dev/null; then
+        --input - <<RULESET 2>&1); then
 {
   "name": "forge-main-protection",
   "target": "branch",
@@ -693,7 +694,13 @@ step_19_branch_protection() {
   ]
 }
 RULESET
-        add_warning "Branch protection failed. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
+        if echo "$api_output" | grep -qi "upgrade to GitHub Pro\|enable this feature"; then
+            info "  Branch protection requires GitHub Pro or a public repository."
+            info "  The main branch is unprotected — the agent can push directly without PR review."
+            info "  This is fine for solo development. Upgrade or make the repo public to enable protection."
+        else
+            add_warning "Branch protection failed. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
+        fi
         return
     fi
     ok "$label"
