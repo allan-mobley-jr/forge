@@ -104,20 +104,16 @@ If the revision count has reached the limit, escalate instead of retrying:
 
 ```bash
 if [ "$REVISION_COUNT" -ge "$MAX_REVISIONS" ]; then
-  gh issue edit $ISSUE --remove-label "agent:done" --add-label "agent:needs-human"
-  gh issue comment $ISSUE --body "$(cat <<ESCALATE
-## Revision Limit Reached
-
-This issue has been revised **${REVISION_COUNT}** times (limit: ${MAX_REVISIONS}) without converging on an approved solution.
-
-**Prior revision attempts are visible in PR #${PR_NUMBER} comments.**
-
-Human review is needed to determine the next approach — the automated revision cycle is not converging.
-ESCALATE
-)"
-  # Return to /forge — do not attempt another revision
+  # Invoke /ask — it handles the comment format and label management
 fi
 ```
+
+Invoke `/ask` with type `revision-limit`, passing:
+- `REVISION_COUNT` — number of prior revision attempts
+- `MAX_REVISIONS` — the limit (3)
+- `PR_NUMBER` — the PR number for reference
+
+`/ask` handles the comment format and label management (`agent:done` → `agent:needs-human`). Return to `/forge` — do not attempt another revision.
 
 ### Step 3: Claim the issue
 
@@ -186,25 +182,14 @@ git merge origin/main --no-edit
    ```bash
    REMAINING_CONFLICTS=$(git diff --name-only --diff-filter=U)
    git merge --abort
-   gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-   gh issue comment $ISSUE --body "$(cat <<COMMENT
-   ## Merge Conflict — Human Review Needed
-
-   While syncing PR branch \`${PR_BRANCH}\` with main, merge conflicts arose in files where both sides modified the same logic:
-
-   **Conflicted files:**
-   $(echo "$REMAINING_CONFLICTS" | sed 's/^/- /')
-
-   Some conflicts were too complex for automated resolution (both sides modified the same logic).
-
-   **Options:**
-   1. Resolve conflicts manually on the branch
-   2. Close the PR and re-build from current main
-
-   COMMENT
-   )"
    ```
-   Return to `/forge` after escalating.
+
+   Invoke `/ask` with type `merge-conflict`, passing:
+   - `CONFLICTED_FILES` — the list of conflicted files (from `$REMAINING_CONFLICTS`, formatted as a bulleted list)
+   - `PR_BRANCH` — the PR branch name
+   - `ADDITIONAL_CONTEXT` — `"Some conflicts were too complex for automated resolution (both sides modified the same logic)."`
+
+   `/ask` handles the comment format and label management (`agent:in-progress` → `agent:needs-human`). Return to `/forge` after escalating.
 
 5. **If all conflicts were resolved**, complete the merge and verify with quality checks:
    ```bash
@@ -223,27 +208,20 @@ git merge origin/main --no-edit
    ) || true
    ```
 
-   **If any check fails after conflict resolution**, the resolution introduced a regression. Abort:
+   **If any check fails after conflict resolution**, the resolution introduced a regression. Revert and escalate:
    ```bash
    if [ $? -ne 0 ] || echo "$QUALITY_ERROR" | grep -qiE '(error|failed|FAIL)'; then
      git revert HEAD --no-edit
      git push origin $PR_BRANCH
-     gh issue edit $ISSUE --remove-label "agent:in-progress" --add-label "agent:needs-human"
-     gh issue comment $ISSUE --body "$(cat <<COMMENT
-   ## Merge Conflict Resolution Failed Quality Checks
-
-   Auto-resolved merge conflicts in \`${PR_BRANCH}\`, but quality checks failed after resolution:
-
-   \`\`\`
-   $QUALITY_ERROR
-   \`\`\`
-
-   The merge resolution has been reverted. Human review needed.
-   COMMENT
-     )"
    fi
    ```
-   Return to `/forge` after escalating.
+
+   Invoke `/ask` with type `merge-conflict`, passing:
+   - `CONFLICTED_FILES` — the list of files that had conflicts (from Step 4.3)
+   - `PR_BRANCH` — the PR branch name
+   - `ADDITIONAL_CONTEXT` — the quality check error output (set to include "Auto-resolved merge conflicts, but quality checks failed after resolution. The merge resolution has been reverted." followed by the error)
+
+   `/ask` handles the comment format and label management (`agent:in-progress` → `agent:needs-human`). Return to `/forge` after escalating.
 
    If all checks pass, proceed to Step 5.
 
