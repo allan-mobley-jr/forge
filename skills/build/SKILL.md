@@ -4,7 +4,7 @@ description: >
   Claim the next available GitHub Issue, implement it on a feature branch,
   and open a pull request. Used by the Forge orchestrator to drive the build
   loop. Invoke manually with /build to trigger a single work cycle.
-allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task
+allowed-tools: Bash(gh *), Bash(git *), Bash(pnpm *), Read, Write, Edit, MultiEdit, Glob, Grep, Task, WebSearch, WebFetch
 ---
 
 # /build — Issue to Branch to PR
@@ -55,6 +55,7 @@ echo $ISSUE > .forge-temp/current-issue
 ```bash
 BUILD_START=$(date +%s)
 BUILD_TIMEOUT=1800  # 30 minutes per build
+PRE_IMPL_TIMEOUT=600  # 10 minutes for pre-implementation steps (3a-3d)
 ```
 
 Before each subsequent major step (Steps 6, 6b, 6c, 7, and 8), check elapsed time:
@@ -89,6 +90,65 @@ TIMEOUT
 ```
 
 Return to `/forge` so the next session can resume from the WIP branch.
+
+### Step 3a: Triage (human-filed issues only)
+
+Skip this step if the issue has the `ai-generated` label — agent-filed issues were already vetted by `/plan`.
+
+For human-filed issues, spawn a **triage agent** via the Task tool. Read `.claude/skills/build/references/triage-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the project's SPECIFICATION.md, a list of open issues (titles and numbers), and the project's CLAUDE.md as context.
+
+Handle the triage verdict:
+
+| Verdict | Action |
+|---------|--------|
+| PROCEED | Continue to Step 3b |
+| NEEDS_CLARIFICATION | Escalate via `/ask` with the triage agent's questions. Remove `agent:in-progress`. Return to `/forge`. |
+| TOO_BROAD | File decomposed sub-issues (with `--label "ai-generated"`). Close the original issue with a comment linking to the sub-issues. Remove `agent:in-progress`. Return to `/forge`. |
+| REJECT | Add `agent:needs-human` label. Post a comment with the rejection rationale. Return to `/forge`. |
+
+### Step 3b: Research (all issues)
+
+Before each pre-implementation step, check the pre-implementation timeout:
+
+```bash
+PRE_ELAPSED=$(( $(date +%s) - BUILD_START ))
+if [ "$PRE_ELAPSED" -ge "$PRE_IMPL_TIMEOUT" ]; then
+  echo "Pre-implementation timeout (${PRE_ELAPSED}s >= ${PRE_IMPL_TIMEOUT}s) — skipping to implementation"
+  # Skip remaining pre-implementation steps, proceed to Step 4
+fi
+```
+
+Spawn a **research agent** via the Task tool. Read `.claude/skills/build/references/research-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the project's SPECIFICATION.md, and the project's CLAUDE.md as context.
+
+For human-filed issues, the research agent runs **in parallel** with the triage agent (Step 3a) since they have independent inputs. For agent-filed issues, the research agent runs immediately after Step 3.5.
+
+The research agent explores the codebase for relevant files, patterns, and dependencies. When the issue involves domain-specific knowledge (API integrations, accessibility standards, payment processing, etc.), it also searches the web for authoritative sources.
+
+### Step 3c: Plan (all issues)
+
+Check the pre-implementation timeout. If exceeded, skip to Step 4.
+
+Sequential after research — depends on the research agent's output.
+
+Spawn a **plan agent** via the Task tool. Read `.claude/skills/build/references/plan-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the research agent's report, the project's SPECIFICATION.md, and the project's CLAUDE.md as context.
+
+The plan agent returns an ordered change list, design decisions, risk assessment, complexity rating, and single-PR feasibility evaluation.
+
+### Step 3d: Devil's Advocate (all issues)
+
+Check the pre-implementation timeout. If exceeded, skip to Step 4.
+
+Sequential after plan — depends on the plan agent's output.
+
+Spawn an **advocate agent** via the Task tool. Read `.claude/skills/build/references/advocate-agent.md` and spawn a Task with its contents as the prompt. Append the issue body, the research agent's report, the plan agent's plan, the project's SPECIFICATION.md, and the project's CLAUDE.md as context.
+
+Handle the advocate verdict:
+
+| Verdict | Action |
+|---------|--------|
+| PROCEED | Continue to Step 4 with the plan agent's output as the implementation guide |
+| REVISE_PLAN | Re-spawn the plan agent once with the advocate's feedback appended. Proceed with the revised plan — no second advocate review. |
+| ESCALATE | Escalate via `/ask` with the advocate's concerns. Remove `agent:in-progress`. Return to `/forge`. |
 
 ### Step 4: Prepare the branch
 
@@ -129,6 +189,8 @@ Read the full issue body carefully. Pay attention to:
 - **Implementation Notes** — specific files to create/modify, packages to install, patterns to follow
 - **Acceptance Criteria** — what must be true when you're done
 - **Dependencies** — what's already been built (reference those PRs/issues for context)
+
+If the plan agent produced output (Steps 3b-3d completed), use it as the primary implementation guide. The plan agent's change list, design decisions, and risk areas should inform your approach. The issue body's Implementation Notes remain authoritative for what to build — the plan refines how to build it.
 
 If resuming from a WIP branch (Step 4 found an existing branch), also read the most recent "Build Timeout" comment on the issue for context on what was already done.
 
@@ -261,6 +323,13 @@ Closes #{N}
 
 [2-5 bullet points summarizing what was implemented]
 
+## Plan Summary
+
+[If pre-implementation planning completed (Steps 3b-3d):
+- Key design decisions from the plan agent
+- Advocate warnings that were accepted or addressed
+Or: "Pre-implementation planning skipped (timeout / resumed from WIP branch)."]
+
 ## Acceptance Criteria
 
 [Copy the acceptance criteria from the issue, checking off completed items]
@@ -348,3 +417,6 @@ After completing (success or failure), end with:
 - **Don't skip quality checks.** Even if you're confident, always run lint + typecheck + test + build.
 - **Don't skip sub-agents.** Always spawn review and test agents after implementation, even for small changes. The review agent catches issues the linter can't, and the test agent ensures coverage.
 - **Respect the build timeout.** Check elapsed time before Steps 6, 6b, 6c, 7, and 8. If the 30-minute limit is reached, commit WIP and push — the next session resumes from the branch.
+- **Respect the pre-implementation timeout.** Steps 3a-3d share a 10-minute budget. If exceeded, skip remaining pre-implementation steps and proceed directly to Step 4. Better to build with partial research than to spend the entire budget on planning.
+- **Triage is for human issues only.** Don't triage issues with the `ai-generated` label — they were already vetted by `/plan`.
+- **Research runs in parallel with triage.** For human-filed issues, spawn both the triage and research agents simultaneously since they have independent inputs.
