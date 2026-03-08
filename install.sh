@@ -243,26 +243,20 @@ case "${1:-}" in
             fi
         done
 
-        # 4. Update skills (clean replacement — preserve vendor sentinel)
-        had_vendor_sentinel=false
-        [ -f .claude/skills/.vendor-skills-installed ] && had_vendor_sentinel=true
+        # 4. Update skills (clean replacement + reinstall vendor skills)
         rm -rf .claude/skills/
         mkdir -p .claude/skills
         cp -r "$FORGE_REPO/skills/"* .claude/skills/
-        [ "$had_vendor_sentinel" = true ] && touch .claude/skills/.vendor-skills-installed
         echo -e "  ${GREEN}✓${NC} Skills updated"
 
-        # 4b. Install vendor skills if not already present
-        if [ ! -f .claude/skills/.vendor-skills-installed ]; then
-            echo "  Installing vendor skills..."
-            mkdir -p .claude/skills
-            source "$FORGE_REPO/bootstrap/vendor-skills.sh"
-            if install_vendor_skills; then
-                touch .claude/skills/.vendor-skills-installed
-                echo -e "  ${GREEN}✓${NC} Vendor skills installed"
-            else
-                echo -e "  ${YELLOW}!${NC} Some vendor skills failed to install; will retry on next upgrade."
-            fi
+        # 4b. Reinstall vendor skills (always, since step 4 wipes the directory)
+        echo "  Installing vendor skills..."
+        source "$FORGE_REPO/bootstrap/vendor-skills.sh"
+        if install_vendor_skills; then
+            touch .claude/skills/.vendor-skills-installed
+            echo -e "  ${GREEN}✓${NC} Vendor skills installed"
+        else
+            echo -e "  ${YELLOW}!${NC} Some vendor skills failed to install; will retry on next upgrade."
         fi
 
         # Ensure vendor skills sentinel is gitignored
