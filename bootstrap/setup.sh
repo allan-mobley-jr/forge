@@ -645,15 +645,28 @@ step_18_generate_claude_md() {
     description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1 || echo "A Forge project")
     created_date=$(date +%Y-%m-%d)
 
+    local merge_mode="${FORGE_MERGE_MODE:-auto}"
+
     PROJECT_NAME="$project_name" \
         GITHUB_REPO="$github_repo" \
         DESCRIPTION="$description" \
         CREATED_DATE="$created_date" \
-        perl -pe 's/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
-                  s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
-                  s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
-                  s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;' \
-        "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
+        MERGE_MODE="$merge_mode" \
+        perl -0pe '
+            s/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
+            s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
+            s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
+            s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;
+            if ($ENV{MERGE_MODE} eq "copilot") {
+                s/\{\{#if_auto\}\}.*?\{\{\/if_auto\}\}\n?//gs;
+                s/\{\{#if_copilot\}\}\n?//g;
+                s/\{\{\/if_copilot\}\}\n?//g;
+            } else {
+                s/\{\{#if_copilot\}\}.*?\{\{\/if_copilot\}\}\n?//gs;
+                s/\{\{#if_auto\}\}\n?//g;
+                s/\{\{\/if_auto\}\}\n?//g;
+            }
+        ' "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
     ok "$label"
 }
 
@@ -677,6 +690,45 @@ step_18b_commit_config() {
     git commit -m "chore: add Forge configuration"
     git push
     ok "$label"
+}
+
+# Step 17b: PR merge mode (must run before step 18 — CLAUDE.md needs the mode)
+FORGE_MERGE_MODE=""
+step_17b_merge_mode() {
+    local label="17b. PR merge mode"
+    # Resume: detect from config.json
+    if [ -z "$FORGE_MERGE_MODE" ]; then
+        local project_name
+        project_name=$(basename "$PROJECT_DIR")
+        FORGE_MERGE_MODE=$(python3 -c "
+import json, sys
+try:
+    with open('$FORGE_CONFIG_DIR/config.json') as f:
+        cfg = json.load(f)
+    print(cfg.get('projects', {}).get(sys.argv[1], {}).get('merge_mode', ''))
+except:
+    print('')
+" "$project_name" 2>/dev/null || true)
+    fi
+    if [ -n "$FORGE_MERGE_MODE" ]; then
+        skip "$label (${FORGE_MERGE_MODE})"
+        return
+    fi
+    echo ""
+    info "  PR merge mode:"
+    echo "    1. Auto-merge with Copilot code review (recommended)"
+    echo "    2. Auto-merge (no review)"
+    echo ""
+    printf "  Choose [1]: "
+    read -r mode_choice
+    mode_choice="${mode_choice:-1}"
+    case "$mode_choice" in
+        1) FORGE_MERGE_MODE="copilot" ;;
+        2) FORGE_MERGE_MODE="auto" ;;
+        *) warn "Invalid choice '$mode_choice' — defaulting to copilot"
+           FORGE_MERGE_MODE="copilot" ;;
+    esac
+    ok "$label (${FORGE_MERGE_MODE})"
 }
 
 # Step 19: Branch protection (non-critical)
@@ -725,16 +777,6 @@ step_19_branch_protection() {
     }
   },
   "rules": [
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 1,
-        "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": false
-      }
-    },
     {
       "type": "required_status_checks",
       "parameters": {
@@ -804,6 +846,34 @@ SETTINGS
     ok "$label"
 }
 
+# Step 19c: Enable Copilot auto-review (non-critical, copilot mode only)
+step_19c_copilot_review() {
+    local label="19c. Copilot code review"
+    if [ "$FORGE_MERGE_MODE" != "copilot" ]; then
+        return
+    fi
+    local repo
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$repo" ]; then
+        add_warning "Copilot review: could not determine repository."
+        return
+    fi
+    # Copilot code review is configured via repo settings. The API may not be
+    # available for all plans. Try to enable it; warn on failure.
+    if gh api "repos/$repo/copilot/code_review" \
+        -X PUT \
+        -H "Accept: application/vnd.github+json" \
+        --input - <<'COPILOT' >/dev/null 2>/dev/null; then
+{
+  "enabled": true
+}
+COPILOT
+        ok "$label"
+    else
+        add_warning "Could not enable Copilot code review via API. Enable it manually: GitHub repo → Settings → Copilot → Code Review → Enable"
+    fi
+}
+
 # Step 20: Create labels (non-critical, --force makes it idempotent)
 step_20_create_labels() {
     local label="20. GitHub label taxonomy"
@@ -846,13 +916,14 @@ import json, sys
 cfg_path = sys.argv[1]
 with open(cfg_path) as f:
     cfg = json.load(f)
-name, path, repo, created = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created}
+name, path, repo, created, merge_mode = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created, 'merge_mode': merge_mode}
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
-" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$PROJECT_DIR" "$github_repo" "$created_date"
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$PROJECT_DIR" "$github_repo" "$created_date" "${FORGE_MERGE_MODE:-auto}"
     else
+        local merge_mode="${FORGE_MERGE_MODE:-auto}"
         cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
   "version": "1.0.0",
@@ -860,7 +931,8 @@ with open(cfg_path, 'w') as f:
     "$project_name": {
       "path": "$PROJECT_DIR",
       "repo": "$github_repo",
-      "created": "$created_date"
+      "created": "$created_date",
+      "merge_mode": "$merge_mode"
     }
   }
 }
@@ -898,11 +970,13 @@ step_15_copy_skills
 step_15b_vendor_skills
 step_16_copy_hooks
 step_17_copy_ci
+step_17b_merge_mode
 step_18_generate_claude_md
 step_18b_commit_config
 # Non-critical steps — failures are captured as warnings, not fatal
 step_19_branch_protection
 step_19b_repo_settings
+step_19c_copilot_review
 step_20_create_labels
 step_20b_cleanup_default_labels
 step_21_write_config || add_warning "Forge config write failed. Not critical — bootstrap metadata only."
