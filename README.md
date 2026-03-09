@@ -13,7 +13,7 @@ Forge is an autonomous development system that turns a plain-English description
 
 The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
 
-> **Note:** Branch protection rulesets (required PR reviews + status checks before merging to `main`) require GitHub Pro or a public repository. On a free plan with a private repo, the agent can push directly to `main`. This is acceptable for solo projects but not recommended for team use.
+> **Note:** Branch protection rulesets (required status checks + conversation resolution before merging to `main`) require GitHub Pro or a public repository. On a free plan with a private repo, the agent can push directly to `main` without CI gating. This is acceptable for solo projects but not recommended.
 
 ## Quick Start
 
@@ -150,7 +150,7 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
   │        │                             Posts question on issue     │
   │        │                             Labels agent:needs-human    │
   │        │                                                         │
-  │        ├── PR ready to merge ──────▶ Auto-merge (squash)          │
+  │        ├── PR ready to merge ──────▶ Auto-merge (squash)         │
   │        │                             Copilot mode: wait for      │
   │        │                             review first, resolve any   │
   │        │                             comments, then merge        │
