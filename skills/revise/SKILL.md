@@ -431,7 +431,7 @@ EOF
 )"
 ```
 
-**Resolve Copilot comment threads** for APPLY comments using the same GraphQL approach as review mode (Step 9 review mode).
+**Resolve ALL Copilot comment threads** (both APPLY and CHALLENGE) using the same GraphQL approach as review mode (Step 9 review mode). Unlike human reviews, Copilot threads must all be resolved because Copilot won't respond to challenges and `required_review_thread_resolution` would block merge on unresolved threads. The challenge reply in the thread serves as documentation.
 
 **Do not re-request review** — Copilot reviews are advisory. Proceed to Step 10.
 
