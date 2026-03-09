@@ -64,8 +64,9 @@ claude                       # start building
    └───────────────┘
            │
            ▼
-   CI passes ──▶ Auto-merge
-   Merge ──▶ Vercel deploys
+   CI passes ──▶ Auto-merge to main
+   Merge ──▶ Vercel staging deploy
+   Human promotion ──▶ Vercel production deploy
 ```
 
 There are four stages: **install**, **init**, **build loop**, and **merge**. The sections below walk through each one.
@@ -310,25 +311,25 @@ PreToolUse hooks still fire and block access to sensitive paths (`.env`, `.git/`
 
 ## Extending the Workflow
 
-Forge auto-merges PRs after CI passes, and Vercel auto-deploys on every merge to main — so every merged PR goes live. The extensions below add control over what reaches production and layer additional quality gates on PRs. The agent cannot modify `.github/workflows/` (hooks block it), so any workflows you add are safe from agent changes.
+Forge auto-merges PRs after CI passes, and every merge to `main` triggers a Vercel staging deployment. Production deployments are promoted manually. The sections below describe the built-in deployment architecture and how to layer additional quality gates on PRs. The agent cannot modify `.github/workflows/` (hooks block it), so any workflows you add are safe from agent changes.
 
 ### Staged production deployments
 
-Vercel builds a deployment on every merge, but you control when it goes live on your custom domain. Disable auto-promotion so merges produce preview deployments instead of going straight to production:
+Every Forge project has a built-in staging/production split:
 
-- In your Vercel project settings, turn off **Auto-assign Custom Production Domains**, or add to `vercel.json`:
+- **`main` branch** → Vercel "Staging" deployment (where the agent works)
+- **`production` branch** → Vercel "Production" deployment (your live site)
+- **PR branches** → Vercel "Preview" deployments
 
-```json
-{ "autoAssignCustomDomains": false }
-```
-
-- When you're ready to go live, promote a specific deployment:
+The agent works exclusively on `main`. It never touches the `production` branch. When you're ready to ship, promote `main` to production via the GitHub Actions workflow:
 
 ```bash
-vercel promote <deployment-url>
+gh workflow run deploy-production.yml -f confirm=deploy
 ```
 
-This is the lightest-touch option — no Forge changes needed, and the agent keeps working at full speed.
+This creates a PR from `main` → `production` and merges it, triggering a Vercel production deployment. The `production` branch is protected by a GitHub ruleset — no direct pushes, no force pushes, no deletion, no bypass actors.
+
+Bootstrap sets this up automatically: creates the `production` branch, configures Vercel to use it as the production branch, creates a staging custom environment on `main`, and installs the deploy workflow and protection ruleset.
 
 ### Additional CI checks
 
@@ -341,12 +342,6 @@ You can add GitHub Actions workflows to `.github/workflows/` as additional PR qu
 To make a new check required, add its job name to the branch protection ruleset's **Required status checks** list in your GitHub repo settings.
 
 > **Warning:** Do not rename the existing `Quality Checks` job in `ci.yml` — it's referenced by the branch protection ruleset created during bootstrap. Renaming it will block all PRs from merging.
-
-### Deployment environments
-
-GitHub Environments with required reviewers gate the *deployment*, not the merge. The agent's velocity is unaffected — PRs still auto-merge — but the Vercel production deploy pauses for human approval.
-
-To set this up: create a `production` environment in your repo's **Settings → Environments**, add yourself as a required reviewer, and configure your Vercel GitHub integration to deploy from that environment. Merges will queue a deployment that waits for your sign-off before going live.
 
 ## Resuming Work
 
@@ -425,7 +420,8 @@ forge/
 │   └── ask/SKILL.md        #   Human escalation
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
-│   └── ci.yml              #   Lint + typecheck + test + build + E2E
+│   ├── ci.yml              #   Lint + typecheck + test + build + E2E
+│   └── deploy-production.yml #  PR-based main → production promotion
 └── templates/
     ├── CLAUDE.md.hbs       # Project CLAUDE.md template
     ├── PROMPT.md           # Example starter prompt

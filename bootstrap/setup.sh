@@ -619,12 +619,13 @@ if plugins:
 # Step 17: Copy CI workflow
 step_17_copy_ci() {
     local label="17. CI workflow"
-    if [ -f .github/workflows/ci.yml ]; then
+    if [ -f .github/workflows/ci.yml ] && [ -f .github/workflows/deploy-production.yml ]; then
         skip "$label"
         return
     fi
     mkdir -p .github/workflows
     cp "$FORGE_REPO/workflows/ci.yml" .github/workflows/ci.yml
+    cp "$FORGE_REPO/workflows/deploy-production.yml" .github/workflows/deploy-production.yml
     ok "$label"
 }
 
@@ -906,6 +907,130 @@ step_19c_copilot_review() {
     fi
 }
 
+# Step 19d: Create production branch (non-critical)
+step_19d_production_branch() {
+    local label="19d. Production branch"
+    # Check remote directly (local tracking refs may be stale on resume)
+    if git ls-remote --heads origin production 2>/dev/null | grep -q production; then
+        skip "$label"
+        return
+    fi
+    if ! git branch production main 2>/dev/null; then
+        add_warning "Failed to create local production branch."
+        return
+    fi
+    if ! git push -u origin production 2>/dev/null; then
+        git branch -d production 2>/dev/null || true
+        add_warning "Failed to push production branch."
+        return
+    fi
+    ok "$label"
+}
+
+# Step 19e: Vercel production config (non-critical)
+step_19e_vercel_production_config() {
+    local label="19e. Vercel production config"
+    if ! command -v vercel &>/dev/null; then
+        add_warning "Vercel CLI not found — skipping Vercel production config."
+        return
+    fi
+    if [ ! -f .vercel/project.json ]; then
+        add_warning "No .vercel/project.json — skipping Vercel production config."
+        return
+    fi
+    local project_name
+    project_name=$(python3 -c "import json; print(json.load(open('.vercel/project.json')).get('projectId',''))" 2>/dev/null || true)
+    if [ -z "$project_name" ]; then
+        add_warning "Could not read project ID from .vercel/project.json — skipping Vercel production config."
+        return
+    fi
+    # Get project name via Vercel API
+    local vercel_project_name
+    vercel_project_name=$(vercel api "/v9/projects/$project_name" 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('name',''))" 2>/dev/null || true)
+    if [ -z "$vercel_project_name" ]; then
+        add_warning "Could not read project name from Vercel API — skipping Vercel production config."
+        return
+    fi
+    # Change production branch to 'production'
+    if ! vercel api "/v9/projects/$vercel_project_name/branch" -X PATCH --input <(echo '{"branch":"production"}') >/dev/null 2>&1; then
+        add_warning "Failed to set Vercel production branch. Set production branch to 'production' in Vercel Dashboard > Project Settings > Environments > Production > Branch Tracking"
+    fi
+    # Create staging environment for main (skip if already exists)
+    local staging_output staging_status=0
+    staging_output=$(vercel api "/v9/projects/$vercel_project_name/custom-environments" -X POST --input <(echo '{"slug":"staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}') 2>&1) || staging_status=$?
+    if [ "$staging_status" -ne 0 ]; then
+        if echo "$staging_output" | grep -qi "already exists\|conflict\|409"; then
+            : # Environment already exists — idempotent success
+        elif echo "$staging_output" | grep -qi "402\|403\|upgrade"; then
+            add_warning "Staging environment requires Vercel Pro. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
+        else
+            add_warning "Failed to create staging environment. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
+        fi
+    fi
+    ok "$label"
+}
+
+# Step 19f: Production branch protection (non-critical)
+step_19f_production_protection() {
+    local label="19f. Production branch protection"
+    local repo
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$repo" ]; then
+        add_warning "Production protection: could not determine repository."
+        return
+    fi
+    # Check if a forge production ruleset already exists
+    local existing
+    if ! existing=$(gh api "repos/$repo/rulesets" -q '[.[] | select(.name == "forge-production-protection")] | length' 2>/dev/null); then
+        existing="0"
+    fi
+    if [ "$existing" != "0" ]; then
+        skip "$label"
+        return
+    fi
+    local ruleset_json
+    ruleset_json=$(python3 -c "
+import json
+ruleset = {
+    'name': 'forge-production-protection',
+    'target': 'branch',
+    'enforcement': 'active',
+    'bypass_actors': [],
+    'conditions': {'ref_name': {'include': ['refs/heads/production'], 'exclude': []}},
+    'rules': [
+        {'type': 'pull_request', 'parameters': {
+            'required_approving_review_count': 0,
+            'dismiss_stale_reviews_on_push': False,
+            'require_code_owner_review': False,
+            'require_last_push_approval': False,
+            'required_review_thread_resolution': False
+        }},
+        {'type': 'non_fast_forward'},
+        {'type': 'deletion'}
+    ]
+}
+print(json.dumps(ruleset, indent=2))
+")
+    local api_errfile
+    api_errfile=$(mktemp)
+    if ! echo "$ruleset_json" | gh api "repos/$repo/rulesets" \
+        -X POST \
+        -H "Accept: application/vnd.github+json" \
+        --input - >/dev/null 2>"$api_errfile"; then
+        local api_output
+        api_output=$(cat "$api_errfile")
+        rm -f "$api_errfile"
+        if echo "$api_output" | grep -qi "upgrade to GitHub Pro"; then
+            ok "$label (skipped — requires GitHub Pro or public repo)"
+            return
+        fi
+        add_warning "Production branch protection failed. Set up manually: GitHub repo > Settings > Rules > Create ruleset for 'production'"
+        return
+    fi
+    rm -f "$api_errfile"
+    ok "$label"
+}
+
 # Step 20: Create labels (non-critical, --force makes it idempotent)
 step_20_create_labels() {
     local label="20. GitHub label taxonomy"
@@ -1009,6 +1134,9 @@ step_18b_commit_config
 step_19_branch_protection
 step_19b_repo_settings
 step_19c_copilot_review
+step_19d_production_branch
+step_19e_vercel_production_config
+step_19f_production_protection
 step_20_create_labels
 step_20b_cleanup_default_labels
 step_21_write_config || add_warning "Forge config write failed. Not critical — bootstrap metadata only."

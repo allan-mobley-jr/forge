@@ -1,0 +1,46 @@
+name: Deploy to Production
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm'
+        required: true
+jobs:
+  promote:
+    name: Promote main to production
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'deploy'
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create and merge deploy PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Ensure branch refs are available
+          git fetch origin main production
+          # Check if main and production are identical
+          if [ "$(git rev-parse origin/main)" = "$(git rev-parse origin/production)" ]; then
+            echo "Nothing to deploy: main and production are at the same commit"
+            exit 0
+          fi
+          # Verify main is ahead of production
+          if ! git merge-base --is-ancestor origin/production origin/main; then
+            echo "Error: production has diverged from main"
+            exit 1
+          fi
+          # Reuse existing PR or create a new one
+          PR_URL=$(gh pr list --head main --base production --json url -q '.[0].url' 2>/dev/null || true)
+          if [ -z "$PR_URL" ]; then
+            PR_URL=$(gh pr create \
+              --head main \
+              --base production \
+              --title "Deploy $(date -u +%Y-%m-%d-%H%M)" \
+              --body "Automated production deployment triggered by @${{ github.actor }}")
+          fi
+          # Merge it
+          gh pr merge "$PR_URL" --merge

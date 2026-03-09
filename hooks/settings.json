@@ -50,7 +50,9 @@
     "deny": [
       "Bash(rm -rf *)",
       "Bash(git push origin main*)",
+      "Bash(git push origin production*)",
       "Bash(git push * origin main*)",
+      "Bash(git push * origin production*)",
       "Bash(git push -f *)",
       "Bash(git push --force*)",
       "Bash(git push * --force*)",

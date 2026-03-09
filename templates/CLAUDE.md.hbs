@@ -110,6 +110,10 @@ Human `CHANGES_REQUESTED` reviews are still routed to `/revise` and take priorit
 No code review step. The agent opens a PR, waits for CI, and squash-merges immediately. Human `CHANGES_REQUESTED` reviews are still routed to `/revise` if submitted before the merge.
 {{/if_auto}}
 
+### Production Deployment
+
+The `production` branch is off-limits. Do not push to it, create PRs targeting it, or modify it in any way.
+
 ## Conventions
 
 - Use Server Components by default. Only add `'use client'` when interactivity is needed.
@@ -125,6 +129,7 @@ No code review step. The agent opens a PR, waits for CI, and squash-merges immed
 ## Security
 
 - Do not push directly to main — all changes go through feature branches and PRs.
+- Do not push to `production` or target PRs at it — the production branch is off-limits.
 - Do not force-push (`--force`, `-f`) — it rewrites shared history.
 - Do not run destructive GitHub commands (`gh repo delete`, etc.).
 - Do not read, print, or log environment variables or secrets.
