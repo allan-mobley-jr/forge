@@ -348,6 +348,13 @@ except:
             ' "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
         echo -e "  ${GREEN}✓${NC} CLAUDE.md re-generated"
 
+        # 7. Copy deploy workflow
+        if [ -f "$FORGE_REPO/workflows/deploy-production.yml" ]; then
+            mkdir -p .github/workflows
+            cp "$FORGE_REPO/workflows/deploy-production.yml" .github/workflows/deploy-production.yml
+            echo -e "  ${GREEN}✓${NC} Deploy workflow updated"
+        fi
+
         echo ""
         echo "  Review changes:  git diff"
         echo "  Restore backup:  cp -r ${BACKUP_DIR}/ ."
