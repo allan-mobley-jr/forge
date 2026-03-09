@@ -64,7 +64,7 @@ claude                       # start building
    └───────────────┘
            │
            ▼
-   You review PRs on GitHub
+   CI passes ──▶ Auto-merge
    Merge ──▶ Vercel deploys
 ```
 
