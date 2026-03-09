@@ -204,11 +204,16 @@ Look up the PR for the done issue using the `/sync` Open PRs data, or resolve it
 ```bash
 PR_JSON=$(gh pr list --state open --json number,url,headRefName,reviewDecision,statusCheckRollup \
   --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE}-\"))] | .[0]")
+PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty')
+PR_URL=$(echo "$PR_JSON" | jq -r '.url')
+PR_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
 ```
+
+If `PR_NUMBER` is empty, the PR may have been merged externally. Remove the `agent:done` label so the issue returns to backlog and continue.
 
 Check CI status and review state in priority order:
 
-**1. If CI checks are failing:** Route to `/revise` for CI repair. A reviewer won't merge a red PR, so fix CI before handling review feedback.
+**1. If CI checks are failing:** Route to `/revise` for CI repair.
 
 ```bash
 HAS_CI_FAILURE=$(echo "$PR_JSON" | jq '[.statusCheckRollup // [] | .[] | select(.conclusion == "FAILURE" or .conclusion == "failure")] | length > 0')
@@ -219,28 +224,97 @@ Action: Run /revise
 Message: "Issue #{X} has failing CI checks on its PR. Starting CI repair..."
 ```
 
-**2. If `CHANGES_REQUESTED`:** Route to `/revise` for review revision.
+**2. If `CHANGES_REQUESTED` by a human reviewer:** Route to `/revise` for review revision.
 
 ```
 Action: Run /revise
 Message: "Issue #{X} has review feedback on its PR. Starting revision..."
 ```
 
-**3. Otherwise (awaiting review or approved):** Block. The sequential lifecycle requires merge before moving on.
-
-```
-Action: Stop the loop. Display the resolved PR URL and review status.
-Message: "Issue #{X} has an open PR awaiting merge:
-  PR #{P}: {url} — review: {reviewDecision}
-
-  Merge or close the PR before the next issue can be built."
-```
-
-Write `.forge-temp/exit-status` as `needs-human` and return — do not proceed to build new issues.
+**3. If CI checks are still pending (no conclusion yet):** Wait. Write `needs-restart` so `forge run` restarts in 5 seconds to check again.
 
 ```bash
-echo "needs-human" > .forge-temp/exit-status
+CI_PENDING=$(echo "$PR_JSON" | jq '[.statusCheckRollup // [] | .[] | select(.conclusion == null or .conclusion == "")] | length > 0')
 ```
+
+If `CI_PENDING` is true AND no checks have failed:
+
+```bash
+echo "needs-restart" > .forge-temp/exit-status
+```
+
+```
+Message: "Issue #{X} — CI still running. Will check again on restart."
+```
+
+Return — do not proceed further.
+
+**4. CI passed — determine merge mode and handle accordingly:**
+
+Read the project's merge mode from CLAUDE.md:
+
+```bash
+MERGE_MODE="auto"
+if grep -q '^\*\*Mode:\*\* copilot' CLAUDE.md 2>/dev/null; then
+  MERGE_MODE="copilot"
+fi
+```
+
+**4a. If `MERGE_MODE` is `copilot`:** Check for Copilot review before merging.
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+COPILOT_REVIEW=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+  --jq '[.[] | select(.user.login | test("copilot"; "i"))] | sort_by(.submitted_at) | last')
+```
+
+- **No Copilot review yet:** Write `needs-restart` and return. Copilot typically reviews within a few minutes.
+
+  ```bash
+  echo "needs-restart" > .forge-temp/exit-status
+  ```
+
+  ```
+  Message: "Issue #{X} — waiting for Copilot review. Will check again on restart."
+  ```
+
+- **Copilot reviewed — check for line-level comments:**
+
+  ```bash
+  COPILOT_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+    --jq '[.[] | select(.user.login | test("copilot"; "i"))] | length')
+  ```
+
+  If `COPILOT_COMMENTS > 0`: Route to `/revise` in Copilot mode.
+
+  ```
+  Action: Run /revise (Copilot mode)
+  Message: "Issue #{X} — Copilot left {N} comments. Addressing them..."
+  ```
+
+- **Copilot reviewed, no line-level comments:** Proceed to merge (step 4b).
+
+**4b. Merge the PR:**
+
+All checks passed (and Copilot review is clean or mode is `auto`). Squash-merge the PR:
+
+```bash
+gh pr merge $PR_NUMBER --squash --delete-branch
+
+# Clean up local state
+git checkout main && git pull
+git branch -d "$PR_BRANCH" 2>/dev/null || true
+git remote prune origin
+
+# Remove label (issue auto-closes via "Closes #N" in PR body)
+gh issue edit $ISSUE --remove-label "agent:done" 2>/dev/null || true
+```
+
+```
+Message: "Merged PR #{P} for Issue #{X}. Continuing to next issue..."
+```
+
+Continue the loop — re-invoke `/forge`.
 
 #### Case C: `agent:in-progress` on an issue (crash recovery)
 Check for an existing branch or PR:
