@@ -168,8 +168,8 @@ for ISSUE_NUM in $NEEDS_HUMAN; do
     | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last
     | if . == null then false
       else
-        .key as $qi | .value.author.login as $agent
-        | [$c[range($qi + 1; $c | length)] | select(.author.login != $agent)]
+        .key as $qi
+        | [$c[range($qi + 1; $c | length)] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)") | not)]
         | length > 0
       end')
 
@@ -181,7 +181,7 @@ done
 
 The detection logic:
 1. Find the last comment whose body starts with `## Agent Question`, `## Build Failed`, `## Revision Limit Reached`, or `## Merge Conflict` (all known escalation headers)
-2. Check if any comment **after** that index is from a **different** `author.login`
+2. Check if any comment **after** that index does **not** start with a known escalation header (content-based, not author-based — the agent and human may share the same GitHub account)
 3. If yes, report as "responded" — `/forge` will handle resumption
 
 Report both responded and awaiting issues in the summary so `/forge` can route appropriately.
