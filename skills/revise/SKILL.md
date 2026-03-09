@@ -43,15 +43,19 @@ if [ -z "$ISSUE" ]; then
   done
 fi
 
-# Then check for Copilot review comments (when /forge routes here for Copilot mode)
+# Then check for unresolved Copilot review threads (when /forge routes here for Copilot mode)
+# Use GraphQL to check thread resolution status — the REST comments endpoint returns
+# all comments regardless of resolution, which would cause infinite re-routing.
 if [ -z "$ISSUE" ]; then
   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+  OWNER=$(echo "$REPO" | cut -d/ -f1)
+  REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
   for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
     PR_NUM=$(echo "$OPEN_PRS" | jq -r "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\"))] | .[0].number // empty" 2>/dev/null)
     if [ -n "$PR_NUM" ]; then
-      COPILOT_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUM/comments" \
-        --jq '[.[] | select(.user.login | test("copilot"; "i"))] | length' 2>/dev/null || echo "0")
-      if [ "$COPILOT_COMMENTS" -gt 0 ] 2>/dev/null; then
+      UNRESOLVED_COPILOT=$(gh api graphql -f query="{ repository(owner: \"$OWNER\", name: \"$REPO_NAME\") { pullRequest(number: $PR_NUM) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { author { login } } } } } } } }" \
+        --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select(.comments.nodes[0].author.login | test("copilot"; "i"))] | length' 2>/dev/null || echo "0")
+      if [ "$UNRESOLVED_COPILOT" -gt 0 ] 2>/dev/null; then
         ISSUE=$ISSUE_NUM
         COPILOT_MODE=true
         break
@@ -94,15 +98,15 @@ gh issue edit $ISSUE --remove-label "agent:done"
 
 Report this and return to `/forge`.
 
-**Guard: If `reviewDecision` is `APPROVED` and this is NOT CI repair mode**, the reviewer has approved despite any stale comment threads. Keep `agent:done` and return to `/forge` without making changes:
+**Guard: If `reviewDecision` is `APPROVED` and this is NOT CI repair mode or Copilot mode**, the reviewer has approved despite any stale comment threads. Keep `agent:done` and return to `/forge` without making changes:
 
 ```bash
-if [ "$REVIEW_DECISION" = "APPROVED" ] && [ "$CI_REPAIR_MODE" != "true" ]; then
+if [ "$REVIEW_DECISION" = "APPROVED" ] && [ "$CI_REPAIR_MODE" != "true" ] && [ "$COPILOT_MODE" != "true" ]; then
   # Return to /forge — reviewer approved, no revision needed
 fi
 ```
 
-An APPROVED PR can still have failing CI — the approval covers code quality, not CI status. CI repair mode must bypass this guard.
+An APPROVED PR can still have failing CI or unresolved Copilot threads — the approval covers human code quality, not CI status or Copilot feedback. CI repair and Copilot modes must bypass this guard.
 
 ### Step 2.5: Check revision count (review mode only)
 
@@ -318,7 +322,7 @@ Also read:
 - The issue body — original requirements and acceptance criteria
 - The files referenced in comments — understand context before modifying
 
-### Step 5.5: Evaluate comments (review mode only)
+### Step 5.5: Evaluate comments (review and Copilot modes)
 
 Before applying any fixes, evaluate whether each review comment is correct. Spawn a **comment evaluator agent** via the Task tool. Read `.claude/skills/revise/references/comment-evaluator-agent.md` and spawn a Task with its contents as the prompt. Append all review comments, the project's CLAUDE.md, SPECIFICATION.md, the current code in referenced files, and the issue body as context.
 

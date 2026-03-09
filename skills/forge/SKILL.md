@@ -285,22 +285,26 @@ COPILOT_RUN=$(gh run list \
   Message: "Issue #{X} — Copilot review in progress. Will check again on restart."
   ```
 
-- **Completed:** Check for line-level comments from Copilot:
+  Return — do not proceed further.
+
+- **Completed:** Check for unresolved Copilot comment threads (raw comment count from `pulls/comments` includes resolved threads, so use GraphQL instead):
 
   ```bash
   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-  COPILOT_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
-    --jq '[.[] | select(.user.login | test("copilot"; "i"))] | length')
+  OWNER=$(echo "$REPO" | cut -d/ -f1)
+  REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+  UNRESOLVED_COPILOT=$(gh api graphql -f query="{ repository(owner: \"$OWNER\", name: \"$REPO_NAME\") { pullRequest(number: $PR_NUMBER) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { author { login } } } } } } } }" \
+    --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select(.comments.nodes[0].author.login | test("copilot"; "i"))] | length')
   ```
 
-  If `COPILOT_COMMENTS > 0`: Route to `/revise` in Copilot mode.
+  If `UNRESOLVED_COPILOT > 0`: Route to `/revise` in Copilot mode.
 
   ```
   Action: Run /revise (Copilot mode)
-  Message: "Issue #{X} — Copilot left {N} comments. Addressing them..."
+  Message: "Issue #{X} — Copilot left {N} unresolved comments. Addressing them..."
   ```
 
-- **Completed, no line-level comments:** Proceed to merge (step 4b).
+- **No unresolved Copilot threads:** Proceed to merge (step 4b).
 
 **4b. Merge the PR:**
 
