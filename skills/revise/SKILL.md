@@ -16,14 +16,14 @@ You are the Forge revision agent. Your job is to pick up the `agent:done` issue 
 
 ### Step 1: Find the issue needing revision
 
-The `/forge` orchestrator routes here when an `agent:done` issue has failing CI checks or `CHANGES_REQUESTED` on its PR. Find it by fetching all open PRs once and correlating locally. **CI failures take priority** — a reviewer won't merge a red PR.
+The `/forge` orchestrator routes here when an `agent:done` issue has failing CI checks, `CHANGES_REQUESTED`, or Copilot review comments on its PR. Find it by fetching all open PRs once and correlating locally. **CI failures take priority**, then human review, then Copilot comments.
 
 ```bash
 # Get all agent:done issues and all open PRs in two calls
 DONE_ISSUES=$(gh issue list --state open --label "agent:done" --json number,title,body,labels --jq 'sort_by(.number)')
-OPEN_PRS=$(gh pr list --state open --json headRefName,reviewDecision,statusCheckRollup -L 200)
+OPEN_PRS=$(gh pr list --state open --json number,headRefName,reviewDecision,statusCheckRollup -L 200)
 
-# Check for CI failures first (higher priority)
+# Check for CI failures first (highest priority)
 for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
   HAS_CI_FAILURE=$(echo "$OPEN_PRS" | jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\"))] | .[0].statusCheckRollup // [] | [.[] | select(.conclusion == \"FAILURE\" or .conclusion == \"failure\")] | length > 0")
   if [ "$HAS_CI_FAILURE" = "true" ]; then
@@ -33,7 +33,7 @@ for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
   fi
 done
 
-# Then check for CHANGES_REQUESTED
+# Then check for human CHANGES_REQUESTED
 if [ -z "$ISSUE" ]; then
   for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
     if echo "$OPEN_PRS" | jq -e "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")] | .[0]" >/dev/null 2>&1; then
@@ -42,9 +42,30 @@ if [ -z "$ISSUE" ]; then
     fi
   done
 fi
+
+# Then check for unresolved Copilot review threads (when /forge routes here for Copilot mode)
+# Use GraphQL to check thread resolution status — the REST comments endpoint returns
+# all comments regardless of resolution, which would cause infinite re-routing.
+if [ -z "$ISSUE" ]; then
+  REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+  OWNER=$(echo "$REPO" | cut -d/ -f1)
+  REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+  for ISSUE_NUM in $(echo "$DONE_ISSUES" | jq -r '.[].number'); do
+    PR_NUM=$(echo "$OPEN_PRS" | jq -r "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\"))] | .[0].number // empty" 2>/dev/null)
+    if [ -n "$PR_NUM" ]; then
+      UNRESOLVED_COPILOT=$(gh api graphql -f query="{ repository(owner: \"$OWNER\", name: \"$REPO_NAME\") { pullRequest(number: $PR_NUM) { reviewThreads(first: 100) { nodes { isResolved comments(first: 1) { nodes { author { login } } } } } } } }" \
+        --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select(.comments.nodes[0].author.login | test("copilot"; "i"))] | length' 2>/dev/null || echo "0")
+      if [ "$UNRESOLVED_COPILOT" -gt 0 ] 2>/dev/null; then
+        ISSUE=$ISSUE_NUM
+        COPILOT_MODE=true
+        break
+      fi
+    fi
+  done
+fi
 ```
 
-If no issues have CI failures or `CHANGES_REQUESTED`, report this and return to `/forge`.
+If no issues have CI failures, `CHANGES_REQUESTED`, or Copilot comments, report this and return to `/forge`.
 
 ### Step 2: Find the linked PR
 
@@ -77,19 +98,19 @@ gh issue edit $ISSUE --remove-label "agent:done"
 
 Report this and return to `/forge`.
 
-**Guard: If `reviewDecision` is `APPROVED` and this is NOT CI repair mode**, the reviewer has approved despite any stale comment threads. Keep `agent:done` and return to `/forge` without making changes:
+**Guard: If `reviewDecision` is `APPROVED` and this is NOT CI repair mode or Copilot mode**, the reviewer has approved despite any stale comment threads. Keep `agent:done` and return to `/forge` without making changes:
 
 ```bash
-if [ "$REVIEW_DECISION" = "APPROVED" ] && [ "$CI_REPAIR_MODE" != "true" ]; then
+if [ "$REVIEW_DECISION" = "APPROVED" ] && [ "$CI_REPAIR_MODE" != "true" ] && [ "$COPILOT_MODE" != "true" ]; then
   # Return to /forge — reviewer approved, no revision needed
 fi
 ```
 
-An APPROVED PR can still have failing CI — the approval covers code quality, not CI status. CI repair mode must bypass this guard.
+An APPROVED PR can still have failing CI or unresolved Copilot threads — the approval covers human code quality, not CI status or Copilot feedback. CI repair and Copilot modes must bypass this guard.
 
 ### Step 2.5: Check revision count (review mode only)
 
-**Skip this step in CI repair mode** — CI repairs are not revisions and should not be blocked by the revision limit.
+**Skip this step in CI repair mode or Copilot mode** — CI repairs and Copilot review fixes are not revisions and should not be blocked by the revision limit.
 
 Count prior revision attempts by looking for "## Revision Summary" comments already posted by previous `/revise` runs:
 
@@ -257,6 +278,30 @@ Read the CI failure logs carefully. Identify which files need changes. Also read
 
 ---
 
+**If Copilot mode** (`COPILOT_MODE=true`): fetch Copilot's review comments.
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+# Copilot's COMMENTED review body (top-level summary)
+gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+  --jq '[.[] | select(.user.login | test("copilot"; "i"))] | sort_by(.submitted_at) | last | {id: .id, body: .body, state: .state}'
+
+# Copilot's line-level comments (specific code feedback)
+gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+  --jq '[.[] | select(.user.login | test("copilot"; "i"))] | .[] | {id: .id, path: .path, line: .original_line, diff_hunk: .diff_hunk, body: .body}'
+```
+
+Read and understand all Copilot comments. Group line-level comments by file path for efficient processing.
+
+Also read:
+- `CLAUDE.md` — project conventions
+- The files referenced in comments — understand context before modifying
+
+**Proceed to Step 5.5** — evaluate Copilot comments using the same evaluator as human reviews (APPLY/CHALLENGE/RESEARCH/ESCALATE). For Copilot comments, CHALLENGE verdicts should still be replied to with evidence (Copilot will not respond, but the thread serves as documentation).
+
+---
+
 **If review mode** (default): fetch review comments.
 
 ```bash
@@ -277,7 +322,7 @@ Also read:
 - The issue body — original requirements and acceptance criteria
 - The files referenced in comments — understand context before modifying
 
-### Step 5.5: Evaluate comments (review mode only)
+### Step 5.5: Evaluate comments (review and Copilot modes)
 
 Before applying any fixes, evaluate whether each review comment is correct. Spawn a **comment evaluator agent** via the Task tool. Read `.claude/skills/revise/references/comment-evaluator-agent.md` and spawn a Task with its contents as the prompt. Append all review comments, the project's CLAUDE.md, SPECIFICATION.md, the current code in referenced files, and the issue body as context.
 
@@ -366,6 +411,33 @@ EOF
 ```
 
 Skip thread resolution (no review threads to resolve) and skip re-requesting review. Proceed to Step 10.
+
+---
+
+**If Copilot mode:** Post a Copilot review summary (distinct header — does not count as a revision):
+
+```bash
+gh pr comment $PR_NUMBER --body "$(cat <<'EOF'
+## Copilot Review Summary
+
+### Applied
+- **[file:line]** — [brief description of change made in response to Copilot comment]
+- ...
+
+### Challenged
+- **[file:line]** — [brief summary of why the suggestion was not applied, with evidence]
+- ...
+
+[Or omit empty sections]
+
+All quality checks pass (lint, typecheck, test, build).
+EOF
+)"
+```
+
+**Resolve ALL Copilot comment threads** (both APPLY and CHALLENGE) using the same GraphQL approach as review mode (Step 9 review mode). Unlike human reviews, Copilot threads must all be resolved because Copilot won't respond to challenges and `required_review_thread_resolution` would block merge on unresolved threads. The challenge reply in the thread serves as documentation.
+
+**Do not re-request review** — Copilot reviews are advisory. Proceed to Step 10.
 
 ---
 
@@ -475,4 +547,5 @@ After completing (success or failure), end with:
 - **Respect the revision timeout.** Check elapsed time before Steps 5, 6, 7, and 8. If the 30-minute limit is reached, commit WIP and push — the next session resumes from the branch.
 - **Commit message format:** `fix: {descriptive message} (#N)` — always use `fix:` prefix for revisions. Use a specific description per commit when splitting atomic commits (e.g., `fix: rename handler to match convention (#N)`).
 - **CI repair does not count as a revision.** The `## CI Repair Summary` header is distinct from `## Revision Summary` and does not increment the revision count checked in Step 2.5.
+- **Copilot review does not count as a revision.** The `## Copilot Review Summary` header is distinct from `## Revision Summary` and does not increment the revision count. No revision limit applies to Copilot review fixes.
 - **Fix code, not CI config.** In CI repair mode, fix the application code to pass CI. Do not modify `.github/workflows/` unless the issue specifically involves CI configuration.
