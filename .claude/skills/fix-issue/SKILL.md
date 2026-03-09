@@ -1,7 +1,15 @@
 ---
 name: fix-issue
-description: Work through a GitHub issue end-to-end — branch, plan, implement, review, PR, wait for merge. Use when tackling issues from the backlog one at a time.
-allowed-tools: Bash(gh *), Bash(git *), Read, Glob, Grep, Edit, Write
+description: >
+  Work through a GitHub issue end-to-end: branch, plan, implement,
+  self-review, PR, and wait for merge. Use this skill whenever the user
+  wants to fix a bug, implement a feature, or tackle any issue from the
+  backlog — even if they don't say "/fix-issue" explicitly. Trigger when
+  the user mentions working on an issue (by number or description), asks
+  to pick up the next issue, or requests the full branch-to-PR workflow.
+  Invoke with /fix-issue <number> or /fix-issue for the next open issue.
+  One issue at a time — finish before starting the next.
+allowed-tools: Bash(gh *), Bash(git *), Read, Write, Edit, MultiEdit, Glob, Grep, WebSearch, WebFetch
 ---
 
 # /fix-issue — Issue-to-PR Workflow
