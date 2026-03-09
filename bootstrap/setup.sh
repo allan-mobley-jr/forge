@@ -619,7 +619,7 @@ if plugins:
 # Step 17: Copy CI workflow
 step_17_copy_ci() {
     local label="17. CI workflow"
-    if [ -f .github/workflows/ci.yml ]; then
+    if [ -f .github/workflows/ci.yml ] && [ -f .github/workflows/deploy-production.yml ]; then
         skip "$label"
         return
     fi
@@ -910,12 +910,20 @@ step_19c_copilot_review() {
 # Step 19d: Create production branch (non-critical)
 step_19d_production_branch() {
     local label="19d. Production branch"
-    if git rev-parse --verify origin/production &>/dev/null 2>&1; then
+    # Check remote directly (local tracking refs may be stale on resume)
+    if git ls-remote --heads origin production 2>/dev/null | grep -q production; then
         skip "$label"
         return
     fi
-    git branch production main
-    git push -u origin production
+    if ! git branch production main 2>/dev/null; then
+        add_warning "Failed to create local production branch."
+        return
+    fi
+    if ! git push -u origin production 2>/dev/null; then
+        git branch -d production 2>/dev/null || true
+        add_warning "Failed to push production branch."
+        return
+    fi
     ok "$label"
 }
 
@@ -947,11 +955,13 @@ step_19e_vercel_production_config() {
     if ! vercel api "/v9/projects/$vercel_project_name/branch" -X PATCH --input <(echo '{"branch":"production"}') >/dev/null 2>&1; then
         add_warning "Failed to set Vercel production branch. Set production branch to 'production' in Vercel Dashboard > Project Settings > Environments > Production > Branch Tracking"
     fi
-    # Create staging environment for main
+    # Create staging environment for main (skip if already exists)
     local staging_output staging_status=0
     staging_output=$(vercel api "/v9/projects/$vercel_project_name/custom-environments" -X POST --input <(echo '{"slug":"staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}') 2>&1) || staging_status=$?
     if [ "$staging_status" -ne 0 ]; then
-        if echo "$staging_output" | grep -qi "402\|403\|upgrade"; then
+        if echo "$staging_output" | grep -qi "already exists\|conflict\|409"; then
+            : # Environment already exists — idempotent success
+        elif echo "$staging_output" | grep -qi "402\|403\|upgrade"; then
             add_warning "Staging environment requires Vercel Pro. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
         else
             add_warning "Failed to create staging environment. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"

@@ -311,7 +311,7 @@ PreToolUse hooks still fire and block access to sensitive paths (`.env`, `.git/`
 
 ## Extending the Workflow
 
-Forge auto-merges PRs after CI passes, and Vercel auto-deploys on every merge to main — so every merged PR goes live. The extensions below add control over what reaches production and layer additional quality gates on PRs. The agent cannot modify `.github/workflows/` (hooks block it), so any workflows you add are safe from agent changes.
+Forge auto-merges PRs after CI passes, and every merge to `main` triggers a Vercel staging deployment. Production deployments are promoted manually. The sections below describe the built-in deployment architecture and how to layer additional quality gates on PRs. The agent cannot modify `.github/workflows/` (hooks block it), so any workflows you add are safe from agent changes.
 
 ### Staged production deployments
 
