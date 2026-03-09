@@ -133,8 +133,8 @@ RESPONSE=$(gh issue view "$ISSUE" --json comments --jq '
   | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last
   | if . == null then null
     else
-      .key as $qi | .value.author.login as $agent
-      | [$c[range($qi + 1; $c | length)] | select(.author.login != $agent)] | last
+      .key as $qi
+      | [$c[range($qi + 1; $c | length)] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)") | not)] | last
       | .body
     end')
 
