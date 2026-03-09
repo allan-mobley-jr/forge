@@ -35,15 +35,18 @@ Work through every review comment on a PR: evaluate each one critically, fix wha
 If a PR number was provided, use it directly. Otherwise, find the PR for the current branch:
 
 ```bash
+# With a specific PR number:
+PR_JSON=$(gh pr view $PR_NUMBER --json number,url,headRefName,baseRefName,reviewDecision)
+
+# Or auto-detect from the current branch:
 PR_JSON=$(gh pr view --json number,url,headRefName,baseRefName,reviewDecision)
+
 PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
 PR_URL=$(echo "$PR_JSON" | jq -r '.url')
 PR_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
 ```
 
-If no open PR exists for the current branch, say so and stop.
-
-If `reviewDecision` is `APPROVED` with no unresolved threads, report that the PR is already approved and stop — don't go looking for problems.
+If no open PR exists, say so and stop.
 
 Fetch the repo identifier once:
 
@@ -55,11 +58,11 @@ Then fetch all review feedback in two calls:
 
 ```bash
 # Line-level comments (code-specific feedback)
-LINE_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
+LINE_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" --paginate \
   --jq '.[] | {id, node_id, path, line: .original_line, diff_hunk: .diff_hunk, body: .body, user: .user.login, in_reply_to_id}')
 
 # Top-level review bodies (summary feedback, often accompanies CHANGES_REQUESTED)
-REVIEW_BODIES=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
+REVIEW_BODIES=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" --paginate \
   --jq '.[] | select(.body != "" and .body != null) | {id, node_id, body, user: .user.login, state}')
 ```
 
@@ -95,6 +98,8 @@ THREADS=$(gh api graphql -f query='
 ```
 
 Cross-reference with the line-level comments to build a mapping of comment ID → thread node ID. Skip threads that are already resolved — they don't need attention.
+
+If `reviewDecision` is `APPROVED` and all threads are resolved, report that the PR is already approved and stop — don't go looking for problems.
 
 ### Step 3: Evaluate each comment
 
