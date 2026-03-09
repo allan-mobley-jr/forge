@@ -751,62 +751,49 @@ step_19_branch_protection() {
     fi
     # The "Quality Checks" context below must match the job name in workflows/ci.yml.
     # Changing either one without the other will block all PRs.
+    # Build ruleset JSON — conditionally include copilot_code_review rule
+    local ruleset_json
+    ruleset_json=$(python3 -c "
+import json, sys
+merge_mode = sys.argv[1]
+rules = [
+    {'type': 'pull_request', 'parameters': {
+        'required_approving_review_count': 0,
+        'dismiss_stale_reviews_on_push': False,
+        'require_code_owner_review': False,
+        'require_last_push_approval': False,
+        'required_review_thread_resolution': True
+    }},
+    {'type': 'required_status_checks', 'parameters': {
+        'strict_required_status_checks_policy': False,
+        'required_status_checks': [{'context': 'Quality Checks'}]
+    }},
+    {'type': 'non_fast_forward'},
+    {'type': 'deletion'}
+]
+if merge_mode == 'copilot':
+    rules.append({'type': 'copilot_code_review', 'parameters': {
+        'review_on_push': True,
+        'review_draft_pull_requests': False
+    }})
+ruleset = {
+    'name': 'forge-main-protection',
+    'target': 'branch',
+    'enforcement': 'active',
+    'bypass_actors': [{'actor_id': 5, 'actor_type': 'RepositoryRole', 'bypass_mode': 'always'}],
+    'conditions': {'ref_name': {'include': ['refs/heads/main'], 'exclude': []}},
+    'rules': rules
+}
+print(json.dumps(ruleset, indent=2))
+" "$FORGE_MERGE_MODE")
     # bash 3.2 (macOS default) cannot use heredocs inside $() command
     # substitution, so redirect stderr to a temp file instead.
     local api_errfile
     api_errfile=$(mktemp)
-    if ! gh api "repos/$repo/rulesets" \
+    if ! echo "$ruleset_json" | gh api "repos/$repo/rulesets" \
         -X POST \
         -H "Accept: application/vnd.github+json" \
-        --input - <<RULESET >/dev/null 2>"$api_errfile"; then
-{
-  "name": "forge-main-protection",
-  "target": "branch",
-  "enforcement": "active",
-  "bypass_actors": [
-    {
-      "actor_id": 5,
-      "actor_type": "RepositoryRole",
-      "bypass_mode": "always"
-    }
-  ],
-  "conditions": {
-    "ref_name": {
-      "include": ["refs/heads/main"],
-      "exclude": []
-    }
-  },
-  "rules": [
-    {
-      "type": "pull_request",
-      "parameters": {
-        "required_approving_review_count": 0,
-        "dismiss_stale_reviews_on_push": false,
-        "require_code_owner_review": false,
-        "require_last_push_approval": false,
-        "required_review_thread_resolution": true
-      }
-    },
-    {
-      "type": "required_status_checks",
-      "parameters": {
-        "strict_required_status_checks_policy": false,
-        "required_status_checks": [
-          {
-            "context": "Quality Checks"
-          }
-        ]
-      }
-    },
-    {
-      "type": "non_fast_forward"
-    },
-    {
-      "type": "deletion"
-    }
-  ]
-}
-RULESET
+        --input - >/dev/null 2>"$api_errfile"; then
         local api_output
         api_output=$(cat "$api_errfile")
         rm -f "$api_errfile"
@@ -856,7 +843,7 @@ SETTINGS
     ok "$label"
 }
 
-# Step 19c: Enable Copilot auto-review (non-critical, copilot mode only)
+# Step 19c: Verify Copilot code review rule was applied (non-critical)
 step_19c_copilot_review() {
     local label="19c. Copilot code review"
     if [ "$FORGE_MERGE_MODE" != "copilot" ]; then
@@ -865,22 +852,16 @@ step_19c_copilot_review() {
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
-        add_warning "Copilot review: could not determine repository."
         return
     fi
-    # Copilot code review is configured via repo settings. The API may not be
-    # available for all plans. Try to enable it; warn on failure.
-    if gh api "repos/$repo/copilot/code_review" \
-        -X PUT \
-        -H "Accept: application/vnd.github+json" \
-        --input - <<'COPILOT' >/dev/null 2>/dev/null; then
-{
-  "enabled": true
-}
-COPILOT
+    # Check if copilot_code_review rule exists in the forge ruleset
+    local has_copilot
+    has_copilot=$(gh api "repos/$repo/rulesets" \
+        -q '[.[] | select(.name == "forge-main-protection")] | .[0].rules // [] | [.[] | select(.type == "copilot_code_review")] | length' 2>/dev/null || echo "0")
+    if [ "$has_copilot" != "0" ]; then
         ok "$label"
     else
-        add_warning "Could not enable Copilot code review via API. Enable it manually: GitHub repo → Settings → Copilot → Code Review → Enable"
+        add_warning "Copilot code review rule was not applied. Requires Copilot Pro/Business. Enable manually: GitHub repo → Settings → Rules → forge-main-protection → Add Copilot code review rule"
     fi
 }
 
