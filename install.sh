@@ -306,15 +306,46 @@ if plugins:
         description="${description:-A Forge project}"
         created_date="${created_date:-$(date +%Y-%m-%d)}"
 
+        # Detect merge mode from config.json or existing CLAUDE.md
+        merge_mode=""
+        if [ -f "$HOME/.forge/config.json" ]; then
+            merge_mode=$(python3 -c "
+import json, sys
+try:
+    with open('$HOME/.forge/config.json') as f:
+        cfg = json.load(f)
+    print(cfg.get('projects', {}).get(sys.argv[1], {}).get('merge_mode', ''))
+except:
+    print('')
+" "$project_name" 2>/dev/null || true)
+        fi
+        if [ -z "$merge_mode" ] && [ -f "$BACKUP_DIR/CLAUDE.md" ]; then
+            if grep -q '^\*\*Mode:\*\* copilot' "$BACKUP_DIR/CLAUDE.md" 2>/dev/null; then
+                merge_mode="copilot"
+            fi
+        fi
+        merge_mode="${merge_mode:-auto}"
+
         PROJECT_NAME="$project_name" \
             GITHUB_REPO="$github_repo" \
             DESCRIPTION="$description" \
             CREATED_DATE="$created_date" \
-            perl -pe 's/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
-                      s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
-                      s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
-                      s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;' \
-            "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
+            MERGE_MODE="$merge_mode" \
+            perl -0pe '
+                s/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
+                s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
+                s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
+                s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;
+                if ($ENV{MERGE_MODE} eq "copilot") {
+                    s/\{\{#if_auto\}\}.*?\{\{\/if_auto\}\}\n?//gs;
+                    s/\{\{#if_copilot\}\}\n?//g;
+                    s/\{\{\/if_copilot\}\}\n?//g;
+                } else {
+                    s/\{\{#if_copilot\}\}.*?\{\{\/if_copilot\}\}\n?//gs;
+                    s/\{\{#if_auto\}\}\n?//g;
+                    s/\{\{\/if_auto\}\}\n?//g;
+                }
+            ' "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
         echo -e "  ${GREEN}✓${NC} CLAUDE.md re-generated"
 
         echo ""
