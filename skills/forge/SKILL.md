@@ -262,25 +262,33 @@ fi
 
 **4a. If `MERGE_MODE` is `copilot`:** Check for Copilot review before merging.
 
+First, check if the Copilot code review workflow has completed. Copilot runs as a GitHub Actions workflow named "Copilot code review" on the PR ref:
+
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-COPILOT_REVIEW=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
-  --jq '[.[] | select(.user.login | test("copilot"; "i"))] | sort_by(.submitted_at) | last')
+COPILOT_RUN=$(gh run list \
+  --branch "refs/pull/$PR_NUMBER/head" \
+  --workflow "Copilot code review" \
+  --limit 1 \
+  --json status,conclusion \
+  --jq '.[0] // empty')
 ```
 
-- **No Copilot review yet:** Write `needs-restart` and return. Copilot typically reviews within a few minutes.
+- **No run found or still in progress:** Write `needs-restart` and return. Copilot typically reviews within a few minutes.
 
   ```bash
-  echo "needs-restart" > .forge-temp/exit-status
+  if [ -z "$COPILOT_RUN" ] || echo "$COPILOT_RUN" | jq -e '.status != "completed"' > /dev/null; then
+    echo "needs-restart" > .forge-temp/exit-status
+  fi
   ```
 
   ```
-  Message: "Issue #{X} — waiting for Copilot review. Will check again on restart."
+  Message: "Issue #{X} — Copilot review in progress. Will check again on restart."
   ```
 
-- **Copilot reviewed — check for line-level comments:**
+- **Completed:** Check for line-level comments from Copilot:
 
   ```bash
+  REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
   COPILOT_COMMENTS=$(gh api "repos/$REPO/pulls/$PR_NUMBER/comments" \
     --jq '[.[] | select(.user.login | test("copilot"; "i"))] | length')
   ```
@@ -292,7 +300,7 @@ COPILOT_REVIEW=$(gh api "repos/$REPO/pulls/$PR_NUMBER/reviews" \
   Message: "Issue #{X} — Copilot left {N} comments. Addressing them..."
   ```
 
-- **Copilot reviewed, no line-level comments:** Proceed to merge (step 4b).
+- **Completed, no line-level comments:** Proceed to merge (step 4b).
 
 **4b. Merge the PR:**
 
