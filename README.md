@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge — Autonomous Next.js Development" width="1280" />
 
-Forge is an autonomous development system that turns a plain-English description of your app into a working Next.js project — planned, built, and deployed through GitHub Issues, PRs, and Vercel. You describe what you want. Claude Code does the rest. You approve the PRs.
+Forge is an autonomous development system that turns a plain-English description of your app into a working Next.js project — planned, built, and deployed through GitHub Issues, PRs, and Vercel. You describe what you want. Claude Code does the rest. PRs are auto-merged after CI passes, with optional GitHub Copilot code review as a quality gate.
 
 ## Requirements
 
@@ -107,8 +107,9 @@ Create a directory, write a `PROMPT.md` describing your app, and run `forge init
        ├──▶ Install vendor skills (next-best-practices, web-design-guidelines, etc.)
        ├──▶ Install hooks (file guards, rate limiting, session management)
        ├──▶ Install CI pipeline (lint, typecheck, test, build, E2E)
+       ├──▶ Choose merge mode (copilot or auto)
        ├──▶ Generate CLAUDE.md from template
-       ├──▶ Set up branch protection + labels
+       ├──▶ Set up branch protection + labels (+ Copilot review if selected)
        └──▶ Done — ready to build
 ```
 
@@ -149,8 +150,10 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
   │        │                             Posts question on issue     │
   │        │                             Labels agent:needs-human    │
   │        │                                                         │
-  │        ├── PR awaiting merge ────▶ Stop loop, wait for merge     │
-  │        │                           (forge run polls for changes) │
+  │        ├── PR ready to merge ──────▶ Auto-merge (squash)          │
+  │        │                             Copilot mode: wait for      │
+  │        │                             review first, resolve any   │
+  │        │                             comments, then merge        │
   │        │                                                         │
   │        └── All issues closed ──────▶ /plan (audit for gaps)      │
   │                                                                  │
@@ -165,11 +168,11 @@ The agent reads PROMPT.md, spawns 4 research sub-agents (architecture, stack, de
 The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns up to 3 sub-agents in parallel: a review agent, a test agent, and (for UI-affecting issues) a visual check agent that takes screenshots and compares against baselines. It applies fixes, runs quality checks (lint, typecheck, test, build), deploys a Vercel preview if available, and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
 
 **What /revise does:**
-When you request changes on a PR, the agent picks it up on the next cycle. It reads your review comments, applies fixes, re-runs quality checks, pushes, and re-requests your review.
+When you request changes on a PR or Copilot leaves review comments, the agent picks it up on the next cycle. It reads the review comments, critically evaluates each one (fixing valid issues, pushing back on incorrect suggestions), re-runs quality checks, and pushes fixes.
 
-### Stage 4 — You Review
+### Stage 4 — Merge
 
-Every PR must be approved by you before it merges. CI runs automatically on every PR:
+PRs are auto-merged after CI passes. You choose the merge mode during `forge init`:
 
 ```
   PR opened by agent
@@ -182,15 +185,22 @@ Every PR must be approved by you before it merges. CI runs automatically on ever
        ├──▶ Vercel Preview (automatic deploy)
        │
        ▼
-  You review on GitHub
+  CI passes
        │
-       ├── Approve + Merge ──▶ Vercel deploys to production
-       │                       forge run auto-detects and continues
-       └── Request Changes ──▶ forge run auto-detects and revises
-                               (auto-detection is forge run only)
+       ├── Auto mode ────────▶ Squash-merge immediately
+       │                       Vercel deploys to production
+       │
+       └── Copilot mode ────▶ GitHub Copilot reviews the PR
+              │
+              ├── No comments ──▶ Squash-merge
+              └── Comments ─────▶ /revise evaluates each comment
+                                  Fixes valid issues, challenges wrong ones
+                                  Resolves all threads, then merges
 ```
 
-Nothing ships without your sign-off. The agent escalates when it's stuck instead of guessing.
+**Auto mode** removes the reviewer from the critical path entirely — CI is the only gate. **Copilot mode** adds GitHub Copilot as an automated code reviewer; the agent addresses Copilot's feedback before merging. In both modes, human `CHANGES_REQUESTED` reviews still trigger `/revise` and take priority over auto-merge.
+
+The agent escalates when it's stuck instead of guessing.
 
 ## Label System
 
@@ -203,7 +213,7 @@ Only one issue is ever active. The agent works on the lowest-numbered open issue
 | Label | What it means |
 |-------|---------------|
 | `agent:in-progress` | The agent is actively working on this issue right now. |
-| `agent:done` | The agent finished and opened a PR. Waiting for you to review and merge. |
+| `agent:done` | The agent finished and opened a PR. Waiting for CI (and Copilot review, if enabled) before auto-merge. |
 | `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
 | `ai-generated` | The agent created this issue or PR. Tells you at a glance what the agent filed vs. what you filed. |
 
@@ -237,7 +247,7 @@ Forge supports two levels of autonomous operation.
 claude
 ```
 
-Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for users who want visibility into the build loop. The session stops after opening a PR — merge or request changes on GitHub, then re-run `claude` to continue.
+Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for users who want visibility into the build loop.
 
 ### Fully autonomous (headless)
 
@@ -245,7 +255,7 @@ Runs an interactive session where you can observe progress and interrupt with Ct
 forge run
 ```
 
-Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. When a PR is opened and awaiting merge, `forge run` polls GitHub every 60 seconds — if you merge the PR or request changes, it automatically restarts the session to continue building or revising. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
+Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. PRs are auto-merged after CI passes (and Copilot review, if enabled), so the loop continues building without waiting. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
 
 ```bash
 forge run --max-sessions 10   # limit restart count (default: 20)
@@ -354,7 +364,7 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 
 **Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions that work with any auth method. Fully autonomous (`forge run`) for headless operation with API keys or long-lived subscription tokens. Each mode uses the same skills — the difference is session management and restart behavior.
 
-**Human-in-the-loop by PR.** Nothing merges without your approval. CI must pass on every PR. The agent escalates when it's stuck instead of guessing. This ensures you always know what changed and why.
+**Auto-merge with guardrails.** PRs are auto-merged after CI passes, removing the human reviewer from the critical path. In Copilot mode, GitHub Copilot provides automated code review before merge — the agent addresses its feedback, resolving valid issues and challenging incorrect suggestions. Human `CHANGES_REQUESTED` reviews still override and trigger `/revise`. The agent escalates when it's stuck instead of guessing.
 
 **Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow. Constraints enable reliability.
 
