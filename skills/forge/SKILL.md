@@ -209,7 +209,11 @@ PR_URL=$(echo "$PR_JSON" | jq -r '.url')
 PR_BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName')
 ```
 
-If `PR_NUMBER` is empty, the PR may have been merged externally. Remove the `agent:done` label so the issue returns to backlog and continue.
+If `PR_NUMBER` is empty, the PR may have been merged externally. Remove the `agent:done` label so the issue returns to backlog and continue:
+
+```bash
+gh issue edit $ISSUE --remove-label "agent:done" 2>/dev/null || true
+```
 
 Check CI status and review state in priority order:
 
@@ -226,18 +230,25 @@ Message: "Issue #{X} has failing CI checks on its PR. Starting CI repair..."
 
 **2. If `CHANGES_REQUESTED` by a human reviewer:** Route to `/revise` for review revision.
 
+```bash
+REVIEW_DECISION=$(echo "$PR_JSON" | jq -r '.reviewDecision // empty')
+```
+
+If `REVIEW_DECISION` is `CHANGES_REQUESTED`:
+
 ```
 Action: Run /revise
 Message: "Issue #{X} has review feedback on its PR. Starting revision..."
 ```
 
-**3. If CI checks are still pending (no conclusion yet):** Wait. Write `needs-restart` so `forge run` restarts in 5 seconds to check again.
+**3. If CI checks are still pending or not started:** Wait. Write `needs-restart` so `forge run` restarts in 5 seconds to check again.
 
 ```bash
+CI_TOTAL=$(echo "$PR_JSON" | jq '[.statusCheckRollup // [] | .[]] | length')
 CI_PENDING=$(echo "$PR_JSON" | jq '[.statusCheckRollup // [] | .[] | select(.conclusion == null or .conclusion == "")] | length > 0')
 ```
 
-If `CI_PENDING` is true AND no checks have failed:
+If `CI_TOTAL` is 0 (checks not started yet) OR `CI_PENDING` is true (checks still running):
 
 ```bash
 echo "needs-restart" > .forge-temp/exit-status
@@ -249,7 +260,13 @@ Message: "Issue #{X} — CI still running. Will check again on restart."
 
 Return — do not proceed further.
 
-**4. CI passed — determine merge mode and handle accordingly:**
+**4. If all CI checks completed successfully:** Determine merge mode and handle accordingly.
+
+```bash
+CI_ALL_SUCCESS=$(echo "$PR_JSON" | jq '[.statusCheckRollup // [] | .[] | select(.conclusion == "SUCCESS" or .conclusion == "success")] | length == ([.statusCheckRollup // [] | .[]] | length)')
+```
+
+If `CI_ALL_SUCCESS` is false (some checks have conclusions like CANCELLED, TIMED_OUT, SKIPPED, or NEUTRAL), treat this as a failure and route to `/revise` for CI repair.
 
 Read the project's merge mode from CLAUDE.md:
 
@@ -273,11 +290,20 @@ COPILOT_RUN=$(gh run list \
   --jq '.[0] // empty')
 ```
 
-- **No run found or still in progress:** Write `needs-restart` and return. Copilot typically reviews within a few minutes.
+- **No run found or still in progress:** Write `needs-restart` and return. Copilot typically reviews within a few minutes. To prevent an infinite loop if Copilot is unavailable, track restarts and fall back after 10 attempts (~50 seconds):
 
   ```bash
   if [ -z "$COPILOT_RUN" ] || echo "$COPILOT_RUN" | jq -e '.status != "completed"' > /dev/null; then
-    echo "needs-restart" > .forge-temp/exit-status
+    COPILOT_WAIT_COUNT=0
+    [ -f .forge-temp/copilot-wait-count ] && COPILOT_WAIT_COUNT=$(cat .forge-temp/copilot-wait-count)
+    COPILOT_WAIT_COUNT=$((COPILOT_WAIT_COUNT + 1))
+    echo "$COPILOT_WAIT_COUNT" > .forge-temp/copilot-wait-count
+    if [ "$COPILOT_WAIT_COUNT" -ge 10 ]; then
+      rm -f .forge-temp/copilot-wait-count
+      # Fall through — check unresolved threads directly, merge if none
+    else
+      echo "needs-restart" > .forge-temp/exit-status
+    fi
   fi
   ```
 

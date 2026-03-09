@@ -801,9 +801,50 @@ print(json.dumps(ruleset, indent=2))
             ok "$label (skipped — requires GitHub Pro or public repo)"
             info "  The main branch is unprotected — the agent can push directly without PR review."
             info "  This is fine for solo development. Upgrade or make the repo public to enable protection."
-        else
-            add_warning "Branch protection failed. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
+            return
         fi
+        # If copilot mode, the copilot_code_review rule may be unsupported.
+        # Retry without it so base protection (status checks, PR required) is still created.
+        if [ "$FORGE_MERGE_MODE" = "copilot" ]; then
+            local base_ruleset_json
+            base_ruleset_json=$(python3 -c "
+import json
+rules = [
+    {'type': 'pull_request', 'parameters': {
+        'required_approving_review_count': 0,
+        'dismiss_stale_reviews_on_push': False,
+        'require_code_owner_review': False,
+        'require_last_push_approval': False,
+        'required_review_thread_resolution': True
+    }},
+    {'type': 'required_status_checks', 'parameters': {
+        'strict_required_status_checks_policy': False,
+        'required_status_checks': [{'context': 'Quality Checks'}]
+    }},
+    {'type': 'non_fast_forward'},
+    {'type': 'deletion'}
+]
+ruleset = {
+    'name': 'forge-main-protection',
+    'target': 'branch',
+    'enforcement': 'active',
+    'bypass_actors': [{'actor_id': 5, 'actor_type': 'RepositoryRole', 'bypass_mode': 'always'}],
+    'conditions': {'ref_name': {'include': ['refs/heads/main'], 'exclude': []}},
+    'rules': rules
+}
+print(json.dumps(ruleset, indent=2))
+")
+            if echo "$base_ruleset_json" | gh api "repos/$repo/rulesets" \
+                -X POST \
+                -H "Accept: application/vnd.github+json" \
+                --input - >/dev/null 2>/dev/null; then
+                ok "$label (without Copilot code review rule — not supported for this repo)"
+                info "  Branch protection is active but Copilot code review rule could not be added."
+                info "  The agent will use auto-merge mode for this repo."
+                return
+            fi
+        fi
+        add_warning "Branch protection failed. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
         return
     fi
     rm -f "$api_errfile"
