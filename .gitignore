@@ -4,10 +4,8 @@
 # Node (for development/testing)
 node_modules/
 
-# Local Claude Code config (except project hooks)
-.claude/*
-!.claude/settings.json
-!.claude/commands/
+# Local Claude Code config
+.claude/settings.local.json
 
 # Temp working docs
 *.tmp
