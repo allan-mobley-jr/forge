@@ -169,7 +169,7 @@ for ISSUE_NUM in $NEEDS_HUMAN; do
     | if . == null then false
       else
         .key as $qi
-        | [$c[range($qi + 1; $c | length)] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)") | not)]
+        | [$c[range($qi + 1; $c | length)] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)") | not)]
         | length > 0
       end')
 
