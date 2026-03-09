@@ -308,6 +308,46 @@ claude --dangerouslySkipPermissions
 
 PreToolUse hooks still fire and block access to sensitive paths (`.env`, `.git/`, `CLAUDE.md`, etc.) even with this flag. Note that `forge run` does not support this flag — use `claude -p "/forge" --dangerouslySkipPermissions` instead if needed for single headless sessions.
 
+## Extending the Workflow
+
+Forge auto-merges PRs after CI passes, and Vercel auto-deploys on every merge to main — so every merged PR goes live. The extensions below add control over what reaches production and layer additional quality gates on PRs. The agent cannot modify `.github/workflows/` (hooks block it), so any workflows you add are safe from agent changes.
+
+### Staged production deployments
+
+Vercel builds a deployment on every merge, but you control when it goes live on your custom domain. Disable auto-promotion so merges produce preview deployments instead of going straight to production:
+
+- In your Vercel project settings, turn off **Auto-assign Custom Production Domains**, or add to `vercel.json`:
+
+```json
+{ "autoAssignCustomDomains": false }
+```
+
+- When you're ready to go live, promote a specific deployment:
+
+```bash
+vercel promote <deployment-url>
+```
+
+This is the lightest-touch option — no Forge changes needed, and the agent keeps working at full speed.
+
+### Additional CI checks
+
+You can add GitHub Actions workflows to `.github/workflows/` as additional PR quality gates. Some useful ones:
+
+- **Security:** [`dependency-review-action`](https://github.com/actions/dependency-review-action) flags vulnerable or restrictively-licensed new dependencies. [`CodeQL`](https://docs.github.com/en/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql) runs static analysis.
+- **Performance:** [`lighthouse-ci-action`](https://github.com/treosh/lighthouse-ci-action) enforces page-speed budgets on preview deployments.
+- **Bundle size:** [`bundle-stats`](https://github.com/relative-ci/bundle-stats) catches size regressions between the base branch and the PR.
+
+To make a new check required, add its job name to the branch protection ruleset's **Required status checks** list in your GitHub repo settings.
+
+> **Warning:** Do not rename the existing `Quality Checks` job in `ci.yml` — it's referenced by the branch protection ruleset created during bootstrap. Renaming it will block all PRs from merging.
+
+### Deployment environments
+
+GitHub Environments with required reviewers gate the *deployment*, not the merge. The agent's velocity is unaffected — PRs still auto-merge — but the Vercel production deploy pauses for human approval.
+
+To set this up: create a `production` environment in your repo's **Settings → Environments**, add yourself as a required reviewer, and configure your Vercel GitHub integration to deploy from that environment. Merges will queue a deployment that waits for your sign-off before going live.
+
 ## Resuming Work
 
 All project state lives on GitHub — there's nothing local to lose. Coming back to a project works the same in either mode:
