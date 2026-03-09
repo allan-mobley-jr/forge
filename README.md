@@ -68,7 +68,7 @@ claude                       # start building
    Merge ──▶ Vercel deploys
 ```
 
-There are four stages: **install**, **init**, **build loop**, and **review**. The sections below walk through each one.
+There are four stages: **install**, **init**, **build loop**, and **merge**. The sections below walk through each one.
 
 ### Stage 1 — Install Forge
 
@@ -165,7 +165,7 @@ Run `claude` in the project directory. The `/forge` skill auto-invokes and enter
 The agent reads PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria. On the first run, PROMPT.md contains your app description; after planning, it's archived to `graveyard/`. When all issues are eventually closed, `/forge` routes back to `/plan`, which detects `graveyard/` and enters audit mode — comparing the original requirements against closed issues and filing new issues for any gaps.
 
 **What /build does (one issue per cycle):**
-The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns up to 3 sub-agents in parallel: a review agent, a test agent, and (for UI-affecting issues) a visual check agent that takes screenshots and compares against baselines. It applies fixes, runs quality checks (lint, typecheck, test, build), deploys a Vercel preview if available, and opens a PR. The loop then stops and waits for you to merge — enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
+The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns up to 3 sub-agents in parallel: a review agent, a test agent, and (for UI-affecting issues) a visual check agent that takes screenshots and compares against baselines. It applies fixes, runs quality checks (lint, typecheck, test, build), deploys a Vercel preview if available, and opens a PR. The PR is then auto-merged after CI passes (and Copilot review, if enabled), enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
 
 **What /revise does:**
 When Copilot leaves review comments or a human requests changes on a PR, the agent picks it up on the next cycle. It reads the review comments, critically evaluates each one (fixing valid issues, pushing back on incorrect suggestions), re-runs quality checks, and pushes fixes.
