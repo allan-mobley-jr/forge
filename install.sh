@@ -600,11 +600,6 @@ except:
         fi
         echo ""
         ;;
-    status)
-        echo "The 'status' command has been removed."
-        echo "Use GitHub Issues to track progress: gh issue list"
-        exit 1
-        ;;
     run)
         shift
 
