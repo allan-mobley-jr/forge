@@ -87,7 +87,7 @@ Identify features that are disproportionately complex:
 
 Risks specific to autonomous agent implementation:
 
-- **Features needing `/ask` escalation**: design ambiguities, business logic decisions
+- **Features needing escalation**: design ambiguities, business logic decisions
 - **Manual service setup**: accounts the user must create before the agent can proceed
 - **Non-auto-verifiable criteria**: acceptance criteria that can't be tested programmatically
 - **Large issues**: features that should be split across multiple issues (>5 files touched)

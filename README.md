@@ -57,8 +57,7 @@ forge run                    # start building
    │               │
    │  sync ──▶ route ──┬──▶ /plan   (research + file issues)
    │    ▲              ├──▶ /build  (implement + open PR)
-   │    │              ├──▶ /revise (address PR feedback)
-   │    │              └──▶ /ask    (escalate to human)
+   │    │              └──▶ /revise (address PR feedback)
    │    │                     │
    │    └─────────────────────┘
    └───────────────┘
@@ -104,7 +103,7 @@ Create a directory, write a `PROMPT.md` describing your app, and run `forge init
        ├──▶ Create GitHub repo + push
        ├──▶ Link Vercel project
        ├──▶ Generate AGENTS.md (Next.js framework docs index via @next/codemod)
-       ├──▶ Install Claude Code skills (/forge, /plan, /build, /revise, /sync, /ask)
+       ├──▶ Install Claude Code skills (/forge, /plan, /build, /revise)
        ├──▶ Install vendor skills (next-best-practices, web-design-guidelines, etc.)
        ├──▶ Install hooks (file guards, rate limiting, session management)
        ├──▶ Install CI pipeline (lint, typecheck, test, build, E2E)
@@ -129,7 +128,7 @@ Run `forge run` in the project directory to enter the build loop:
   │                        /forge (orchestrator)                     │
   │                                                                  │
   │   ┌──────────┐                                                   │
-  │   │  /sync   │  Reads GitHub: issues, PRs, labels (3 API calls)  │
+  │   │  sync    │  Reads GitHub: issues, PRs, labels (3 API calls)  │
   │   └────┬─────┘  Recovers stale state, promotes unblocked issues  │
   │        │                                                         │
   │        ▼                                                         │
@@ -147,7 +146,7 @@ Run `forge run` in the project directory to enter the build loop:
   │        │                             Reads PR comments           │
   │        │                             Applies fixes, re-pushes    │
   │        │                                                         │
-  │        ├── Stuck on a decision ────▶ /ask                        │
+  │        ├── Stuck on a decision ────▶ Escalate                     │
   │        │                             Posts question on issue     │
   │        │                             Labels agent:needs-human    │
   │        │                                                         │
@@ -158,7 +157,7 @@ Run `forge run` in the project directory to enter the build loop:
   │        │                                                         │
   │        └── All issues closed ──────▶ /plan (audit for gaps)      │
   │                                                                  │
-  │   After each action, /forge loops back to /sync automatically.   │
+  │   After each action, /forge loops back to sync automatically.    │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -220,7 +219,7 @@ Only one issue is ever active. The agent works on the lowest-numbered open issue
 
 - **No `agent:*` label** = backlog. The issue is unclaimed and ready to build when its turn comes.
 - **Issue ordering = dependency order.** Lower-numbered issues are built first. `/plan` files issues in the right order so dependencies are naturally satisfied.
-- **Revision detection** is automatic: `/sync` checks if an `agent:done` issue's PR has `CHANGES_REQUESTED` and routes to `/revise` — no separate label needed.
+- **Revision detection** is automatic: the orchestrator checks if an `agent:done` issue's PR has `CHANGES_REQUESTED` and routes to `/revise` — no separate label needed.
 
 ### Filing Issues for the Agent
 
@@ -235,7 +234,7 @@ These labels are for your own organization and the agent ignores them:
 
 ### What Not to Do
 
-- **Don't remove `agent:in-progress`** while the agent is working — let `/sync` handle stale issues
+- **Don't remove `agent:in-progress`** while the agent is working — let the orchestrator handle stale issues
 - **Don't create labels starting with `agent:`** — that namespace is reserved for the agent's state machine
 
 ## Running Autonomously
@@ -342,7 +341,7 @@ The orchestrator syncs state from GitHub on every session start — open issues,
 | Agent gets stuck on an issue | Check GitHub — the issue is likely labeled `agent:needs-human` with a question in the comments. Answer there and the agent continues on the next cycle. |
 | PR quality checks keep failing | The agent gets 2 attempts (initial + debug retry). After that, the issue is labeled `agent:needs-human`. Check the branch — work-in-progress is always pushed. |
 | Rate limit warnings | GitHub allows 5,000 requests/hour. Forge throttles mutations with `sleep 1`, so this is rare. If it happens, wait for the reset time shown in the warning. |
-| Session ends unexpectedly | Context windows are finite. Use `forge run` for automatic restarts with fresh context. `/sync` recovers state from GitHub each time. |
+| Session ends unexpectedly | Context windows are finite. Use `forge run` for automatic restarts with fresh context. The orchestrator recovers state from GitHub each time. |
 | "Not a Forge project" error | Run commands from the project root (where `PROMPT.md` and `CLAUDE.md` live). |
 | Want to add features after initial build | Create a GitHub Issue and start a new session. The agent picks it up by issue number order. |
 
@@ -381,9 +380,7 @@ forge/
 │   │   └── references/     #   Sub-agent prompts (architecture, stack, design, risk)
 │   ├── build/SKILL.md      #   Issue → branch → PR
 │   │   └── references/     #   Sub-agent prompts (review, test, debug)
-│   ├── revise/SKILL.md     #   Address PR review feedback
-│   ├── sync/SKILL.md       #   GitHub state reader
-│   └── ask/SKILL.md        #   Human escalation
+│   └── revise/SKILL.md     #   Address PR review feedback
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
 │   ├── ci.yml              #   Lint + typecheck + test + build + E2E

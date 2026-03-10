@@ -8,8 +8,6 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 skills/                        — Claude Code skill definitions (orchestrators + utilities)
   forge-create-orchestrator/   — Creating pipeline orchestrator (context curation + quality gates)
   forge-resolve-orchestrator/  — Resolving pipeline orchestrator (implementation + revision cycles)
-  sync/                        — Interactive GitHub state reader (/sync)
-  ask/                         — Human escalation (/ask)
 agents/                        — Claude Code agent definitions (pipeline stages)
   create-researcher.md         — Creating pipeline stage 1: gather context
   create-architect.md          — Creating pipeline stage 2: architecture analysis

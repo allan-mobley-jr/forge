@@ -61,7 +61,7 @@ Count previous revision comments on this issue:
 gh issue view <issue-number> --json comments --jq '[.comments[].body | select(startswith("## [Stage: Reviser]"))] | length'
 ```
 
-**3-revision limit:** If count >= 3, post a BLOCKED status. The orchestrator will escalate via `/ask`.
+**3-revision limit:** If count >= 3, post a BLOCKED status. The orchestrator will escalate directly.
 
 CI repairs and Copilot fixes do NOT count toward this limit.
 
