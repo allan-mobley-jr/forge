@@ -661,65 +661,6 @@ if total > 0:
             fi
         }
 
-        # --- Run a single stage ---
-        # Usage: run_stage <skill-name> <issue-number> <stage-header>
-        # Returns 0 on success (new comment with header found), 1 on failure
-        run_stage() {
-            local skill="$1" issue="$2" header="$3"
-            local attempt=0 max_attempts=2
-
-            while [ "$attempt" -lt "$max_attempts" ]; do
-                attempt=$((attempt + 1))
-                echo "[forge]   Stage: $skill (attempt $attempt/$max_attempts)"
-
-                check_auth
-
-                # Write current issue for PreCompact hook recovery
-                mkdir -p .forge-temp
-                echo "$issue" > .forge-temp/current-issue
-
-                # Count matching stage comments BEFORE invocation to detect new ones
-                local before_count
-                before_count=$(gh issue view "$issue" --json comments \
-                    --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | length" 2>/dev/null || echo "0")
-
-                local cmd=(claude -p "/forge-${skill} ${issue}")
-                [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
-
-                local exit_code=0
-                if [ -n "$timeout_cmd" ]; then
-                    "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
-                else
-                    "${cmd[@]}" || exit_code=$?
-                fi
-
-                # Verify a NEW stage comment was posted (count increased)
-                local after_count
-                after_count=$(gh issue view "$issue" --json comments \
-                    --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | length" 2>/dev/null || echo "0")
-
-                if [ "$after_count" -gt "$before_count" ]; then
-                    # Check for BLOCKED status in the latest matching comment
-                    local last_comment
-                    last_comment=$(gh issue view "$issue" --json comments \
-                        --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | last")
-                    if echo "$last_comment" | grep -q "### Status: BLOCKED"; then
-                        echo "[forge]   Stage $skill: BLOCKED"
-                        return 2
-                    fi
-                    echo "[forge]   Stage $skill: COMPLETE"
-                    return 0
-                fi
-
-                if [ "$attempt" -lt "$max_attempts" ]; then
-                    echo "[forge]   Stage output not found (no new comment). Retrying..."
-                fi
-            done
-
-            echo "[forge]   Stage $skill: FAILED after $max_attempts attempts"
-            return 1
-        }
-
         # --- Set stage label on an issue ---
         set_stage_label() {
             local issue="$1" label="$2"
@@ -758,95 +699,38 @@ $reason
             project_name=$(basename "$(pwd)")
             echo "[forge] Starting creating pipeline for: $project_name"
 
-            # Create planning issue
+            # Create planning issue (if one doesn't already exist)
             local plan_issue
-            plan_issue=$(gh issue create \
-                --title "Planning: $project_name" \
-                --body "Forge creating pipeline. Stages will post their analysis as comments on this issue." \
-                --label "ai-generated" 2>/dev/null | grep -o '[0-9]*$')
+            plan_issue=$(gh issue list --state open --json number,title \
+                --jq '[.[] | select(.title | startswith("Planning:"))] | .[0].number // empty' 2>/dev/null)
 
             if [ -z "$plan_issue" ]; then
-                echo "[forge] Failed to create planning issue."
-                return 1
+                plan_issue=$(gh issue create \
+                    --title "Planning: $project_name" \
+                    --body "Forge creating pipeline. Stages will post their analysis as comments." \
+                    --label "ai-generated" 2>/dev/null | grep -o '[0-9]*$')
+                if [ -z "$plan_issue" ]; then
+                    echo "[forge] Failed to create planning issue."
+                    return 1
+                fi
             fi
             echo "[forge] Planning issue: #$plan_issue"
 
-            # Stage definitions: skill-suffix stage-header
-            local stages=(
-                "project-researcher:Researcher"
-                "project-architect:Architect"
-                "project-designer:Designer"
-                "project-stacker:Stacker"
-                "project-assessor:Assessor"
-                "project-planner:Planner"
-                "project-advocate:Advocate"
-                "project-filer:Filer"
-            )
+            local cmd=(claude -p "/forge-create-orchestrator $plan_issue")
+            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 
-            for stage_def in "${stages[@]}"; do
-                local skill="${stage_def%%:*}"
-                local header="${stage_def##*:}"
+            local exit_code=0
+            if [ -n "$timeout_cmd" ]; then
+                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
+            else
+                "${cmd[@]}" || exit_code=$?
+            fi
 
-                set_stage_label "$plan_issue" "stage:$skill"
-
-                local result=0
-                run_stage "$skill" "$plan_issue" "$header" || result=$?
-
-                if [ "$result" -eq 1 ]; then
-                    # Terminal failure
-                    escalate "$plan_issue" "Stage **$skill** failed after 2 attempts. No stage output was produced. Manual intervention required."
-                    echo "[forge] Creating pipeline failed at stage: $skill"
-                    return 1
-                elif [ "$result" -eq 2 ]; then
-                    # BLOCKED status
-                    if [ "$skill" = "project-advocate" ]; then
-                        # Check for ESCALATE verdict
-                        local advocate_comment
-                        advocate_comment=$(gh issue view "$plan_issue" --json comments \
-                            --jq '[.comments[].body | select(contains("## [Stage: Advocate]"))] | last')
-                        if echo "$advocate_comment" | grep -q "### Verdict: ESCALATE"; then
-                            escalate "$plan_issue" "The advocate stage escalated this plan to a human.
-
-$(echo "$advocate_comment" | sed -n '/### Challenges/,/### Verdict/p')"
-                            echo "[forge] Advocate escalated. Waiting for human input."
-                            return 2
-                        fi
-                    fi
-                    escalate "$plan_issue" "Stage **$skill** reported BLOCKED status. Check the stage comment for details."
-                    echo "[forge] Creating pipeline blocked at stage: $skill"
-                    return 2
-                fi
-
-                # Special: Advocate REVISE verdict → re-run planner then advocate (max 1 cycle)
-                if [ "$skill" = "project-advocate" ]; then
-                    local advocate_comment
-                    advocate_comment=$(gh issue view "$plan_issue" --json comments \
-                        --jq '[.comments[].body | select(contains("## [Stage: Advocate]"))] | last')
-                    if echo "$advocate_comment" | grep -q "### Verdict: REVISE"; then
-                        echo "[forge]   Advocate verdict: REVISE. Re-running planner..."
-                        set_stage_label "$plan_issue" "stage:project-planner"
-                        run_stage "project-planner" "$plan_issue" "Planner" || true
-                        echo "[forge]   Re-running advocate..."
-                        set_stage_label "$plan_issue" "stage:project-advocate"
-                        run_stage "project-advocate" "$plan_issue" "Advocate" || true
-                        # After revision cycle, proceed regardless
-                        echo "[forge]   Revision cycle complete. Proceeding to filer."
-                    fi
-                fi
-            done
-
-            # Remove stage label after completion
-            local existing
-            existing=$(gh issue view "$plan_issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
-            for old_label in $existing; do
-                gh issue edit "$plan_issue" --remove-label "$old_label" 2>/dev/null || true
-            done
-
-            # Clean up temp state
-            rm -f .forge-temp/current-issue
-
+            if [ "$exit_code" -ne 0 ]; then
+                echo "[forge] Creating orchestrator exited with code $exit_code"
+                return 1
+            fi
             echo "[forge] Creating pipeline complete."
-            return 0
         }
 
         # --- Resolving Pipeline ---
@@ -855,72 +739,42 @@ $(echo "$advocate_comment" | sed -n '/### Challenges/,/### Verdict/p')"
             local issue="$1"
             echo "[forge] Starting resolving pipeline for issue #$issue"
 
-            local stages=(
-                "issue-researcher:Researcher"
-                "issue-planner:Planner"
-                "issue-implementor:Implementor"
-                "issue-tester:Tester"
-                "issue-reviewer:Reviewer"
-                "issue-opener:Opener"
-            )
+            local cmd=(claude -p "/forge-resolve-orchestrator $issue")
+            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 
-            for stage_def in "${stages[@]}"; do
-                local skill="${stage_def%%:*}"
-                local header="${stage_def##*:}"
+            local exit_code=0
+            if [ -n "$timeout_cmd" ]; then
+                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
+            else
+                "${cmd[@]}" || exit_code=$?
+            fi
 
-                set_stage_label "$issue" "stage:$skill"
-
-                local result=0
-                run_stage "$skill" "$issue" "$header" || result=$?
-
-                if [ "$result" -eq 1 ]; then
-                    escalate "$issue" "Stage **$skill** failed after 2 attempts. No stage output was produced. Manual intervention required."
-                    echo "[forge] Resolving pipeline failed at stage: $skill"
-                    return 1
-                elif [ "$result" -eq 2 ]; then
-                    escalate "$issue" "Stage **$skill** reported BLOCKED status. Check the stage comment for details."
-                    echo "[forge] Resolving pipeline blocked at stage: $skill"
-                    return 2
-                fi
-            done
-
-            # Mark as done
-            gh label create "agent:done" --color "0e8a16" --force 2>/dev/null || true
-            gh issue edit "$issue" --add-label "agent:done" 2>/dev/null || true
-            # Remove stage labels
-            local existing
-            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
-            for old_label in $existing; do
-                gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
-            done
-
-            # Clean up temp state
-            rm -f .forge-temp/current-issue
-
+            if [ "$exit_code" -ne 0 ]; then
+                echo "[forge] Resolving orchestrator exited with code $exit_code"
+                return 1
+            fi
             echo "[forge] Resolving pipeline complete for issue #$issue"
             return 0
         }
 
-        # --- Revise stage (on demand) ---
+        # --- Revise stage (on demand, via resolve orchestrator) ---
         run_revise_stage() {
             local issue="$1"
-            echo "[forge] Running reviser for issue #$issue"
+            echo "[forge] Running revision cycle for issue #$issue"
 
-            set_stage_label "$issue" "stage:issue-reviser"
+            local cmd=(claude -p "/forge-resolve-orchestrator $issue --revise")
+            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 
-            local result=0
-            run_stage "issue-reviser" "$issue" "Reviser" || result=$?
+            local exit_code=0
+            if [ -n "$timeout_cmd" ]; then
+                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
+            else
+                "${cmd[@]}" || exit_code=$?
+            fi
 
-            # Remove stage label
-            gh issue edit "$issue" --remove-label "stage:issue-reviser" 2>/dev/null || true
-
-            if [ "$result" -eq 1 ]; then
-                escalate "$issue" "Reviser stage failed after 2 attempts."
+            if [ "$exit_code" -ne 0 ]; then
+                echo "[forge] Revision orchestrator exited with code $exit_code"
                 return 1
-            elif [ "$result" -eq 2 ]; then
-                # BLOCKED = revision limit or quality check failure
-                escalate "$issue" "Reviser reported BLOCKED status. Check the stage comment for details."
-                return 2
             fi
 
             return 0
@@ -1034,13 +888,12 @@ for issue in issues:
                 # Determine which pipeline based on the stage label
                 local stage_label
                 stage_label=$(gh issue view "$stage_issues" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[0]' 2>/dev/null || true)
-                if echo "$stage_label" | grep -q "project-"; then
-                    # Creating pipeline was interrupted — but we can't easily resume mid-pipeline
-                    # Remove stale label and let it re-create
+                if echo "$stage_label" | grep -q "stage:create-"; then
+                    # Creating pipeline was interrupted — remove stale label, orchestrator will resume
                     gh issue edit "$stage_issues" --remove-label "$stage_label" 2>/dev/null || true
                     echo "create"
                     return
-                elif echo "$stage_label" | grep -q "issue-"; then
+                elif echo "$stage_label" | grep -q "stage:resolve-"; then
                     echo "resolve:$stage_issues"
                     return
                 fi
