@@ -9,124 +9,14 @@
 **Repository:** {{github_repo}}
 **Stack:** Next.js + Tailwind CSS + TypeScript, deployed on Vercel
 
-## Forge System
-
-This project is managed by the **Forge** autonomous development system. Bash routes to pipeline orchestrators — each orchestrator is a Claude session that spawns stage sub-agents with context curation and quality gates.
-
-- **Creating pipeline** (8 stages): analyzes requirements and files GitHub Issues
-- **Resolving pipeline** (6 stages): implements one issue per run, opens a PR
-- **Revision** (on demand): handles PR review feedback and CI failures
-- GitHub Issues and PRs are the sole state machine — no local state files.
-
-### Architecture
-
-```
-forge run (bash outer loop)
-  ├── determine_next_action()  — queries GitHub, picks pipeline
-  ├── Creating Pipeline (orchestrated by Claude session)
-  │   ├── Sub-agent: create-researcher  — read PROMPT.md, gather context
-  │   ├── Sub-agent: create-architect   — routes, components, data flow
-  │   ├── Sub-agent: create-designer    — UI patterns, styling, accessibility
-  │   ├── Sub-agent: create-stacker     — packages, services, env vars
-  │   ├── Sub-agent: create-assessor    — risks, security, complexity
-  │   ├── Sub-agent: create-planner     — synthesize into ordered issues
-  │   ├── Sub-agent: create-advocate    — challenge the plan (PROCEED/REVISE/ESCALATE)
-  │   └── Sub-agent: create-filer       — create milestones, issues, SPECIFICATION.md
-  ├── Resolving Pipeline (orchestrated by Claude session)
-  │   ├── Sub-agent: resolve-researcher    — explore codebase, triage, domain research
-  │   ├── Sub-agent: resolve-planner       — design implementation + self-advocate
-  │   ├── Sub-agent: resolve-implementor   — write code, push branch
-  │   ├── Sub-agent: resolve-tester        — write and run tests
-  │   ├── Sub-agent: resolve-reviewer      — self-review, quality checks
-  │   └── Sub-agent: resolve-opener        — open PR with synthesized body
-  ├── Revision (on demand, via resolving orchestrator --revise)
-  │   └── Sub-agent: resolve-reviser       — PR review feedback, CI failures
-  └── Utilities
-      ├── /sync   — interactive GitHub state reader
-      └── /ask    — human escalation
-```
-
-### Stage Output Contract
-
-Each stage posts exactly one comment on its issue with:
-- Header: `## [Stage: <Name>]`
-- Structured analysis sections
-- Footer: `### Status: COMPLETE` or `### Status: BLOCKED`
-
-The orchestrator evaluates quality and can retry once with specific guidance. Terminal failures escalate to human.
-
-### Installed Skills
-
-Official vendor skills provide framework-specific knowledge (auto-invoked via progressive disclosure):
-
-| Skill | Purpose |
-|-------|---------|
-| `next-best-practices` | 19 canonical Next.js patterns |
-| `vercel-react-best-practices` | 50+ React optimization rules |
-| `web-design-guidelines` | 100+ UI and accessibility rules |
-| `vercel-cli` | Vercel platform operations |
-| `vercel-deploy` | Zero-auth preview deployment |
-| `agent-browser` | Headless browser for visual testing |
-| `before-and-after` | Screenshot comparison |
-| `playwright-cli` | Browser test automation |
-
-### State Machine
-
-All project state is encoded in GitHub Issue labels. Only one issue is active at a time — the orchestrator works on the lowest-numbered open issue.
-
-| Label | Meaning |
-|-------|---------|
-| `stage:<agent>` | A pipeline stage is active on this issue |
-| `agent:done` | PR opened, awaiting CI and merge |
-| `agent:needs-human` | Blocked on a decision only a human can make |
-
-- **No `agent:*` or `stage:*` label** = backlog (unclaimed, ready to build)
-- `ai-generated` = metadata label (does not affect workflow routing)
-- Stage labels are set by the orchestrator before invoking each stage and removed after completion
-
-### Filing Issues
-
-To have the agent work on a human-filed issue, just create it on GitHub. The orchestrator picks up the lowest-numbered open issue without an `agent:*` or `stage:*` label. No special labels needed — just create the issue and the agent will get to it in order.
-
-### Resumability
-
-There is no local state to lose. If a session or stage ends mid-work:
-
-- GitHub Issues, labels, and comments reflect the last known state
-- Any in-progress branch has been pushed (or can be abandoned)
-- Restarting `forge run` reads GitHub state and resumes from the correct stage
-- The orchestrator detects which stages have completed by checking for their comment headers
-
-### Autonomous Operation
-
-For fully autonomous headless operation, use `forge run` from the project root. The bash outer loop determines what to do from GitHub state, invokes the appropriate Claude orchestrator session, and polls for human input when blocked.
-
 ## Workflow
 
-- GitHub Issues are the task queue. No issue means no work.
 - Every feature is implemented on a feature branch and submitted as a PR.
 - PRs require CI to pass (lint + typecheck + test + build) before merge.
-{{#if_copilot}}- PRs are auto-merged after CI passes and GitHub Copilot review completes.{{/if_copilot}}{{#if_auto}}- PRs are auto-merged immediately after CI passes.{{/if_auto}}
-- All project state lives in GitHub — nothing important is stored locally.
+{{#if_copilot}}- PRs are auto-merged after CI passes and GitHub Copilot review completes. Human `CHANGES_REQUESTED` reviews take priority.{{/if_copilot}}
+{{#if_auto}}- PRs are auto-merged immediately after CI passes. Human `CHANGES_REQUESTED` reviews are routed to the reviser if submitted before merge.{{/if_auto}}
 
-### PR Merge
-
-{{#if_copilot}}
-**Mode:** copilot — GitHub Copilot reviews PRs before auto-merge.
-
-After a PR is opened, the agent waits for CI to pass and Copilot's review. If Copilot leaves actionable comments, the reviser stage addresses them. Once CI is green and Copilot's review is clean, the PR is squash-merged automatically.
-
-Human `CHANGES_REQUESTED` reviews are still routed to the reviser and take priority over auto-merge.
-{{/if_copilot}}
-{{#if_auto}}
-**Mode:** auto — PRs are merged as soon as CI passes.
-
-No code review step. The agent opens a PR, waits for CI, and squash-merges immediately. Human `CHANGES_REQUESTED` reviews are still routed to the reviser if submitted before the merge.
-{{/if_auto}}
-
-### Production Deployment
-
-The `production` branch is off-limits. Do not push to it, create PRs targeting it, or modify it in any way.
+- The `production` branch is off-limits. Do not push to it or target PRs at it.
 
 ## Conventions
 
@@ -138,37 +28,10 @@ The `production` branch is off-limits. Do not push to it, create PRs targeting i
 - Use `agent-browser` to visually verify UI changes before submitting PRs.
 - Every commit references the issue it closes: `feat: title (closes #N)`
 - Co-locate unit tests with source: `Component.tsx` -> `Component.test.tsx`
-- E2E tests go in the `e2e/` directory (Playwright, chromium only in CI)
-
-## Security
-
-- Do not push directly to main — all changes go through feature branches and PRs.
-- Do not push to `production` or target PRs at it — the production branch is off-limits.
-- Do not force-push (`--force`, `-f`) — it rewrites shared history.
-- Do not run destructive GitHub commands (`gh repo delete`, etc.).
-- Do not read, print, or log environment variables or secrets.
-- Do not modify CI workflows (`.github/workflows/`) — these are managed by Forge.
-- Protected files/dirs are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `pnpm-lock.yaml`, `.vercel/`, `node_modules/`, and `.github/workflows/` (write-only). `PROMPT.md` and `SPECIFICATION.md` become protected after the initial planning phase.
-- Do not install, discover, or invoke third-party skills, plugins, or MCP servers. Only use the Forge skills and vendor skills listed above.
-- Do not run `npx skills add`, `npx skills find`, `pnpm dlx skills`, or any skill discovery commands.
-
-## Do Not
-
-- Write to `.env` files directly — use `vercel env` for environment variables.
-- Modify `pnpm-lock.yaml` manually — let `pnpm install` handle it.
-- Skip quality checks — always run `pnpm lint && pnpm tsc --noEmit && pnpm test && pnpm build`.
-- Work on code without a corresponding GitHub Issue.
-- Merge PRs before CI passes.
-- Modify `CLAUDE.md` or files in `.claude/skills/` or `.claude/agents/`, or modify `PROMPT.md` or `SPECIFICATION.md` outside the filer stage (protected after initial planning).
-- Install or search for third-party skills at runtime.
-- Use MCP server tools — Forge uses vendor skills and CLI tools, not MCP.
+- E2E tests go in the `e2e/` directory (Playwright, chromium only in CI).
 
 ## Reference
 
-- `PROMPT.md` — user requirements (pre-planning) or post-planning stub (after archival)
-- `SPECIFICATION.md` — structured spec generated by the creating pipeline; architecture, stack, design, and constraint decisions with rationale (append-only after creation)
+- `SPECIFICATION.md` — architecture, stack, design, and constraint decisions (append-only after creation)
 - `AGENTS.md` — Next.js framework docs index (auto-generated, always-on context)
 - `graveyard/` — archived prompts; existence triggers audit mode
-- `.claude/skills/` — Forge orchestrator skills and utilities (4 skills)
-- `.claude/agents/` — Forge pipeline stage agents (15 agents)
-- `.claude/settings.json` — hooks and permissions
