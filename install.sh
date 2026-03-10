@@ -105,8 +105,10 @@ FORGE_REPO="$HOME/.forge/repo"
 
 # Colors
 RED='\033[0;31m'
-BOLD='\033[1m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
@@ -116,6 +118,35 @@ if [ ! -d "$FORGE_REPO" ]; then
     exit 1
 fi
 
+# --- Shared helpers ---
+
+forge_version() {
+    git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD
+}
+
+show_banner() {
+    local version
+    version=$(forge_version)
+    echo ""
+    echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
+    echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
+    echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
+    echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
+    echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
+    echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
+    echo ""
+    echo -e "  Autonomous Next.js Development      ${DIM}${version}${NC}"
+    echo ""
+}
+
+require_forge_project() {
+    if [ ! -d ".claude/skills" ]; then
+        echo -e "${RED}Error:${NC} Not a Forge project."
+        echo "  Run this command from inside a Forge project directory."
+        exit 1
+    fi
+}
+
 case "${1:-}" in
     init)
         FORGE_RESUME=false
@@ -123,18 +154,7 @@ case "${1:-}" in
             FORGE_RESUME=true
         fi
 
-        FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
-
-        echo ""
-        echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
-        echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
-        echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
-        echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
-        echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
-        echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
-        echo ""
-        echo -e "  Autonomous Next.js Development      ${DIM}${FORGE_VERSION}${NC}"
-        echo ""
+        show_banner
 
         if [ -d ".git" ]; then
             if [ "$FORGE_RESUME" = true ]; then
@@ -210,16 +230,7 @@ case "${1:-}" in
         exit $?
         ;;
     upgrade)
-        # Colors for upgrade output
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-
-        # 1. Verify inside a Forge project
-        if [ ! -d ".claude/skills" ]; then
-            echo -e "${RED}Error:${NC} Not a Forge project."
-            echo "  Run this command from inside a Forge project directory."
-            exit 1
-        fi
+        require_forge_project
 
         echo "Upgrading Forge artifacts..."
         echo ""
@@ -361,16 +372,7 @@ except:
         echo ""
         ;;
     doctor)
-        # Colors for doctor output
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-
-        # 1. Verify inside a Forge project
-        if [ ! -d ".claude/skills" ]; then
-            echo -e "${RED}Error:${NC} Not a Forge project."
-            echo "  Run this command from inside a Forge project directory."
-            exit 1
-        fi
+        require_forge_project
 
         echo ""
         echo "Forge Doctor"
@@ -545,14 +547,7 @@ except:
         echo ""
         ;;
     status)
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-        BLUE='\033[0;34m'
-
-        if [ ! -d ".claude/skills" ]; then
-            echo -e "${RED}Error:${NC} Not a Forge project."
-            exit 1
-        fi
+        require_forge_project
 
         echo ""
         echo "Forge Status"
@@ -595,12 +590,7 @@ if total > 0:
     run)
         shift
 
-        # Verify inside a Forge project
-        if [ ! -d ".claude/skills" ]; then
-            echo -e "${RED}Error: Not a Forge project.${NC}"
-            echo "  Run this command from inside a Forge project directory."
-            exit 1
-        fi
+        require_forge_project
 
         # Parse flags
         max_budget=""
@@ -693,6 +683,21 @@ $reason
             done
         }
 
+        # --- Run a Claude Code session ---
+        run_claude_session() {
+            local skill_invocation="$1"
+            local cmd=(claude -p "$skill_invocation")
+            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
+
+            local exit_code=0
+            if [ -n "$timeout_cmd" ]; then
+                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
+            else
+                "${cmd[@]}" || exit_code=$?
+            fi
+            return $exit_code
+        }
+
         # --- Creating Pipeline ---
         run_creating_pipeline() {
             local project_name
@@ -716,18 +721,8 @@ $reason
             fi
             echo "[forge] Planning issue: #$plan_issue"
 
-            local cmd=(claude -p "/forge-create-orchestrator $plan_issue")
-            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
-
-            local exit_code=0
-            if [ -n "$timeout_cmd" ]; then
-                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
-            else
-                "${cmd[@]}" || exit_code=$?
-            fi
-
-            if [ "$exit_code" -ne 0 ]; then
-                echo "[forge] Creating orchestrator exited with code $exit_code"
+            if ! run_claude_session "/forge-create-orchestrator $plan_issue"; then
+                echo "[forge] Creating orchestrator failed."
                 return 1
             fi
             echo "[forge] Creating pipeline complete."
@@ -739,18 +734,8 @@ $reason
             local issue="$1"
             echo "[forge] Starting resolving pipeline for issue #$issue"
 
-            local cmd=(claude -p "/forge-resolve-orchestrator $issue")
-            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
-
-            local exit_code=0
-            if [ -n "$timeout_cmd" ]; then
-                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
-            else
-                "${cmd[@]}" || exit_code=$?
-            fi
-
-            if [ "$exit_code" -ne 0 ]; then
-                echo "[forge] Resolving orchestrator exited with code $exit_code"
+            if ! run_claude_session "/forge-resolve-orchestrator $issue"; then
+                echo "[forge] Resolving orchestrator failed for issue #$issue."
                 return 1
             fi
             echo "[forge] Resolving pipeline complete for issue #$issue"
@@ -762,21 +747,10 @@ $reason
             local issue="$1"
             echo "[forge] Running revision cycle for issue #$issue"
 
-            local cmd=(claude -p "/forge-resolve-orchestrator $issue --revise")
-            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
-
-            local exit_code=0
-            if [ -n "$timeout_cmd" ]; then
-                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
-            else
-                "${cmd[@]}" || exit_code=$?
-            fi
-
-            if [ "$exit_code" -ne 0 ]; then
-                echo "[forge] Revision orchestrator exited with code $exit_code"
+            if ! run_claude_session "/forge-resolve-orchestrator $issue --revise"; then
+                echo "[forge] Revision orchestrator failed for issue #$issue."
                 return 1
             fi
-
             return 0
         }
 
@@ -1139,21 +1113,10 @@ for issue in issues:
         exit 0
         ;;
     version)
-        echo "Forge $(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)"
+        echo "Forge $(forge_version)"
         ;;
     *)
-        FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
-
-        echo ""
-        echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
-        echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
-        echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
-        echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
-        echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
-        echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
-        echo ""
-        echo -e "  Autonomous Next.js Development      ${DIM}${FORGE_VERSION}${NC}"
-        echo ""
+        show_banner
         echo "Usage: forge <command>"
         echo ""
         echo "Commands:"
