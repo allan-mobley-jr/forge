@@ -11,36 +11,36 @@
 
 ## Forge System
 
-This project is managed by the **Forge** autonomous development system. Bash orchestrates stage pipelines — each stage is a separate `claude -p` session. The bash orchestrator controls execution order, not the LLM. Each stage produces artifacts (issue comments) and bash manages state (labels).
+This project is managed by the **Forge** autonomous development system. Bash routes to pipeline orchestrators — each orchestrator is a Claude session that spawns stage sub-agents with context curation and quality gates.
 
 - **Creating pipeline** (8 stages): analyzes requirements and files GitHub Issues
 - **Resolving pipeline** (6 stages): implements one issue per run, opens a PR
-- **Reviser** (on demand): handles PR review feedback and CI failures
+- **Revision** (on demand): handles PR review feedback and CI failures
 - GitHub Issues and PRs are the sole state machine — no local state files.
 
 ### Architecture
 
 ```
-forge run (bash orchestrator)
-  ├── determine_next_action()  — queries GitHub, decides pipeline
-  ├── Creating Pipeline
-  │   ├── forge-project-researcher  — read PROMPT.md, gather context
-  │   ├── forge-project-architect   — routes, components, data flow
-  │   ├── forge-project-designer    — UI patterns, styling, accessibility
-  │   ├── forge-project-stacker     — packages, services, env vars
-  │   ├── forge-project-assessor    — risks, security, complexity
-  │   ├── forge-project-planner     — synthesize into ordered issues
-  │   ├── forge-project-advocate    — challenge the plan (PROCEED/REVISE/ESCALATE)
-  │   └── forge-project-filer       — create milestones, issues, SPECIFICATION.md
-  ├── Resolving Pipeline
-  │   ├── forge-issue-researcher    — explore codebase, triage, domain research
-  │   ├── forge-issue-planner       — design implementation + self-advocate
-  │   ├── forge-issue-implementor   — write code, push branch
-  │   ├── forge-issue-tester        — write and run tests
-  │   ├── forge-issue-reviewer      — self-review, quality checks
-  │   └── forge-issue-opener        — open PR with synthesized body
-  ├── Revision (on demand)
-  │   └── forge-issue-reviser       — PR review feedback, CI failures
+forge run (bash outer loop)
+  ├── determine_next_action()  — queries GitHub, picks pipeline
+  ├── Creating Pipeline (orchestrated by Claude session)
+  │   ├── Sub-agent: create-researcher  — read PROMPT.md, gather context
+  │   ├── Sub-agent: create-architect   — routes, components, data flow
+  │   ├── Sub-agent: create-designer    — UI patterns, styling, accessibility
+  │   ├── Sub-agent: create-stacker     — packages, services, env vars
+  │   ├── Sub-agent: create-assessor    — risks, security, complexity
+  │   ├── Sub-agent: create-planner     — synthesize into ordered issues
+  │   ├── Sub-agent: create-advocate    — challenge the plan (PROCEED/REVISE/ESCALATE)
+  │   └── Sub-agent: create-filer       — create milestones, issues, SPECIFICATION.md
+  ├── Resolving Pipeline (orchestrated by Claude session)
+  │   ├── Sub-agent: resolve-researcher    — explore codebase, triage, domain research
+  │   ├── Sub-agent: resolve-planner       — design implementation + self-advocate
+  │   ├── Sub-agent: resolve-implementor   — write code, push branch
+  │   ├── Sub-agent: resolve-tester        — write and run tests
+  │   ├── Sub-agent: resolve-reviewer      — self-review, quality checks
+  │   └── Sub-agent: resolve-opener        — open PR with synthesized body
+  ├── Revision (on demand, via resolving orchestrator --revise)
+  │   └── Sub-agent: resolve-reviser       — PR review feedback, CI failures
   └── Utilities
       ├── /sync   — interactive GitHub state reader
       └── /ask    — human escalation
@@ -53,7 +53,7 @@ Each stage posts exactly one comment on its issue with:
 - Structured analysis sections
 - Footer: `### Status: COMPLETE` or `### Status: BLOCKED`
 
-Bash verifies the comment exists before advancing. Failed stages retry once. Terminal failures escalate to human.
+The orchestrator evaluates quality and can retry once with specific guidance. Terminal failures escalate to human.
 
 ### Installed Skills
 
@@ -76,13 +76,13 @@ All project state is encoded in GitHub Issue labels. Only one issue is active at
 
 | Label | Meaning |
 |-------|---------|
-| `stage:<skill>` | A pipeline stage is active on this issue |
+| `stage:<agent>` | A pipeline stage is active on this issue |
 | `agent:done` | PR opened, awaiting CI and merge |
 | `agent:needs-human` | Blocked on a decision only a human can make |
 
 - **No `agent:*` or `stage:*` label** = backlog (unclaimed, ready to build)
 - `ai-generated` = metadata label (does not affect workflow routing)
-- Stage labels are set by bash before invoking each stage and removed after completion
+- Stage labels are set by the orchestrator before invoking each stage and removed after completion
 
 ### Filing Issues
 
@@ -95,11 +95,11 @@ There is no local state to lose. If a session or stage ends mid-work:
 - GitHub Issues, labels, and comments reflect the last known state
 - Any in-progress branch has been pushed (or can be abandoned)
 - Restarting `forge run` reads GitHub state and resumes from the correct stage
-- Bash detects which stages have completed by checking for their comment headers
+- The orchestrator detects which stages have completed by checking for their comment headers
 
 ### Autonomous Operation
 
-For fully autonomous headless operation, use `forge run` from the project root. This is the bash pipeline orchestrator — it determines what to do from GitHub state, runs stage-by-stage pipelines, and polls for human input when blocked.
+For fully autonomous headless operation, use `forge run` from the project root. The bash outer loop determines what to do from GitHub state, invokes the appropriate Claude orchestrator session, and polls for human input when blocked.
 
 ## Workflow
 
@@ -148,7 +148,7 @@ The `production` branch is off-limits. Do not push to it, create PRs targeting i
 - Do not run destructive GitHub commands (`gh repo delete`, etc.).
 - Do not read, print, or log environment variables or secrets.
 - Do not modify CI workflows (`.github/workflows/`) — these are managed by Forge.
-- Protected files/dirs are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `.claude/skills/`, `pnpm-lock.yaml`, `.vercel/`, `node_modules/`, and `.github/workflows/` (write-only). `PROMPT.md` and `SPECIFICATION.md` become protected after the initial planning phase.
+- Protected files/dirs are enforced by hooks: `.env*`, `.git/`, `CLAUDE.md`, `.claude/skills/`, `.claude/agents/`, `pnpm-lock.yaml`, `.vercel/`, `node_modules/`, and `.github/workflows/` (write-only). `PROMPT.md` and `SPECIFICATION.md` become protected after the initial planning phase.
 - Do not install, discover, or invoke third-party skills, plugins, or MCP servers. Only use the Forge skills and vendor skills listed above.
 - Do not run `npx skills add`, `npx skills find`, `pnpm dlx skills`, or any skill discovery commands.
 
@@ -159,7 +159,7 @@ The `production` branch is off-limits. Do not push to it, create PRs targeting i
 - Skip quality checks — always run `pnpm lint && pnpm tsc --noEmit && pnpm test && pnpm build`.
 - Work on code without a corresponding GitHub Issue.
 - Merge PRs before CI passes.
-- Modify `CLAUDE.md` or files in `.claude/skills/`, or modify `PROMPT.md` or `SPECIFICATION.md` outside the filer stage (protected after initial planning).
+- Modify `CLAUDE.md` or files in `.claude/skills/` or `.claude/agents/`, or modify `PROMPT.md` or `SPECIFICATION.md` outside the filer stage (protected after initial planning).
 - Install or search for third-party skills at runtime.
 - Use MCP server tools — Forge uses vendor skills and CLI tools, not MCP.
 
@@ -169,5 +169,6 @@ The `production` branch is off-limits. Do not push to it, create PRs targeting i
 - `SPECIFICATION.md` — structured spec generated by the creating pipeline; architecture, stack, design, and constraint decisions with rationale (append-only after creation)
 - `AGENTS.md` — Next.js framework docs index (auto-generated, always-on context)
 - `graveyard/` — archived prompts; existence triggers audit mode
-- `.claude/skills/` — Forge stage skill definitions (15 pipeline stages + 2 utilities)
+- `.claude/skills/` — Forge orchestrator skills and utilities (4 skills)
+- `.claude/agents/` — Forge pipeline stage agents (15 agents)
 - `.claude/settings.json` — hooks and permissions

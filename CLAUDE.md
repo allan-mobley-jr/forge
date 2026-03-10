@@ -5,24 +5,27 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 ## Repository Structure
 
 ```
-skills/                        — Claude Code skill definitions (SKILL.md files)
-  forge-project-researcher/    — Creating pipeline stage 1: gather context
-  forge-project-architect/     — Creating pipeline stage 2: architecture analysis
-  forge-project-designer/      — Creating pipeline stage 3: design analysis
-  forge-project-stacker/       — Creating pipeline stage 4: stack analysis
-  forge-project-assessor/      — Creating pipeline stage 5: risk assessment
-  forge-project-planner/       — Creating pipeline stage 6: issue breakdown
-  forge-project-advocate/      — Creating pipeline stage 7: devil's advocate
-  forge-project-filer/         — Creating pipeline stage 8: file issues
-  forge-issue-researcher/      — Resolving pipeline stage 1: codebase research
-  forge-issue-planner/         — Resolving pipeline stage 2: implementation plan
-  forge-issue-implementor/     — Resolving pipeline stage 3: write code
-  forge-issue-tester/          — Resolving pipeline stage 4: write tests
-  forge-issue-reviewer/        — Resolving pipeline stage 5: self-review
-  forge-issue-opener/          — Resolving pipeline stage 6: open PR
-  forge-issue-reviser/         — On-demand: PR review feedback
+skills/                        — Claude Code skill definitions (orchestrators + utilities)
+  forge-create-orchestrator/   — Creating pipeline orchestrator (context curation + quality gates)
+  forge-resolve-orchestrator/  — Resolving pipeline orchestrator (implementation + revision cycles)
   sync/                        — Interactive GitHub state reader (/sync)
   ask/                         — Human escalation (/ask)
+agents/                        — Claude Code agent definitions (pipeline stages)
+  create-researcher.md         — Creating pipeline stage 1: gather context
+  create-architect.md          — Creating pipeline stage 2: architecture analysis
+  create-designer.md           — Creating pipeline stage 3: design analysis
+  create-stacker.md            — Creating pipeline stage 4: stack analysis
+  create-assessor.md           — Creating pipeline stage 5: risk assessment
+  create-planner.md            — Creating pipeline stage 6: issue breakdown
+  create-advocate.md           — Creating pipeline stage 7: devil's advocate
+  create-filer.md              — Creating pipeline stage 8: file issues
+  resolve-researcher.md        — Resolving pipeline stage 1: codebase research
+  resolve-planner.md           — Resolving pipeline stage 2: implementation plan
+  resolve-implementor.md       — Resolving pipeline stage 3: write code
+  resolve-tester.md            — Resolving pipeline stage 4: write tests
+  resolve-reviewer.md          — Resolving pipeline stage 5: self-review
+  resolve-opener.md            — Resolving pipeline stage 6: open PR
+  resolve-reviser.md           — On-demand: PR review feedback
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
 templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
@@ -34,6 +37,7 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 ## Conventions
 
 - Skills use YAML frontmatter with `name`, `description`, `allowed-tools`
+- Agents use YAML frontmatter with `name`, `description`, `tools`, `disallowedTools`
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
 - GitHub is the sole state machine — no local state files
 - Shell scripts target macOS (zsh) with Homebrew assumed

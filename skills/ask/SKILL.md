@@ -24,7 +24,7 @@ Do NOT escalate when:
 - The answer can be inferred from the project context, PROMPT.md, or existing code
 - It's a minor implementation detail
 
-**Invocation by pipeline stages:** The `forge-issue-reviewer` and `forge-issue-reviser` stages invoke `/ask` with a specific type (`build-failure`, `revision-limit`, `merge-conflict`) when they hit a blocker. In these cases, the calling stage has already decided escalation is necessary — `/ask` handles the comment format and label management. The bash orchestrator also escalates directly for stage failures.
+**Invocation by pipeline stages:** The `resolve-reviewer` and `resolve-reviser` stages invoke `/ask` with a specific type (`build-failure`, `revision-limit`, `merge-conflict`) when they hit a blocker. In these cases, the calling stage has already decided escalation is necessary — `/ask` handles the comment format and label management. The bash orchestrator also escalates directly for stage failures.
 
 ## Instructions
 
@@ -42,9 +42,9 @@ Accept the escalation type from the calling context. If not provided, default to
 
 Types:
 - `question` — direct escalation for design/requirement decisions
-- `build-failure` — invoked by `forge-issue-reviewer` when quality checks fail after 2 attempts
-- `revision-limit` — invoked by `forge-issue-reviser` when the 3-revision safety limit is reached
-- `merge-conflict` — invoked by `forge-issue-reviser` when merge conflicts can't be auto-resolved
+- `build-failure` — invoked by `resolve-reviewer` when quality checks fail after 2 attempts
+- `revision-limit` — invoked by `resolve-reviser` when the 3-revision safety limit is reached
+- `merge-conflict` — invoked by `resolve-reviser` when merge conflicts can't be auto-resolved
 
 ### 2. Post the structured comment
 
@@ -83,7 +83,7 @@ Replace the bracketed placeholders with actual content before posting.
 
 #### Type: build-failure
 
-Invoked by `forge-issue-reviewer` when quality checks fail. The calling context provides: error output, remaining errors, branch name.
+Invoked by `resolve-reviewer` when quality checks fail. The calling context provides: error output, remaining errors, branch name.
 
 ```bash
 gh issue comment "$ISSUE" --body "$(cat <<COMMENT
@@ -117,7 +117,7 @@ COMMENT
 
 #### Type: revision-limit
 
-Invoked by `forge-issue-reviser` when the revision limit is reached. The calling context provides: revision count, max revisions, PR number.
+Invoked by `resolve-reviser` when the revision limit is reached. The calling context provides: revision count, max revisions, PR number.
 
 ```bash
 gh issue comment "$ISSUE" --body "$(cat <<COMMENT
@@ -146,7 +146,7 @@ COMMENT
 
 #### Type: merge-conflict
 
-Invoked by `forge-issue-reviser` when merge conflicts are too complex to auto-resolve. The calling context provides: conflicted files list, branch name, and optionally quality check error output.
+Invoked by `resolve-reviser` when merge conflicts are too complex to auto-resolve. The calling context provides: conflicted files list, branch name, and optionally quality check error output.
 
 ```bash
 gh issue comment "$ISSUE" --body "$(cat <<COMMENT

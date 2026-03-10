@@ -44,7 +44,8 @@
       "Skill",
       "WebFetch",
       "WebSearch",
-      "TodoWrite"
+      "TodoWrite",
+      "Agent"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -80,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys,os; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); ap=os.path.abspath(p) if p else ''; blocked_exact=['.env','.env.local','.env.production','.env.development']; blocked_dirs=['.git/','node_modules/','.vercel/']; blocked_names=['CLAUDE.md','AGENTS.md']; blocked_prefixes=['.claude/skills/']; hit=any(os.path.basename(ap)==b for b in blocked_exact) or any(('/'+b) in (ap+'/') for b in blocked_dirs) or any(os.path.basename(ap)==b for b in blocked_names) or any(b in ap for b in blocked_prefixes); sys.exit(2 if hit else 0)\""
+            "command": "python3 -c \"import json,sys,os; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); ap=os.path.abspath(p) if p else ''; blocked_exact=['.env','.env.local','.env.production','.env.development']; blocked_dirs=['.git/','node_modules/','.vercel/']; blocked_names=['CLAUDE.md','AGENTS.md']; blocked_prefixes=['.claude/skills/','.claude/agents/']; hit=any(os.path.basename(ap)==b for b in blocked_exact) or any(('/'+b) in (ap+'/') for b in blocked_dirs) or any(os.path.basename(ap)==b for b in blocked_names) or any(b in ap for b in blocked_prefixes); sys.exit(2 if hit else 0)\""
           }
         ]
       },

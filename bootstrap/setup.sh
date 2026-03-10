@@ -553,15 +553,16 @@ step_14b_vercel_git_connect() {
     fi
 }
 
-# Step 15: Copy skills
+# Step 15: Copy skills and agents
 step_15_copy_skills() {
-    local label="15. Forge skills installed"
-    if [ -f .claude/skills/forge-project-researcher/SKILL.md ]; then
+    local label="15. Forge skills and agents installed"
+    if [ -f .claude/skills/forge-create-orchestrator/SKILL.md ]; then
         skip "$label"
         return
     fi
-    mkdir -p .claude/skills
+    mkdir -p .claude/skills .claude/agents
     cp -r "$FORGE_REPO/skills/"* .claude/skills/
+    cp "$FORGE_REPO/agents/"*.md .claude/agents/
     ok "$label"
 }
 
