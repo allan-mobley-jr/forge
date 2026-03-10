@@ -215,7 +215,7 @@ case "${1:-}" in
         RED='\033[0;31m'
 
         # 1. Verify inside a Forge project
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+        if [ ! -d ".claude/skills" ]; then
             echo -e "${RED}Error:${NC} Not a Forge project."
             echo "  Run this command from inside a Forge project directory."
             exit 1
@@ -366,7 +366,7 @@ except:
         RED='\033[0;31m'
 
         # 1. Verify inside a Forge project
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+        if [ ! -d ".claude/skills" ]; then
             echo -e "${RED}Error:${NC} Not a Forge project."
             echo "  Run this command from inside a Forge project directory."
             exit 1
@@ -549,7 +549,7 @@ except:
         RED='\033[0;31m'
         BLUE='\033[0;34m'
 
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+        if [ ! -d ".claude/skills" ]; then
             echo -e "${RED}Error:${NC} Not a Forge project."
             exit 1
         fi
@@ -596,28 +596,25 @@ if total > 0:
         shift
 
         # Verify inside a Forge project
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
+        if [ ! -d ".claude/skills" ]; then
             echo -e "${RED}Error: Not a Forge project.${NC}"
             echo "  Run this command from inside a Forge project directory."
             exit 1
         fi
 
         # Parse flags
-        max_sessions=20
         max_budget=""
         timeout_secs=""
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --max-sessions) max_sessions="$2"; shift 2 ;;
                 --max-budget)   max_budget="$2"; shift 2 ;;
                 --timeout)      timeout_secs="$2"; shift 2 ;;
                 -h|--help)
-                    echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                    echo "Usage: forge run [--max-budget N] [--timeout N]"
                     echo ""
-                    echo "  --max-sessions N   Maximum session restarts (default: 20)"
-                    echo "  --max-budget N     Max API spend per session in USD"
-                    echo "  --timeout N        Wall-clock timeout per session in seconds"
+                    echo "  --max-budget N     Max API spend per stage in USD"
+                    echo "  --timeout N        Wall-clock timeout per stage in seconds"
                     exit 0
                     ;;
                 *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
@@ -625,9 +622,6 @@ if total > 0:
         done
 
         # Validate numeric flags
-        if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
-            echo "Error: --max-sessions must be a positive integer"; exit 1
-        fi
         if [ -n "$max_budget" ] && ! [[ "$max_budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
             echo "Error: --max-budget must be a number"; exit 1
         fi
@@ -650,156 +644,470 @@ if total > 0:
         fi
 
         echo ""
-        echo -e "  ${YELLOW}forge run${NC} — autonomous build loop"
-        echo "  Max sessions: $max_sessions"
-        [ -n "$max_budget" ] && echo "  Budget per session: \$$max_budget"
-        [ -n "$timeout_secs" ] && echo "  Timeout per session: ${timeout_secs}s"
+        echo -e "  ${YELLOW}forge run${NC} — pipeline orchestrator"
+        [ -n "$max_budget" ] && echo "  Budget per stage: \$$max_budget"
+        [ -n "$timeout_secs" ] && echo "  Timeout per stage: ${timeout_secs}s"
         echo ""
 
-        session=0
-        while [ "$session" -lt "$max_sessions" ]; do
-            session=$((session + 1))
-            echo "[forge] Session $session/$max_sessions starting..."
-
-            # Auth pre-check: verify tokens before each session
+        # --- Auth pre-check ---
+        check_auth() {
             if ! command -v gh &>/dev/null; then
-                echo ""
-                echo "[forge] GitHub CLI (gh) not found in PATH."
-                echo "  Install: https://cli.github.com/"
-                exit 1
+                echo "[forge] GitHub CLI (gh) not found in PATH."; exit 1
             elif ! gh auth status &>/dev/null; then
-                echo ""
-                echo "[forge] GitHub auth expired or invalid."
-                echo "  Run: gh auth refresh"
-                exit 1
+                echo "[forge] GitHub auth expired. Run: gh auth refresh"; exit 1
             fi
             if ! command -v claude &>/dev/null; then
-                echo ""
-                echo "[forge] Claude CLI not found in PATH."
-                echo "  Install: npm install -g @anthropic-ai/claude-code"
-                exit 1
+                echo "[forge] Claude CLI not found in PATH."; exit 1
+            fi
+        }
+
+        # --- Run a single stage ---
+        # Usage: run_stage <skill-name> <issue-number> <stage-header>
+        # Returns 0 on success (comment with header found), 1 on failure
+        run_stage() {
+            local skill="$1" issue="$2" header="$3"
+            local attempt=0 max_attempts=2
+
+            while [ "$attempt" -lt "$max_attempts" ]; do
+                attempt=$((attempt + 1))
+                echo "[forge]   Stage: $skill (attempt $attempt/$max_attempts)"
+
+                check_auth
+
+                local cmd=(claude -p "/forge-${skill} ${issue}")
+                [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
+
+                local exit_code=0
+                if [ -n "$timeout_cmd" ]; then
+                    "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
+                else
+                    "${cmd[@]}" || exit_code=$?
+                fi
+
+                # Verify stage output: comment with matching header exists
+                if gh issue view "$issue" --json comments \
+                    --jq ".comments[].body" 2>/dev/null | grep -q "## \[Stage: ${header}\]"; then
+
+                    # Check for BLOCKED status
+                    local last_comment
+                    last_comment=$(gh issue view "$issue" --json comments \
+                        --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | last")
+                    if echo "$last_comment" | grep -q "### Status: BLOCKED"; then
+                        echo "[forge]   Stage $skill: BLOCKED"
+                        return 2
+                    fi
+                    echo "[forge]   Stage $skill: COMPLETE"
+                    return 0
+                fi
+
+                if [ "$attempt" -lt "$max_attempts" ]; then
+                    echo "[forge]   Stage output not found. Retrying..."
+                fi
+            done
+
+            echo "[forge]   Stage $skill: FAILED after $max_attempts attempts"
+            return 1
+        }
+
+        # --- Set stage label on an issue ---
+        set_stage_label() {
+            local issue="$1" label="$2"
+            # Remove any existing stage: labels
+            local existing
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            for old_label in $existing; do
+                gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
+            done
+            # Ensure label exists and add it
+            gh label create "$label" --color "1d76db" --force 2>/dev/null || true
+            gh issue edit "$issue" --add-label "$label" 2>/dev/null || true
+        }
+
+        # --- Escalate to human ---
+        escalate() {
+            local issue="$1" reason="$2"
+            gh issue comment "$issue" --body "## Agent Question
+
+$reason
+
+*Escalated automatically by the Forge pipeline orchestrator.*"
+            gh label create "agent:needs-human" --color "d93f0b" --force 2>/dev/null || true
+            gh issue edit "$issue" --add-label "agent:needs-human" 2>/dev/null || true
+            # Remove stage labels
+            local existing
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            for old_label in $existing; do
+                gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
+            done
+        }
+
+        # --- Creating Pipeline ---
+        run_creating_pipeline() {
+            local project_name
+            project_name=$(basename "$(pwd)")
+            echo "[forge] Starting creating pipeline for: $project_name"
+
+            # Create planning issue
+            local plan_issue
+            plan_issue=$(gh issue create \
+                --title "Planning: $project_name" \
+                --body "Forge creating pipeline. Stages will post their analysis as comments on this issue." \
+                --label "ai-generated" 2>/dev/null | grep -o '[0-9]*$')
+
+            if [ -z "$plan_issue" ]; then
+                echo "[forge] Failed to create planning issue."
+                return 1
+            fi
+            echo "[forge] Planning issue: #$plan_issue"
+
+            # Stage definitions: skill-suffix stage-header
+            local stages=(
+                "project-researcher:Researcher"
+                "project-architect:Architect"
+                "project-designer:Designer"
+                "project-stacker:Stacker"
+                "project-assessor:Assessor"
+                "project-planner:Planner"
+                "project-advocate:Advocate"
+                "project-filer:Filer"
+            )
+
+            for stage_def in "${stages[@]}"; do
+                local skill="${stage_def%%:*}"
+                local header="${stage_def##*:}"
+
+                set_stage_label "$plan_issue" "stage:$skill"
+
+                local result=0
+                run_stage "$skill" "$plan_issue" "$header" || result=$?
+
+                if [ "$result" -eq 1 ]; then
+                    # Terminal failure
+                    escalate "$plan_issue" "Stage **$skill** failed after 2 attempts. No stage output was produced. Manual intervention required."
+                    echo "[forge] Creating pipeline failed at stage: $skill"
+                    return 1
+                elif [ "$result" -eq 2 ]; then
+                    # BLOCKED status
+                    if [ "$skill" = "project-advocate" ]; then
+                        # Check for ESCALATE verdict
+                        local advocate_comment
+                        advocate_comment=$(gh issue view "$plan_issue" --json comments \
+                            --jq '[.comments[].body | select(contains("## [Stage: Advocate]"))] | last')
+                        if echo "$advocate_comment" | grep -q "### Verdict: ESCALATE"; then
+                            escalate "$plan_issue" "The advocate stage escalated this plan to a human.
+
+$(echo "$advocate_comment" | sed -n '/### Challenges/,/### Verdict/p')"
+                            echo "[forge] Advocate escalated. Waiting for human input."
+                            return 2
+                        fi
+                    fi
+                    escalate "$plan_issue" "Stage **$skill** reported BLOCKED status. Check the stage comment for details."
+                    echo "[forge] Creating pipeline blocked at stage: $skill"
+                    return 2
+                fi
+
+                # Special: Advocate REVISE verdict → re-run planner then advocate (max 1 cycle)
+                if [ "$skill" = "project-advocate" ]; then
+                    local advocate_comment
+                    advocate_comment=$(gh issue view "$plan_issue" --json comments \
+                        --jq '[.comments[].body | select(contains("## [Stage: Advocate]"))] | last')
+                    if echo "$advocate_comment" | grep -q "### Verdict: REVISE"; then
+                        echo "[forge]   Advocate verdict: REVISE. Re-running planner..."
+                        set_stage_label "$plan_issue" "stage:project-planner"
+                        run_stage "project-planner" "$plan_issue" "Planner" || true
+                        echo "[forge]   Re-running advocate..."
+                        set_stage_label "$plan_issue" "stage:project-advocate"
+                        run_stage "project-advocate" "$plan_issue" "Advocate" || true
+                        # After revision cycle, proceed regardless
+                        echo "[forge]   Revision cycle complete. Proceeding to filer."
+                    fi
+                fi
+            done
+
+            # Remove stage label after completion
+            local existing
+            existing=$(gh issue view "$plan_issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            for old_label in $existing; do
+                gh issue edit "$plan_issue" --remove-label "$old_label" 2>/dev/null || true
+            done
+
+            echo "[forge] Creating pipeline complete."
+            return 0
+        }
+
+        # --- Resolving Pipeline ---
+        # Usage: run_resolving_pipeline <issue-number>
+        run_resolving_pipeline() {
+            local issue="$1"
+            echo "[forge] Starting resolving pipeline for issue #$issue"
+
+            local stages=(
+                "issue-researcher:Researcher"
+                "issue-planner:Planner"
+                "issue-implementor:Implementor"
+                "issue-tester:Tester"
+                "issue-reviewer:Reviewer"
+                "issue-opener:Opener"
+            )
+
+            for stage_def in "${stages[@]}"; do
+                local skill="${stage_def%%:*}"
+                local header="${stage_def##*:}"
+
+                set_stage_label "$issue" "stage:$skill"
+
+                local result=0
+                run_stage "$skill" "$issue" "$header" || result=$?
+
+                if [ "$result" -eq 1 ]; then
+                    escalate "$issue" "Stage **$skill** failed after 2 attempts. No stage output was produced. Manual intervention required."
+                    echo "[forge] Resolving pipeline failed at stage: $skill"
+                    return 1
+                elif [ "$result" -eq 2 ]; then
+                    escalate "$issue" "Stage **$skill** reported BLOCKED status. Check the stage comment for details."
+                    echo "[forge] Resolving pipeline blocked at stage: $skill"
+                    return 2
+                fi
+            done
+
+            # Mark as done
+            gh label create "agent:done" --color "0e8a16" --force 2>/dev/null || true
+            gh issue edit "$issue" --add-label "agent:done" 2>/dev/null || true
+            # Remove stage labels
+            local existing
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            for old_label in $existing; do
+                gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
+            done
+
+            echo "[forge] Resolving pipeline complete for issue #$issue"
+            return 0
+        }
+
+        # --- Revise stage (on demand) ---
+        run_revise_stage() {
+            local issue="$1"
+            echo "[forge] Running reviser for issue #$issue"
+
+            set_stage_label "$issue" "stage:issue-reviser"
+
+            local result=0
+            run_stage "issue-reviser" "$issue" "Reviser" || result=$?
+
+            # Remove stage label
+            gh issue edit "$issue" --remove-label "stage:issue-reviser" 2>/dev/null || true
+
+            if [ "$result" -eq 1 ]; then
+                escalate "$issue" "Reviser stage failed after 2 attempts."
+                return 1
+            elif [ "$result" -eq 2 ]; then
+                # BLOCKED = revision limit or quality check failure
+                escalate "$issue" "Reviser reported BLOCKED status. Check the stage comment for details."
+                return 2
             fi
 
-            cmd=(claude -p "/forge")
-            [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
+            return 0
+        }
 
-            exit_code=0
-            if [ -n "$timeout_cmd" ]; then
-                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
-            else
-                "${cmd[@]}" || exit_code=$?
-            fi
-
-            if [ -f .forge-temp/exit-status ]; then
-                exit_status=$(cat .forge-temp/exit-status)
-                rm -f .forge-temp/exit-status
-
-                case "$exit_status" in
-                    complete)
-                        echo ""
-                        echo "[forge] All issues closed. Project complete!"
-                        exit 0
-                        ;;
-                    needs-human)
-                        echo ""
-                        echo "[forge] Action required. Review open PRs and check GitHub issues."
-                        echo "[forge] Polling for changes every 60s (Ctrl+C to stop)..."
-                        while true; do
-                            # Fetch all open agent PRs in a single call
-                            if ! agent_pr_json=$(gh pr list --state open -L 200 --json headRefName,reviewDecision \
-                                --jq '[.[] | select(.headRefName | startswith("agent/"))]'); then
-                                echo "[forge] Failed to query GitHub PRs. Run 'gh auth refresh' or check connectivity."
-                                exit 1
-                            fi
-                            review_change=$(echo "$agent_pr_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for x in d if x.get('reviewDecision')=='CHANGES_REQUESTED'))")
-                            agent_prs=$(echo "$agent_pr_json" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
-                            if [ "$review_change" -gt 0 ]; then
-                                echo "[forge] Review comments detected. Restarting to handle revisions..."
-                                break
-                            elif [ "$agent_prs" -eq 0 ]; then
-                                echo "[forge] No open agent PRs detected. Restarting to continue build loop..."
-                                break
-                            fi
-
-                            # Check for human responses on needs-human issues
-                            if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
-                                --json number,comments -L 200 2>/dev/null); then
-                                has_response=$(echo "$needs_human_json" | python3 -c "
+        # --- Determine next action ---
+        # Prints one of: create, resolve:<issue>, revise:<issue>, wait, done
+        determine_next_action() {
+            # Check for needs-human issues with responses
+            local needs_human_json
+            if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
+                --json number,comments -L 200 2>/dev/null); then
+                local responded_issue
+                responded_issue=$(echo "$needs_human_json" | python3 -c "
 import json, sys, re
 issues = json.load(sys.stdin)
-agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
+agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged|\[Stage:)', re.MULTILINE)
 for issue in issues:
     comments = issue.get('comments', [])
-    # Find last agent escalation comment
     q_idx = -1
     for i, c in enumerate(comments):
         if agent_header.search(c.get('body', '')):
             q_idx = i
     if q_idx >= 0:
-        # Any comment after the question that is NOT an agent header = human response
         for c in comments[q_idx + 1:]:
             if not agent_header.search(c.get('body', '')):
-                print('responded')
+                print(issue['number'])
                 sys.exit(0)
-print('waiting')
-")
-                                if [ "$has_response" = "responded" ]; then
-                                    echo "[forge] Human response detected on a needs-human issue. Restarting..."
-                                    break
-                                fi
-
-                                # Check 24h timeout on most recent question
-                                timeout_hit=$(echo "$needs_human_json" | python3 -c "
-import json, sys, re
+# Check 24h timeout
 from datetime import datetime, timezone
-issues = json.load(sys.stdin)
-pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
 now = datetime.now(timezone.utc)
 for issue in issues:
     comments = issue.get('comments', [])
     for c in reversed(comments):
-        if pattern.search(c.get('body', '')):
+        if agent_header.search(c.get('body', '')):
             created = c.get('createdAt', '')
             if created:
                 t = datetime.fromisoformat(created.replace('Z', '+00:00'))
                 if (now - t).total_seconds() >= 86400:
-                    print('timeout')
+                    print(issue['number'])
                     sys.exit(0)
             break
-print('waiting')
-")
-                                if [ "$timeout_hit" = "timeout" ]; then
-                                    echo "[forge] 24h timeout reached on a needs-human issue. Restarting to apply default..."
-                                    break
-                                fi
-                            fi
-
-                            sleep 60
-                        done
-                        ;;
-                    error)
-                        echo ""
-                        echo "[forge] Session ended with errors. Check GitHub issues."
-                        exit 1
-                        ;;
-                    needs-restart)
-                        echo "[forge] More work to do. Restarting in 5s..."
-                        sleep 5
-                        ;;
-                    *)
-                        echo "[forge] Unknown status: $exit_status. Restarting in 5s..."
-                        sleep 5
-                        ;;
-                esac
-            else
-                echo "[forge] Session ended without status (exit code $exit_code). Restarting in 5s..."
-                sleep 5
+" 2>/dev/null)
+                if [ -n "$responded_issue" ]; then
+                    # Remove needs-human label, add back to backlog for resolving
+                    gh issue edit "$responded_issue" --remove-label "agent:needs-human" 2>/dev/null || true
+                    echo "resolve:$responded_issue"
+                    return
+                fi
             fi
-        done
 
-        echo ""
-        echo "[forge] Reached max sessions ($max_sessions). Check progress on GitHub."
-        exit 1
+            # Check for agent:done issues needing revision (CHANGES_REQUESTED on PR)
+            local done_issues
+            done_issues=$(gh issue list --state open --label "agent:done" --json number -L 200 --jq '.[].number' 2>/dev/null || true)
+            for done_issue in $done_issues; do
+                local pr_review
+                pr_review=$(gh pr list --search "closes #$done_issue" --json reviewDecision --jq '.[0].reviewDecision' 2>/dev/null || true)
+                if [ "$pr_review" = "CHANGES_REQUESTED" ]; then
+                    echo "revise:$done_issue"
+                    return
+                fi
+                # Check for CI failures
+                local pr_number
+                pr_number=$(gh pr list --search "closes #$done_issue" --json number --jq '.[0].number' 2>/dev/null || true)
+                if [ -n "$pr_number" ]; then
+                    local ci_status
+                    ci_status=$(gh pr checks "$pr_number" 2>/dev/null | grep -c "fail" || true)
+                    if [ "$ci_status" -gt 0 ]; then
+                        echo "revise:$done_issue"
+                        return
+                    fi
+                fi
+            done
+
+            # Check for in-progress stage issues (resume interrupted pipeline)
+            local stage_issues
+            stage_issues=$(gh issue list --state open --json number,labels -L 200 --jq '
+                [.[] | select(.labels | map(.name) | any(startswith("stage:")))] | sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+            if [ -n "$stage_issues" ]; then
+                # Determine which pipeline based on the stage label
+                local stage_label
+                stage_label=$(gh issue view "$stage_issues" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[0]' 2>/dev/null || true)
+                if echo "$stage_label" | grep -q "project-"; then
+                    # Creating pipeline was interrupted — but we can't easily resume mid-pipeline
+                    # Remove stale label and let it re-create
+                    gh issue edit "$stage_issues" --remove-label "$stage_label" 2>/dev/null || true
+                    echo "create"
+                    return
+                elif echo "$stage_label" | grep -q "issue-"; then
+                    echo "resolve:$stage_issues"
+                    return
+                fi
+            fi
+
+            # Check for backlog issues (no agent:* or stage:* labels)
+            local backlog_issue
+            backlog_issue=$(gh issue list --state open --json number,labels -L 200 --jq '
+                [.[] | select(.labels | map(.name) | all(
+                    (startswith("agent:") | not) and (startswith("stage:") | not)
+                ))] | sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+            if [ -n "$backlog_issue" ]; then
+                echo "resolve:$backlog_issue"
+                return
+            fi
+
+            # Check if PROMPT.md exists and no issues have been filed yet (need planning)
+            if [ -f "PROMPT.md" ]; then
+                local total_issues
+                total_issues=$(gh issue list --state all --json number -L 1 --jq 'length' 2>/dev/null || true)
+                if [ "${total_issues:-0}" -eq 0 ]; then
+                    echo "create"
+                    return
+                fi
+                # Check for graveyard — if PROMPT.md exists but hasn't been archived, might need re-planning
+                if [ ! -d "graveyard" ]; then
+                    # PROMPT.md exists, issues exist, no graveyard — could be mid-planning
+                    # Check if any planning issues exist
+                    local planning_issues
+                    planning_issues=$(gh issue list --state all --search "Planning:" --json number -L 1 --jq 'length' 2>/dev/null || true)
+                    if [ "${planning_issues:-0}" -eq 0 ]; then
+                        echo "create"
+                        return
+                    fi
+                fi
+            fi
+
+            # Check if all issues are closed
+            local open_count
+            open_count=$(gh issue list --state open --json number -L 200 --jq 'length' 2>/dev/null || true)
+            if [ "${open_count:-0}" -eq 0 ]; then
+                # Check for audit mode (graveyard exists, all closed)
+                if [ -d "graveyard" ]; then
+                    echo "done"
+                    return
+                fi
+            fi
+
+            # Needs-human issues still open with no response, or agent:done PRs awaiting merge
+            if [ -n "$done_issues" ] || [ -n "$needs_human_json" ]; then
+                echo "wait"
+                return
+            fi
+
+            echo "done"
+        }
+
+        # --- Main orchestrator loop ---
+        check_auth
+
+        while true; do
+            echo "[forge] Determining next action..."
+            action=$(determine_next_action)
+
+            case "$action" in
+                create)
+                    run_creating_pipeline
+                    result=$?
+                    if [ "$result" -eq 2 ]; then
+                        # Pipeline blocked — wait for human
+                        echo "[forge] Pipeline blocked. Polling for human response..."
+                    elif [ "$result" -ne 0 ]; then
+                        echo "[forge] Creating pipeline failed."
+                        exit 1
+                    fi
+                    ;;
+                resolve:*)
+                    issue="${action#resolve:}"
+                    run_resolving_pipeline "$issue"
+                    result=$?
+                    if [ "$result" -eq 2 ]; then
+                        echo "[forge] Pipeline blocked on issue #$issue. Continuing..."
+                    elif [ "$result" -ne 0 ]; then
+                        echo "[forge] Resolving pipeline failed on issue #$issue. Continuing..."
+                    fi
+                    ;;
+                revise:*)
+                    issue="${action#revise:}"
+                    run_revise_stage "$issue"
+                    ;;
+                wait)
+                    echo "[forge] Waiting for human input or PR merge. Polling every 60s..."
+                    while true; do
+                        sleep 60
+                        check_auth
+                        next=$(determine_next_action)
+                        if [ "$next" != "wait" ]; then
+                            echo "[forge] Change detected. Resuming..."
+                            break
+                        fi
+                    done
+                    ;;
+                done)
+                    echo ""
+                    echo "[forge] All issues closed. Project complete!"
+                    exit 0
+                    ;;
+                *)
+                    echo "[forge] Unexpected action: $action"
+                    exit 1
+                    ;;
+            esac
+        done
         ;;
     help)
         case "${2:-}" in
@@ -821,18 +1129,23 @@ print('waiting')
                 echo "Requires PROMPT.md in the current directory."
                 ;;
             run)
-                echo "forge run — Autonomous headless build loop"
+                echo "forge run — Pipeline orchestrator"
                 echo ""
-                echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                echo "Usage: forge run [--max-budget N] [--timeout N]"
                 echo ""
-                echo 'Runs claude -p "/forge" in a restart loop. Each session syncs'
-                echo "state from GitHub, builds the next issue, and writes exit status."
-                echo "The loop restarts until all issues are closed or human input is needed."
+                echo "Bash-orchestrated pipeline manager. Determines the next action"
+                echo "from GitHub state and runs stage-by-stage pipelines:"
+                echo ""
+                echo "  Creating pipeline: 8 stages (research → architect → design → stack → assess → plan → advocate → file)"
+                echo "  Resolving pipeline: 6 stages (research → plan → implement → test → review → open PR)"
+                echo "  Revision: on-demand (handles PR review feedback and CI failures)"
+                echo ""
+                echo "Each stage is a fresh claude -p session. Bash manages labels,"
+                echo "verifies stage output, and advances the pipeline."
                 echo ""
                 echo "Options:"
-                echo "  --max-sessions N   Maximum restarts (default: 20)"
-                echo "  --max-budget N     API spend cap per session in USD"
-                echo "  --timeout N        Wall-clock timeout per session in seconds"
+                echo "  --max-budget N     API spend cap per stage in USD"
+                echo "  --timeout N        Wall-clock timeout per stage in seconds"
                 ;;
             status)
                 echo "forge status — Show current project progress"
@@ -956,9 +1269,8 @@ print('waiting')
         echo "  help <command>   Show detailed help for a command"
         echo ""
         echo "Run flags:"
-        echo "  --max-sessions N   Maximum session restarts (default: 20)"
-        echo "  --max-budget N     Max API spend per session in USD"
-        echo "  --timeout N        Wall-clock timeout per session in seconds"
+        echo "  --max-budget N     Max API spend per stage in USD"
+        echo "  --timeout N        Wall-clock timeout per stage in seconds"
         echo ""
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"
