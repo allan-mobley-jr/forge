@@ -1001,13 +1001,6 @@ for issue in issues:
             esac
         done
         ;;
-    help)
-        if [ -n "${2:-}" ]; then
-            # Redirect to per-command --help
-            exec "$0" "$2" --help
-        fi
-        # Fall through to default banner
-        ;&
     uninstall)
         if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
             echo "forge uninstall — Remove Forge"
@@ -1060,6 +1053,13 @@ for issue in issues:
         echo "Forge $(forge_version)"
         echo "  (Use 'forge --version' instead — this command will be removed.)"
         ;;
+    help)
+        if [ -n "${2:-}" ]; then
+            # Redirect to per-command --help
+            exec "$0" "$2" --help
+        fi
+        # Fall through to default banner
+        ;&
     *)
         show_banner
         echo "Usage: forge <command>"
