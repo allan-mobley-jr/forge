@@ -727,21 +727,18 @@ if total > 0:
                                 has_response=$(echo "$needs_human_json" | python3 -c "
 import json, sys, re
 issues = json.load(sys.stdin)
-pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)', re.MULTILINE)
+agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
 for issue in issues:
     comments = issue.get('comments', [])
-    # Find last agent question comment
+    # Find last agent escalation comment
     q_idx = -1
-    q_author = None
     for i, c in enumerate(comments):
-        if pattern.search(c.get('body', '')):
+        if agent_header.search(c.get('body', '')):
             q_idx = i
-            q_author = (c.get('author') or {}).get('login')
-    if q_idx >= 0 and q_author:
-        # Check for response from a different author after the question
+    if q_idx >= 0:
+        # Any comment after the question that is NOT an agent header = human response
         for c in comments[q_idx + 1:]:
-            author = (c.get('author') or {}).get('login')
-            if author and author != q_author:
+            if not agent_header.search(c.get('body', '')):
                 print('responded')
                 sys.exit(0)
 print('waiting')
@@ -756,7 +753,7 @@ print('waiting')
 import json, sys, re
 from datetime import datetime, timezone
 issues = json.load(sys.stdin)
-pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)', re.MULTILINE)
+pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
 now = datetime.now(timezone.utc)
 for issue in issues:
     comments = issue.get('comments', [])
