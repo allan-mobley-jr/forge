@@ -1044,7 +1044,7 @@ for issue in issues:
         echo ""
         exit 0
         ;;
-    --help|-h|help|*)
+    --help|-h|*)
         show_banner
         echo "Usage: forge <command>"
         echo ""
