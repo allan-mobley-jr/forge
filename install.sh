@@ -753,7 +753,7 @@ print('waiting')
 import json, sys, re
 from datetime import datetime, timezone
 issues = json.load(sys.stdin)
-pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)', re.MULTILINE)
+pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
 now = datetime.now(timezone.utc)
 for issue in issues:
     comments = issue.get('comments', [])
