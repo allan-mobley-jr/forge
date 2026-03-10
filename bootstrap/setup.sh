@@ -556,7 +556,7 @@ step_14b_vercel_git_connect() {
 # Step 15: Copy skills
 step_15_copy_skills() {
     local label="15. Forge skills installed"
-    if [ -f .claude/skills/forge/SKILL.md ]; then
+    if [ -f .claude/skills/forge-project-researcher/SKILL.md ]; then
         skip "$label"
         return
     fi
@@ -1045,7 +1045,6 @@ step_20_create_labels() {
     local label="20. GitHub label taxonomy"
     local failed=0
     info "  Creating labels..."
-    gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"         --force 2>/dev/null || failed=1
     gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"     --force 2>/dev/null || failed=1
     gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"      --force 2>/dev/null || failed=1
     gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"     --force 2>/dev/null || failed=1
