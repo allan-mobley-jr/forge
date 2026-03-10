@@ -2,14 +2,14 @@
 name: sync
 description: >
   Read current GitHub Issues and PR state to determine project status.
-  Use at session start, after a pause, or when resuming on a new machine.
+  Use interactively to check progress or debug state.
   Returns a structured summary of what's done, in progress, and remaining.
 allowed-tools: Bash(gh *), Bash(git *)
 ---
 
 # /sync — State Reader
 
-You are the Forge state reader. Your job is to query GitHub for the current project state and produce a structured summary that the `/forge` orchestrator uses to decide what to do next.
+You are the Forge state reader. Your job is to query GitHub for the current project state and produce a structured summary. This skill is for interactive use — the bash pipeline orchestrator handles routing decisions autonomously.
 
 ## Instructions
 
@@ -21,142 +21,70 @@ gh repo view --json nameWithOwner -q .nameWithOwner
 
 ### 2. Gather state from GitHub
 
-Fetch all open issues in a **single API call**, then filter locally by label. This reduces separate API requests to 3 (one for closed issues, one for open issues, one for open PRs), saving API budget across the build loop.
+Fetch all open issues in a **single API call**, then filter locally by label.
 
 ```bash
 # Closed issues (completed work)
 gh issue list --state closed --json number,title -L 100
 
 # All open issues in one query — filter by label locally
-# 200-item limit is sufficient for Forge-managed projects (max 40 issues from /plan)
 OPEN_ISSUES=$(gh issue list --state open --json number,title,labels,body,comments -L 200)
 
 # Open PRs (includes review state for revision detection)
 OPEN_PRS=$(gh pr list --state open --json number,title,statusCheckRollup,url,reviewDecision,headRefName -L 200)
 ```
 
-Filter the `OPEN_ISSUES` JSON locally using `jq` or `--jq`:
+Filter the `OPEN_ISSUES` JSON locally using `jq`:
 
 ```bash
-echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:in-progress"))]'
+# Issues with stage labels (pipeline in progress)
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | any(startswith("stage:")))]'
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:needs-human"))]'
 echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | index("agent:done"))]'
 
-# Backlog issues (no agent:* label)
-echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | map(select(startswith("agent:"))) | length == 0)]'
+# Backlog issues (no agent:* or stage:* labels)
+echo "$OPEN_ISSUES" | jq '[.[] | select(.labels | map(.name) | all(
+  (startswith("agent:") | not) and (startswith("stage:") | not)
+))]'
 ```
-
-These `jq` filters run locally and cost zero API calls.
 
 ### 3. Check for stale issues
 
-**Stale in-progress issues:** For any issue labeled `agent:in-progress`, check if there's a corresponding open PR or active branch:
+**Stale stage issues:** For any issue with a `stage:*` label, check if the pipeline is still active. If the stage label has been set but no matching comment exists, the stage may have crashed.
 
-```bash
-gh pr list --state open --json headRefName --jq '.[] | select(.headRefName | startswith("agent/issue-{N}-")) | .headRefName'
-```
+**Stuck `agent:done` issues:** For any `agent:done` issue, verify an open PR still references it:
 
-If no open PR exists, determine why before relabeling:
-
-```bash
-# Check for closed PRs for this issue (both merged and unmerged)
-CLOSED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt == null)] | length")
-MERGED_PR=$(gh pr list --state closed --json headRefName,mergedAt -L 200 --jq "[.[] | select(.headRefName | startswith(\"agent/issue-{N}-\")) | select(.mergedAt != null)] | length")
-```
-
-- **If a closed (unmerged) PR exists** (`CLOSED_PR > 0`): The previous attempt was explicitly abandoned or rejected. Relabel as `agent:needs-human` so a human can decide the next approach:
-
-```bash
-gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:needs-human"
-gh issue comment {N} --body "$(cat <<STALE
-## Previous PR Was Closed Without Merging
-
-A prior PR for this issue was closed without being merged. Rebuilding from scratch may repeat the same problems.
-
-A human should review the closed PR feedback and either:
-1. Re-scope the issue with updated guidance
-2. Remove the \`agent:needs-human\` label to retry with a fresh approach
-3. Close the issue if it's no longer needed
-STALE
-)"
-```
-
-- **If a merged PR exists** (`MERGED_PR > 0`): The PR was merged but the issue label was never updated (session crashed after merge). Mark as done:
-
-```bash
-gh issue edit {N} --remove-label "agent:in-progress" --add-label "agent:done"
-```
-
-- **If no closed PR exists at all but a remote branch exists**: The issue was likely interrupted by a timeout or crash. Keep `agent:in-progress` — `/build` will detect the existing branch and resume.
-
-```bash
-git fetch origin --prune 2>/dev/null || true
-REMOTE_BRANCH=$(git branch -r --list "origin/agent/issue-{N}-*" | head -1 | tr -d ' ')
-if [ -n "$REMOTE_BRANCH" ]; then
-  # Branch exists — /build will resume from it. Keep agent:in-progress.
-  true
-else
-  # No branch, no PR — crashed before any work was pushed. Remove label so it returns to backlog.
-  gh issue edit {N} --remove-label "agent:in-progress"
-fi
-```
-
-### 3c. Detect stuck `agent:done` issues
-
-For any issue labeled `agent:done`, verify that an open PR still references it. Cross-reference with the open PRs already fetched in step 2.
-
-If no open PR exists for an `agent:done` issue, determine why:
-
-1. **PR was merged** — Check if a merged PR exists for this issue:
-   ```bash
-   MERGED_PR=$(gh pr list --state merged --limit 200 --json headRefName --jq "[.[] | select(.headRefName | startswith(\"agent/issue-${N}-\"))] | length")
-   ```
-   If a merged PR exists but the issue is still open (GitHub's `Closes #N` didn't fire), close it:
-   ```bash
-   gh issue close {N}
-   ```
-
-2. **PR was closed without merging** — Remove the label so the issue returns to backlog:
-   ```bash
-   gh issue edit {N} --remove-label "agent:done"
-   ```
+1. **PR was merged** — Close the issue if still open
+2. **PR was closed without merging** — Remove `agent:done` label to return to backlog
 
 ### 3d. Detect PRs needing revision
 
-For any issue labeled `agent:done`, check if its linked PR has `reviewDecision == "CHANGES_REQUESTED"`. Cross-reference using the branch naming convention and the `$OPEN_PRS` data already fetched in step 2:
+For any `agent:done` issue, check if its PR has `reviewDecision == "CHANGES_REQUESTED"`:
 
 ```bash
 DONE_ISSUES=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:done"))] | .[].number')
 
 for ISSUE_NUM in $DONE_ISSUES; do
   if echo "$OPEN_PRS" | jq -e ".[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\")) | select(.reviewDecision == \"CHANGES_REQUESTED\")" >/dev/null 2>&1; then
-    # Report this in the summary — /forge will route to /revise
     echo "Issue #${ISSUE_NUM} has CHANGES_REQUESTED on its PR"
   fi
 done
 ```
 
-This uses data already in memory — no additional API calls for detection. Do NOT relabel the issue — just report the state so `/forge` can route to `/revise`.
-
 ### 3e. Detect CI failures on `agent:done` PRs
-
-For any issue labeled `agent:done`, check if its linked PR has failing CI checks. Use the `statusCheckRollup` data already fetched in `$OPEN_PRS` — no additional API calls:
 
 ```bash
 for ISSUE_NUM in $DONE_ISSUES; do
   HAS_CI_FAILURE=$(echo "$OPEN_PRS" | jq "[.[] | select(.headRefName | startswith(\"agent/issue-${ISSUE_NUM}-\"))] | .[0].statusCheckRollup // [] | [.[] | select(.conclusion == \"FAILURE\" or .conclusion == \"failure\")] | length > 0")
   if [ "$HAS_CI_FAILURE" = "true" ]; then
-    # Report in summary — /forge will route to /revise in CI repair mode
     echo "Issue #${ISSUE_NUM} has failing CI checks on its PR"
   fi
 done
 ```
 
-CI failures take priority over review state — a reviewer won't merge a red PR anyway. Do NOT relabel the issue — just report the state so `/forge` can route to `/revise`.
-
 ### 3f. Detect responses to `agent:needs-human` issues
 
-For each `agent:needs-human` issue, check whether a human has responded after the agent's question. Use the `comments` field already fetched in the batched `$OPEN_ISSUES` query — zero additional API calls:
+For each `agent:needs-human` issue, check whether a human has responded after the agent's question:
 
 ```bash
 NEEDS_HUMAN=$(echo "$OPEN_ISSUES" | jq -r '[.[] | select(.labels | map(.name) | index("agent:needs-human"))] | .[].number')
@@ -165,30 +93,23 @@ for ISSUE_NUM in $NEEDS_HUMAN; do
   HAS_RESPONSE=$(echo "$OPEN_ISSUES" | jq --arg num "$ISSUE_NUM" '
     [.[] | select(.number == ($num | tonumber))][0].comments // []
     | . as $c
-    | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict)"))] | last
+    | [to_entries[] | select(.value.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged|\\[Stage:)"))] | last
     | if . == null then false
       else
         .key as $qi
-        | [$c[range($qi + 1; $c | length)] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)") | not)]
+        | [$c[range($qi + 1; $c | length)] | select(.body | test("^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged|\\[Stage:)") | not)]
         | length > 0
       end')
 
   if [ "$HAS_RESPONSE" = "true" ]; then
-    echo "Issue #${ISSUE_NUM} has a human response after the agent question"
+    echo "Issue #${ISSUE_NUM} has a human response"
   fi
 done
 ```
 
-The detection logic:
-1. Find the last comment whose body starts with `## Agent Question`, `## Build Failed`, `## Revision Limit Reached`, or `## Merge Conflict` (all known escalation headers)
-2. Check if any comment **after** that index does **not** start with a known escalation header (content-based, not author-based — the agent and human may share the same GitHub account)
-3. If yes, report as "responded" — `/forge` will handle resumption
-
-Report both responded and awaiting issues in the summary so `/forge` can route appropriately.
-
 ### 4. Produce the summary
 
-Output a structured summary in this exact format:
+Output a structured summary:
 
 ```
 Forge Project State — {repo name}
@@ -196,39 +117,38 @@ Forge Project State — {repo name}
 Closed:           {count}
 Awaiting merge:   {count}  (agent:done)
 Needs human:      {count}  (agent:needs-human)
-In progress:      {count}  (agent:in-progress — likely stale or resuming)
-Backlog:          {count}  (no agent label)
+Pipeline active:  {count}  (stage:* labels)
+Backlog:          {count}  (no agent/stage label)
 ------------------------------------
 CI failing:       {list of agent:done issues with failing CI checks}
 Revision needed:  {list of agent:done issues with CHANGES_REQUESTED}
 Human responded:  {list of agent:needs-human issues with a response detected}
-Human awaiting:   {list of agent:needs-human issues still waiting for a response}
+Human awaiting:   {list of agent:needs-human issues still waiting}
+Stage in progress: {list of issues with stage:* labels and which stage}
 Next action: {one of the following}
 ```
 
 **Next action** should be one of:
-- `Plan needed` — zero issues exist
-- `Resume Issue #{N} — human responded` — a human answered the agent's question (highest priority)
-- `Surface blocking questions` — issues need human input (no response yet)
-- `Repair CI — Issue #{N}` — CI checks failing on agent:done PR (highest build priority)
-- `Revise Issue #{N} — {title}` — PR needs revision (agent:done with CHANGES_REQUESTED)
-- `Build Issue #{N} — {title}` — issues in backlog (pick the lowest-numbered backlog issue)
-- `Await merge — Issue #{N}` — agent:done PR is awaiting human review/merge
-- `Resume Issue #{N} — {title}` — agent:in-progress issue with existing branch (crash recovery)
-- `All complete — {total} issues closed` — all issues are closed
+- `Plan needed` — zero issues exist and PROMPT.md is present
+- `Resume Issue #{N} — human responded` — highest priority
+- `Repair CI — Issue #{N}` — CI checks failing
+- `Revise Issue #{N}` — PR needs revision
+- `Build Issue #{N} — {title}` — backlog issue ready
+- `Await merge — Issue #{N}` — PR awaiting review/merge
+- `Pipeline active — Issue #{N} at stage {name}` — pipeline in progress
+- `All complete — {total} issues closed`
 
 ### 5. Handle edge cases
 
-- **No issues at all**: Report "Plan needed" as next action
-- **Multiple needs-human issues**: List all of them with their question summaries
-- **Mix of states**: Prioritize in this order: human-responded (resume first), then needs-human awaiting (surface next), then CI-failing (repair next), then revision-needed (revise next), then agent:done awaiting merge (block), then in-progress (resume), then backlog (build next)
+- **No issues at all**: Report "Plan needed"
+- **Multiple needs-human issues**: List all with their question summaries
+- **Mix of states**: Priority order: human-responded, CI-failing, revision-needed, agent:done awaiting merge, pipeline active, backlog
 
 ## Rate Limit Notes
 
-- The batched open-issues query (Step 2) reduces API calls per sync cycle.
-- Rate limiting for GitHub mutations is handled automatically by the PostToolUse hook — no explicit `sleep` commands are needed.
-- Stale issue checks in Step 3 use the `body` field already fetched in the batched query — avoid re-fetching issue bodies when the data is already in `$OPEN_ISSUES`.
+- The batched open-issues query reduces API calls per sync cycle.
+- Rate limiting for GitHub mutations is handled by the PostToolUse hook.
 
 ## Output only
 
-This skill produces output. It does not modify any code or create any files. It only reads GitHub state and relabels issues when needed: recovering stale in-progress issues, resetting stuck done issues, and reporting revision-needed state. Label mutations are limited to crash/stale recovery — revision detection is reported without relabeling.
+This skill produces output. It does not modify code or create files. It reads GitHub state and may relabel stuck issues for recovery. Label mutations are limited to crash/stale recovery.

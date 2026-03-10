@@ -5,13 +5,24 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 ## Repository Structure
 
 ```
-skills/          — Claude Code skill definitions (SKILL.md files)
-  forge/         — Master orchestrator (/forge)
-  plan/          — Research & issue filing (/plan) + sub-agent references
-  build/         — Issue to branch to PR (/build)
-  revise/        — Address PR review feedback (/revise)
-  sync/          — GitHub state reader (/sync)
-  ask/           — Human escalation (/ask)
+skills/                        — Claude Code skill definitions (SKILL.md files)
+  forge-project-researcher/    — Creating pipeline stage 1: gather context
+  forge-project-architect/     — Creating pipeline stage 2: architecture analysis
+  forge-project-designer/      — Creating pipeline stage 3: design analysis
+  forge-project-stacker/       — Creating pipeline stage 4: stack analysis
+  forge-project-assessor/      — Creating pipeline stage 5: risk assessment
+  forge-project-planner/       — Creating pipeline stage 6: issue breakdown
+  forge-project-advocate/      — Creating pipeline stage 7: devil's advocate
+  forge-project-filer/         — Creating pipeline stage 8: file issues
+  forge-issue-researcher/      — Resolving pipeline stage 1: codebase research
+  forge-issue-planner/         — Resolving pipeline stage 2: implementation plan
+  forge-issue-implementor/     — Resolving pipeline stage 3: write code
+  forge-issue-tester/          — Resolving pipeline stage 4: write tests
+  forge-issue-reviewer/        — Resolving pipeline stage 5: self-review
+  forge-issue-opener/          — Resolving pipeline stage 6: open PR
+  forge-issue-reviser/         — On-demand: PR review feedback
+  sync/                        — Interactive GitHub state reader (/sync)
+  ask/                         — Human escalation (/ask)
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
 templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md

@@ -9,7 +9,7 @@ allowed-tools: Bash(gh *)
 
 # /ask — Human Escalation
 
-You are the Forge human escalation skill. You post structured questions on GitHub Issues when the agent encounters a blocker requiring human judgment. All escalation types use the `## Agent Question` header for consistent response detection by `/sync`.
+You are the Forge human escalation skill. You post structured questions on GitHub Issues when a pipeline stage encounters a blocker requiring human judgment. All escalation types use the `## Agent Question` header for consistent response detection by the orchestrator.
 
 ## When to use this skill
 
@@ -24,7 +24,7 @@ Do NOT escalate when:
 - The answer can be inferred from the project context, PROMPT.md, or existing code
 - It's a minor implementation detail
 
-**Invocation by other skills:** `/build` and `/revise` invoke `/ask` with a specific type (`build-failure`, `revision-limit`, `merge-conflict`) when they hit a blocker. In these cases, the calling skill has already decided escalation is necessary — `/ask` handles the comment format and label management.
+**Invocation by pipeline stages:** The `forge-issue-reviewer` and `forge-issue-reviser` stages invoke `/ask` with a specific type (`build-failure`, `revision-limit`, `merge-conflict`) when they hit a blocker. In these cases, the calling stage has already decided escalation is necessary — `/ask` handles the comment format and label management. The bash orchestrator also escalates directly for stage failures.
 
 ## Instructions
 
@@ -42,9 +42,9 @@ Accept the escalation type from the calling context. If not provided, default to
 
 Types:
 - `question` — direct escalation for design/requirement decisions
-- `build-failure` — invoked by `/build` when quality checks fail after 2 attempts
-- `revision-limit` — invoked by `/revise` when the 3-revision safety limit is reached
-- `merge-conflict` — invoked by `/revise` when merge conflicts can't be auto-resolved
+- `build-failure` — invoked by `forge-issue-reviewer` when quality checks fail after 2 attempts
+- `revision-limit` — invoked by `forge-issue-reviser` when the 3-revision safety limit is reached
+- `merge-conflict` — invoked by `forge-issue-reviser` when merge conflicts can't be auto-resolved
 
 ### 2. Post the structured comment
 
@@ -83,7 +83,7 @@ Replace the bracketed placeholders with actual content before posting.
 
 #### Type: build-failure
 
-Invoked by `/build` Step 9. The calling context provides: error output, debug agent diagnosis, branch name.
+Invoked by `forge-issue-reviewer` when quality checks fail. The calling context provides: error output, remaining errors, branch name.
 
 ```bash
 gh issue comment "$ISSUE" --body "$(cat <<COMMENT
@@ -97,9 +97,6 @@ gh issue comment "$ISSUE" --body "$(cat <<COMMENT
 \`\`\`
 ${ERROR_OUTPUT}
 \`\`\`
-
-**Debug agent diagnosis:**
-${DEBUG_DIAGNOSIS}
 
 **Branch:** \`${BRANCH_NAME}\` (pushed with current state)
 
@@ -120,7 +117,7 @@ COMMENT
 
 #### Type: revision-limit
 
-Invoked by `/revise` Step 2.5. The calling context provides: revision count, max revisions, PR number.
+Invoked by `forge-issue-reviser` when the revision limit is reached. The calling context provides: revision count, max revisions, PR number.
 
 ```bash
 gh issue comment "$ISSUE" --body "$(cat <<COMMENT
@@ -149,7 +146,7 @@ COMMENT
 
 #### Type: merge-conflict
 
-Invoked by `/revise` Step 4. The calling context provides: conflicted files list, branch name, and optionally quality check error output.
+Invoked by `forge-issue-reviser` when merge conflicts are too complex to auto-resolve. The calling context provides: conflicted files list, branch name, and optionally quality check error output.
 
 ```bash
 gh issue comment "$ISSUE" --body "$(cat <<COMMENT
@@ -192,20 +189,23 @@ ${QUALITY_ERROR}
 
 ### 3. Update labels
 
-Remove any current agent workflow label and set `agent:needs-human`. This handles all calling contexts — `/build` issues have `agent:in-progress`, `/revise` issues may have `agent:done` or `agent:in-progress`.
+Remove any current workflow labels and set `agent:needs-human`. This handles all calling contexts — issues may have `stage:*` or `agent:done` labels.
 
 ```bash
 # Always add needs-human first — this must succeed
 gh issue edit "$ISSUE" --add-label "agent:needs-human"
 
 # Best-effort removal of prior workflow labels
-gh issue edit "$ISSUE" --remove-label "agent:in-progress" 2>/dev/null || true
 gh issue edit "$ISSUE" --remove-label "agent:done" 2>/dev/null || true
+# Remove any stage labels
+for label in $(gh issue view "$ISSUE" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null); do
+    gh issue edit "$ISSUE" --remove-label "$label" 2>/dev/null || true
+done
 ```
 
 ### 4. Return control
 
-After posting the question, return control to the `/forge` orchestrator. Do not attempt to continue building — wait for the human to respond.
+After posting the question, the session ends. The bash orchestrator will detect the `agent:needs-human` label and poll for a human response.
 
 ## Rules
 
