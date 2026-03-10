@@ -663,7 +663,7 @@ if total > 0:
 
         # --- Run a single stage ---
         # Usage: run_stage <skill-name> <issue-number> <stage-header>
-        # Returns 0 on success (comment with header found), 1 on failure
+        # Returns 0 on success (new comment with header found), 1 on failure
         run_stage() {
             local skill="$1" issue="$2" header="$3"
             local attempt=0 max_attempts=2
@@ -673,6 +673,15 @@ if total > 0:
                 echo "[forge]   Stage: $skill (attempt $attempt/$max_attempts)"
 
                 check_auth
+
+                # Write current issue for PreCompact hook recovery
+                mkdir -p .forge-temp
+                echo "$issue" > .forge-temp/current-issue
+
+                # Count matching stage comments BEFORE invocation to detect new ones
+                local before_count
+                before_count=$(gh issue view "$issue" --json comments \
+                    --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | length" 2>/dev/null || echo "0")
 
                 local cmd=(claude -p "/forge-${skill} ${issue}")
                 [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
@@ -684,11 +693,13 @@ if total > 0:
                     "${cmd[@]}" || exit_code=$?
                 fi
 
-                # Verify stage output: comment with matching header exists
-                if gh issue view "$issue" --json comments \
-                    --jq ".comments[].body" 2>/dev/null | grep -q "## \[Stage: ${header}\]"; then
+                # Verify a NEW stage comment was posted (count increased)
+                local after_count
+                after_count=$(gh issue view "$issue" --json comments \
+                    --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | length" 2>/dev/null || echo "0")
 
-                    # Check for BLOCKED status
+                if [ "$after_count" -gt "$before_count" ]; then
+                    # Check for BLOCKED status in the latest matching comment
                     local last_comment
                     last_comment=$(gh issue view "$issue" --json comments \
                         --jq "[.comments[].body | select(contains(\"## [Stage: ${header}]\"))] | last")
@@ -701,7 +712,7 @@ if total > 0:
                 fi
 
                 if [ "$attempt" -lt "$max_attempts" ]; then
-                    echo "[forge]   Stage output not found. Retrying..."
+                    echo "[forge]   Stage output not found (no new comment). Retrying..."
                 fi
             done
 
@@ -831,6 +842,9 @@ $(echo "$advocate_comment" | sed -n '/### Challenges/,/### Verdict/p')"
                 gh issue edit "$plan_issue" --remove-label "$old_label" 2>/dev/null || true
             done
 
+            # Clean up temp state
+            rm -f .forge-temp/current-issue
+
             echo "[forge] Creating pipeline complete."
             return 0
         }
@@ -880,6 +894,9 @@ $(echo "$advocate_comment" | sed -n '/### Challenges/,/### Verdict/p')"
                 gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
             done
 
+            # Clean up temp state
+            rm -f .forge-temp/current-issue
+
             echo "[forge] Resolving pipeline complete for issue #$issue"
             return 0
         }
@@ -909,13 +926,28 @@ $(echo "$advocate_comment" | sed -n '/### Challenges/,/### Verdict/p')"
             return 0
         }
 
+        # --- Apply 24h timeout default ---
+        # Posts acknowledgment and removes needs-human label
+        apply_timeout_default() {
+            local issue="$1"
+            echo "[forge] 24h timeout on issue #$issue. Applying default option..."
+            gh issue comment "$issue" --body "## Acknowledged
+
+24-hour timeout reached. Applying the default option specified in the escalation comment above.
+
+*Applied automatically by the Forge pipeline orchestrator.*" 2>/dev/null || true
+            gh issue edit "$issue" --remove-label "agent:needs-human" 2>/dev/null || true
+        }
+
         # --- Determine next action ---
         # Prints one of: create, resolve:<issue>, revise:<issue>, wait, done
         determine_next_action() {
-            # Check for needs-human issues with responses
+            # Check for needs-human issues with responses or timeouts
             local needs_human_json
             if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
                 --json number,comments -L 200 2>/dev/null); then
+
+                # Check for human responses (highest priority)
                 local responded_issue
                 responded_issue=$(echo "$needs_human_json" | python3 -c "
 import json, sys, re
@@ -932,25 +964,40 @@ for issue in issues:
             if not agent_header.search(c.get('body', '')):
                 print(issue['number'])
                 sys.exit(0)
-# Check 24h timeout
+" 2>/dev/null)
+                if [ -n "$responded_issue" ]; then
+                    gh issue edit "$responded_issue" --remove-label "agent:needs-human" 2>/dev/null || true
+                    echo "resolve:$responded_issue"
+                    return
+                fi
+
+                # Check for 24h timeout (separate from response detection)
+                local timeout_issue
+                timeout_issue=$(echo "$needs_human_json" | python3 -c "
+import json, sys, re
 from datetime import datetime, timezone
+issues = json.load(sys.stdin)
+agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged|\[Stage:)', re.MULTILINE)
 now = datetime.now(timezone.utc)
 for issue in issues:
     comments = issue.get('comments', [])
     for c in reversed(comments):
-        if agent_header.search(c.get('body', '')):
+        body = c.get('body', '')
+        if agent_header.search(body):
             created = c.get('createdAt', '')
             if created:
-                t = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                if (now - t).total_seconds() >= 86400:
-                    print(issue['number'])
-                    sys.exit(0)
+                try:
+                    t = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    if (now - t).total_seconds() >= 86400:
+                        print(issue['number'])
+                        sys.exit(0)
+                except ValueError:
+                    pass
             break
 " 2>/dev/null)
-                if [ -n "$responded_issue" ]; then
-                    # Remove needs-human label, add back to backlog for resolving
-                    gh issue edit "$responded_issue" --remove-label "agent:needs-human" 2>/dev/null || true
-                    echo "resolve:$responded_issue"
+                if [ -n "$timeout_issue" ]; then
+                    apply_timeout_default "$timeout_issue"
+                    echo "resolve:$timeout_issue"
                     return
                 fi
             fi

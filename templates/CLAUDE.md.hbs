@@ -80,8 +80,8 @@ All project state is encoded in GitHub Issue labels. Only one issue is active at
 | `agent:done` | PR opened, awaiting CI and merge |
 | `agent:needs-human` | Blocked on a decision only a human can make |
 
-- **No label** = backlog (unclaimed, ready to build)
-- `ai-generated` = metadata label marking agent-filed issues/PRs
+- **No `agent:*` or `stage:*` label** = backlog (unclaimed, ready to build)
+- `ai-generated` = metadata label (does not affect workflow routing)
 - Stage labels are set by bash before invoking each stage and removed after completion
 
 ### Filing Issues
