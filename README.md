@@ -30,7 +30,7 @@ Open `PROMPT.md` in your editor and describe the app you want to build in plain 
 
 ```bash
 forge init                   # bootstraps the project
-claude                       # start building
+forge run                    # start building
 ```
 
 ## How It Works
@@ -47,8 +47,8 @@ claude                       # start building
            │                    │             │           │
            ▼                    ▼             ▼           ▼
    ┌───────────────┐    ┌─────────────────────────────────────┐
-   │    claude     │    │           GitHub (state)            │
-   │  or forge run │───▶│  Issues = backlog  │  PRs = work    │
+   │  forge run   │    │           GitHub (state)            │
+   │              │───▶│  Issues = backlog  │  PRs = work    │
    └───────┬───────┘    │  Labels = status   │  CI = quality  │
            │            └────────────┬────────────────────────┘
            ▼                         │
@@ -122,7 +122,7 @@ forge init --resume
 
 ### Stage 3 — The Autonomous Loop
 
-Run `claude` in the project directory. The `/forge` skill auto-invokes and enters the build loop:
+Run `forge run` in the project directory to enter the build loop:
 
 ```
   ┌──────────────────────────────────────────────────────────────────┐
@@ -240,41 +240,20 @@ These labels are for your own organization and the agent ignores them:
 
 ## Running Autonomously
 
-Forge supports two levels of autonomous operation.
-
-### Semi-autonomous (interactive)
-
-```bash
-claude
-```
-
-Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for users who want visibility into the build loop.
-
-### Fully autonomous (headless)
-
 ```bash
 forge run
 ```
 
-Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. PRs are auto-merged after CI passes (and Copilot review, if enabled), so the loop continues building without waiting. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
+Runs the pipeline orchestrator with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. PRs are auto-merged after CI passes (and Copilot review, if enabled), so the loop continues building without waiting. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
 
 ```bash
-forge run --max-sessions 10   # limit restart count (default: 20)
-forge run --max-budget 50     # limit API spend per session (USD)
-forge run --timeout 3600      # wall-clock timeout per session (requires coreutils: brew install coreutils)
+forge run --max-budget 50     # limit API spend per stage (USD)
+forge run --timeout 3600      # wall-clock timeout per stage (requires coreutils: brew install coreutils)
 ```
 
-The run loop uses `.forge-temp/` for session state (exit status, progress). These files are ephemeral and regenerated each session.
+### Authentication
 
-For a single headless session without restarts:
-
-```bash
-claude -p "/forge"
-```
-
-### Authentication for headless mode
-
-Headless mode (`forge run` and `claude -p`) requires a token or API key that doesn't expire mid-session. `forge init` configures GitHub authentication; Claude API auth must be set up separately using the steps below.
+`forge run` requires a token or API key that doesn't expire mid-session. `forge init` configures GitHub authentication; Claude API auth must be set up separately using the steps below.
 
 **API key users** — set your key in the environment and you're good to go:
 
@@ -298,16 +277,6 @@ echo 'export CLAUDE_CODE_OAUTH_TOKEN="<token>"' >> ~/.zshrc
 source ~/.zshrc
 forge run
 ```
-
-### Escape hatch
-
-The default `settings.json` pre-approves all tools the forge loop needs (git, gh, pnpm, file operations, etc.), so permission prompts are rare in interactive mode. If you do encounter unexpected prompts, `--dangerouslySkipPermissions` bypasses all permission checks:
-
-```bash
-claude --dangerouslySkipPermissions
-```
-
-PreToolUse hooks still fire and block access to sensitive paths (`.env`, `.git/`, `CLAUDE.md`, etc.) even with this flag. Note that `forge run` does not support this flag — use `claude -p "/forge" --dangerouslySkipPermissions` instead if needed for single headless sessions.
 
 ## Extending the Workflow
 
@@ -349,11 +318,10 @@ All project state lives on GitHub — there's nothing local to lose. Coming back
 
 ```bash
 cd my-app
-claude                       # interactive
-forge run                    # headless
+forge run
 ```
 
-The `/forge` skill syncs state from GitHub on every session start — open issues, in-progress PRs, labels — and picks up where it left off.
+The orchestrator syncs state from GitHub on every session start — open issues, in-progress PRs, labels — and picks up where it left off.
 
 
 ## Troubleshooting
@@ -384,20 +352,18 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 |---------|-------------|
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
 | `forge init --resume` | Resume a failed or interrupted bootstrap |
-| `forge run` | Run the autonomous build loop (headless, with restarts) |
-| `forge status` | Show current project progress (issue counts, completion %) |
+| `forge run` | Run the autonomous build loop (headless) |
 | `forge update` | Update Forge to the latest version |
 | `forge upgrade` | Update Forge artifacts (skills, vendor skills, hooks, CLAUDE.md, AGENTS.md) in the current project |
 | `forge doctor` | Check tool versions, auth, disk space, and project health |
 | `forge uninstall` | Remove Forge from your system (keeps existing projects) |
-| `forge version` | Show installed version |
-| `forge help <cmd>` | Show detailed help for a command |
+| `forge --version` | Show installed version |
 
 ## Design Decisions
 
-**GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and PR status. Local transient files (`.forge-temp/`) are used for session management only and are rebuilt from GitHub on every session start. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off. This design trades flexibility for reliability — you can never lose state because of a crashed session or a lost laptop.
+**GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and PR status. Clone the repo on a new Mac, run `forge run`, and the session picks up exactly where it left off. This design trades flexibility for reliability — you can never lose state because of a crashed session or a lost laptop.
 
-**Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions that work with any auth method. Fully autonomous (`forge run`) for headless operation with API keys or long-lived subscription tokens. Each mode uses the same skills — the difference is session management and restart behavior.
+**Single entry point.** `forge run` is the sole runtime entry point. It orchestrates pipeline stages, manages session restarts, and syncs state from GitHub on every cycle.
 
 **Auto-merge with guardrails.** PRs are auto-merged after CI passes, removing the human reviewer from the critical path. In Copilot mode, GitHub Copilot provides automated code review before merge — the agent addresses its feedback, resolving valid issues and challenging incorrect suggestions. Human `CHANGES_REQUESTED` reviews still override and trigger `/revise`. The agent escalates when it's stuck instead of guessing.
 

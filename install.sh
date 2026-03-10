@@ -1117,7 +1117,7 @@ echo ""
 echo "    mkdir my-app && cd my-app"
 echo "    # Describe your app in PROMPT.md"
 echo "    forge init"
-echo "    claude"
+echo "    forge run"
 echo ""
 # Fish shell support
 FISH_CONFIG="$HOME/.config/fish/conf.d/forge.fish"
