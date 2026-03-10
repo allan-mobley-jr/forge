@@ -148,7 +148,7 @@ require_forge_project() {
 }
 
 case "${1:-}" in
-    --version|-v)
+    --version|-v|-V)
         echo "Forge $(forge_version)"
         exit 0
         ;;
@@ -1044,7 +1044,7 @@ for issue in issues:
         echo ""
         exit 0
         ;;
-    *)
+    --help|-h|help|*)
         show_banner
         echo "Usage: forge <command>"
         echo ""
