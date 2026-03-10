@@ -148,7 +148,30 @@ require_forge_project() {
 }
 
 case "${1:-}" in
+    --version|-v)
+        echo "Forge $(forge_version)"
+        exit 0
+        ;;
     init)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge init — Bootstrap a new Forge project"
+            echo ""
+            echo "Usage: forge init [--resume]"
+            echo ""
+            echo "Creates a new Forge project in the current directory:"
+            echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
+            echo "  2. Scaffolds a Next.js app from your PROMPT.md"
+            echo "  3. Creates a GitHub repo with branch protection and CI"
+            echo "  4. Links a Vercel project for preview deploys"
+            echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
+            echo ""
+            echo "Options:"
+            echo "  --resume    Resume from where a previous bootstrap stopped"
+            echo ""
+            echo "Requires PROMPT.md in the current directory."
+            exit 0
+        fi
+
         FORGE_RESUME=false
         if [ "${2:-}" = "--resume" ]; then
             FORGE_RESUME=true
@@ -226,10 +249,31 @@ case "${1:-}" in
         fi
         ;;
     update)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge update — Update Forge itself"
+            echo ""
+            echo "Usage: forge update"
+            echo ""
+            echo "Pulls the latest version of Forge from GitHub and regenerates"
+            echo "the CLI. Run 'forge upgrade' inside a project to update its artifacts."
+            exit 0
+        fi
         curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
         exit $?
         ;;
     upgrade)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge upgrade — Update project artifacts"
+            echo ""
+            echo "Usage: forge upgrade"
+            echo ""
+            echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
+            echo "to match the installed Forge version. Creates a backup first."
+            echo ""
+            echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
+            exit 0
+        fi
+
         require_forge_project
 
         echo "Upgrading Forge artifacts..."
@@ -372,6 +416,16 @@ except:
         echo ""
         ;;
     doctor)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge doctor — Health check"
+            echo ""
+            echo "Usage: forge doctor"
+            echo ""
+            echo "Checks tool versions, authentication, disk space, and whether"
+            echo "project artifacts are up-to-date with the installed Forge version."
+            exit 0
+        fi
+
         require_forge_project
 
         echo ""
@@ -547,45 +601,9 @@ except:
         echo ""
         ;;
     status)
-        require_forge_project
-
-        echo ""
-        echo "Forge Status"
-        echo "============"
-        echo ""
-
-        if [ -f .forge-temp/status.json ]; then
-            python3 -c "
-import json
-with open('.forge-temp/status.json') as f:
-    d = json.load(f)
-ts = d.get('timestamp', 'unknown')
-iss = d.get('issues', {})
-print(f'  Last sync: {ts}')
-print(f'  Total issues: {iss.get("total", 0)}')
-print(f'  Closed: {iss.get("closed", 0)}')
-print(f'  Ready: {iss.get("ready", 0)}')
-print(f'  In progress: {iss.get("in_progress", 0)}')
-print(f'  Blocked: {iss.get("blocked", 0)}')
-print(f'  Needs human: {iss.get("needs_human", 0)}')
-print(f'  Revision needed: {iss.get("revision_needed", 0)}')
-print(f'  Awaiting merge: {iss.get("done_awaiting_merge", 0)}')
-total = iss.get('total', 0)
-closed = iss.get('closed', 0)
-if total > 0:
-    pct = int(closed / total * 100)
-    print(f'\n  Progress: {closed}/{total} ({pct}%)')
-"
-        else
-            echo "  No status file found. Run a Forge session first."
-            echo "  Start with: claude"
-        fi
-
-        if [ -f .forge-temp/exit-status ]; then
-            echo ""
-            echo "  Last exit status: $(cat .forge-temp/exit-status)"
-        fi
-        echo ""
+        echo "The 'status' command has been removed."
+        echo "Use GitHub Issues to track progress: gh issue list"
+        exit 1
         ;;
     run)
         shift
@@ -984,97 +1002,23 @@ for issue in issues:
         done
         ;;
     help)
-        case "${2:-}" in
-            init)
-                echo "forge init — Bootstrap a new Forge project"
-                echo ""
-                echo "Usage: forge init [--resume]"
-                echo ""
-                echo "Creates a new Forge project in the current directory:"
-                echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
-                echo "  2. Scaffolds a Next.js app from your PROMPT.md"
-                echo "  3. Creates a GitHub repo with branch protection and CI"
-                echo "  4. Links a Vercel project for preview deploys"
-                echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
-                echo ""
-                echo "Options:"
-                echo "  --resume    Resume from where a previous bootstrap stopped"
-                echo ""
-                echo "Requires PROMPT.md in the current directory."
-                ;;
-            run)
-                echo "forge run — Pipeline orchestrator"
-                echo ""
-                echo "Usage: forge run [--max-budget N] [--timeout N]"
-                echo ""
-                echo "Bash-orchestrated pipeline manager. Determines the next action"
-                echo "from GitHub state and runs stage-by-stage pipelines:"
-                echo ""
-                echo "  Creating pipeline: 8 stages (research → architect → design → stack → assess → plan → advocate → file)"
-                echo "  Resolving pipeline: 6 stages (research → plan → implement → test → review → open PR)"
-                echo "  Revision: on-demand (handles PR review feedback and CI failures)"
-                echo ""
-                echo "Each stage is a fresh claude -p session. Bash manages labels,"
-                echo "verifies stage output, and advances the pipeline."
-                echo ""
-                echo "Options:"
-                echo "  --max-budget N     API spend cap per stage in USD"
-                echo "  --timeout N        Wall-clock timeout per stage in seconds"
-                ;;
-            status)
-                echo "forge status — Show current project progress"
-                echo ""
-                echo "Usage: forge status"
-                echo ""
-                echo "Reads .forge-temp/status.json (written by /forge after each /sync)"
-                echo "and displays issue counts, completion percentage, and last exit status."
-                ;;
-            update)
-                echo "forge update — Update Forge itself"
-                echo ""
-                echo "Usage: forge update"
-                echo ""
-                echo "Pulls the latest version of Forge from GitHub and regenerates"
-                echo "the CLI. Run 'forge upgrade' inside a project to update its artifacts."
-                ;;
-            upgrade)
-                echo "forge upgrade — Update project artifacts"
-                echo ""
-                echo "Usage: forge upgrade"
-                echo ""
-                echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
-                echo "to match the installed Forge version. Creates a backup first."
-                echo ""
-                echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
-                ;;
-            doctor)
-                echo "forge doctor — Health check"
-                echo ""
-                echo "Usage: forge doctor"
-                echo ""
-                echo "Checks tool versions, authentication, disk space, and whether"
-                echo "project artifacts are up-to-date with the installed Forge version."
-                ;;
-            uninstall)
-                echo "forge uninstall — Remove Forge"
-                echo ""
-                echo "Usage: forge uninstall"
-                echo ""
-                echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
-                echo "shell config files. Does NOT affect existing Forge projects."
-                ;;
-            "")
-                echo "Usage: forge help <command>"
-                echo ""
-                echo "Commands: init, run, status, update, upgrade, doctor, uninstall, version"
-                ;;
-            *)
-                echo "Unknown command: $2"
-                echo "Run 'forge help' for available commands."
-                ;;
-        esac
-        ;;
+        if [ -n "${2:-}" ]; then
+            # Redirect to per-command --help
+            exec "$0" "$2" --help
+        fi
+        # Fall through to default banner
+        ;&
     uninstall)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge uninstall — Remove Forge"
+            echo ""
+            echo "Usage: forge uninstall"
+            echo ""
+            echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
+            echo "shell config files. Does NOT affect existing Forge projects."
+            exit 0
+        fi
+
         echo ""
         echo "This will remove Forge from your system."
         echo ""
@@ -1114,6 +1058,7 @@ for issue in issues:
         ;;
     version)
         echo "Forge $(forge_version)"
+        echo "  (Use 'forge --version' instead — this command will be removed.)"
         ;;
     *)
         show_banner
@@ -1122,24 +1067,22 @@ for issue in issues:
         echo "Commands:"
         echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
-        echo "  run              Run the autonomous build loop (headless, with restarts)"
-        echo "  status           Show current project progress"
+        echo "  run              Run the autonomous build loop (headless)"
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
         echo "  uninstall        Remove Forge from your system"
-        echo "  version          Show installed version"
-        echo "  help <command>   Show detailed help for a command"
         echo ""
-        echo "Run flags:"
-        echo "  --max-budget N     Max API spend per stage in USD"
-        echo "  --timeout N        Wall-clock timeout per stage in seconds"
+        echo "Flags:"
+        echo "  --version          Show installed version"
+        echo ""
+        echo "Run 'forge <command> --help' for detailed help on a command."
         echo ""
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"
         echo "  2. Write a PROMPT.md describing your app"
         echo "  3. forge init"
-        echo "  4. claude"
+        echo "  4. forge run"
         ;;
 esac
 FORGE_CMD
