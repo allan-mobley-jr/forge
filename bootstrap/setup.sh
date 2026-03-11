@@ -132,7 +132,7 @@ check_homebrew() {
     ok "$label"
 }
 
-# python3 (used for JSON parsing in install.sh and hooks)
+# python3 (used for JSON parsing in CLI and hooks)
 check_python3() {
     local label="python3 installed"
     if command -v python3 &>/dev/null; then
