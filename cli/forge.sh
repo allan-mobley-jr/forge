@@ -892,7 +892,6 @@ $reason
                 # First run — create the planning issue and enter the creating pipeline
                 local project_name
                 project_name=$(basename "$(pwd)")
-                gh label create "agent:planning" --color "0e8a16" --force 2>/dev/null || true
                 gh issue create \
                     --title "Planning: $project_name" \
                     --body "" \
