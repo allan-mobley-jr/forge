@@ -534,6 +534,12 @@ except:
 
         require_forge_skills
 
+        if ! command -v jq &>/dev/null; then
+            echo -e "${RED}Error:${NC} jq is required for forge run."
+            echo "  Install with: brew install jq"
+            exit 1
+        fi
+
         # Parse flags
         max_budget=""
 
