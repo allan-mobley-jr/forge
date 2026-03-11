@@ -46,14 +46,18 @@ git checkout -b fix/<number>-<slug>   # or feat/<number>-<slug>
 
 The slug should be 2-4 words from the issue title, kebab-case. Example: `fix/94-doctor-skills-outdated`
 
-### Step 3: Research the codebase
+### Step 3: Research
 
-Before discussing or planning, explore the code to ground your understanding:
+Before discussing or planning, gather the information you need:
 
+**Codebase:**
 1. Search for files, functions, and patterns related to the issue.
 2. Read every file that may need to change.
 3. Trace the relevant code paths — understand how the pieces connect.
 4. Note any constraints, edge cases, or dependencies you discover.
+
+**Web (when needed):**
+If the issue involves unfamiliar APIs, libraries, protocols, or domain concepts, search the web to fill knowledge gaps. Don't guess — look it up.
 
 This step is about gathering facts, not forming opinions yet.
 
