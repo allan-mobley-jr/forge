@@ -648,8 +648,10 @@ except:
 
         # Skip --max-budget on subscription plans (only applies to API key usage)
         if [ -n "$max_budget" ]; then
-            local sub_type
-            sub_type=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('subscriptionType',''))" 2>/dev/null || true)
+            sub_type=""
+            if command -v claude >/dev/null 2>&1; then
+                sub_type=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('subscriptionType',''))" 2>/dev/null || true)
+            fi
             if [ -n "$sub_type" ] && [ "$sub_type" != "none" ]; then
                 echo -e "  ${YELLOW}Note:${NC} --max-budget ignored (subscription plan: $sub_type)"
                 max_budget=""
@@ -658,16 +660,14 @@ except:
 
         # Pre-flight: warn if bypassPermissions is active in local or managed settings
         check_bypass_permissions() {
-            local bypass_found=""
-            local bypass_source=""
+            local bypass_sources=()
 
             # Check .claude/settings.local.json
             if [ -f ".claude/settings.local.json" ]; then
                 local local_mode
                 local_mode=$(python3 -c "import json; d=json.load(open('.claude/settings.local.json')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
                 if [ "$local_mode" = "bypassPermissions" ]; then
-                    bypass_found=true
-                    bypass_source=".claude/settings.local.json"
+                    bypass_sources+=(".claude/settings.local.json")
                 fi
             fi
 
@@ -677,15 +677,16 @@ except:
                 local managed_mode
                 managed_mode=$(python3 -c "import json; d=json.load(open('$managed')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
                 if [ "$managed_mode" = "bypassPermissions" ]; then
-                    bypass_found=true
-                    bypass_source="$managed"
+                    bypass_sources+=("$managed")
                 fi
             fi
 
-            if [ "$bypass_found" = true ]; then
+            if [ ${#bypass_sources[@]} -gt 0 ]; then
                 echo ""
                 echo -e "  ${YELLOW}Warning:${NC} bypassPermissions mode detected in:"
-                echo "    $bypass_source"
+                for src in "${bypass_sources[@]}"; do
+                    echo "    - $src"
+                done
                 echo ""
                 echo "  Forge agents rely on tool restrictions in their frontmatter to stay"
                 echo "  in their lanes. bypassPermissions may weaken these guardrails."
