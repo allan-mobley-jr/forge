@@ -511,7 +511,41 @@ except:
             fi
         fi
 
-        # 6. Check disk space
+        # 6. Check labels
+        echo ""
+        echo "Labels:"
+
+        if gh auth status &>/dev/null 2>&1; then
+            local required_labels=(
+                "agent:planning" "agent:done" "agent:needs-human" "ai-generated"
+                "stage:create-researcher" "stage:create-architect" "stage:create-designer"
+                "stage:create-stacker" "stage:create-assessor" "stage:create-planner"
+                "stage:create-advocate" "stage:create-filer"
+                "stage:resolve-researcher" "stage:resolve-planner" "stage:resolve-implementor"
+                "stage:resolve-tester" "stage:resolve-reviewer" "stage:resolve-opener"
+                "stage:resolve-reviser"
+            )
+            local existing_labels
+            existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
+            local missing_labels=()
+
+            for lbl in "${required_labels[@]}"; do
+                if ! echo "$existing_labels" | grep -qx "$lbl"; then
+                    missing_labels+=("$lbl")
+                fi
+            done
+
+            if [ ${#missing_labels[@]} -eq 0 ]; then
+                echo -e "  ${GREEN}✓${NC} All ${#required_labels[@]} required labels present"
+            else
+                echo -e "  ${YELLOW}⚠${NC} Missing ${#missing_labels[@]} label(s): ${missing_labels[*]}"
+                echo "    Run 'forge run' to auto-create missing labels, or 'forge init --resume'"
+            fi
+        else
+            echo -e "  ${DIM}-${NC} Skipped (GitHub not authenticated)"
+        fi
+
+        # 7. Check disk space
         echo ""
         echo "System:"
         avail_gb=$(df -g . 2>/dev/null | tail -1 | awk '{print $4}')
@@ -667,6 +701,54 @@ except:
             fi
         }
 
+        # --- Label pre-flight ---
+        # Canonical label definitions (must match bootstrap/setup.sh create_labels)
+        FORGE_REQUIRED_LABELS=(
+            "agent:planning|0075ca|Creating pipeline planning issue"
+            "agent:done|0e8a16|PR opened, awaiting review"
+            "agent:needs-human|d93f0b|Blocked on human decision"
+            "ai-generated|EEEEEE|Issue or PR filed by agent"
+            "stage:create-researcher|1d76db|Creating stage: researcher"
+            "stage:create-architect|1d76db|Creating stage: architect"
+            "stage:create-designer|1d76db|Creating stage: designer"
+            "stage:create-stacker|1d76db|Creating stage: stacker"
+            "stage:create-assessor|1d76db|Creating stage: assessor"
+            "stage:create-planner|1d76db|Creating stage: planner"
+            "stage:create-advocate|1d76db|Creating stage: advocate"
+            "stage:create-filer|1d76db|Creating stage: filer"
+            "stage:resolve-researcher|1d76db|Resolving stage: researcher"
+            "stage:resolve-planner|1d76db|Resolving stage: planner"
+            "stage:resolve-implementor|1d76db|Resolving stage: implementor"
+            "stage:resolve-tester|1d76db|Resolving stage: tester"
+            "stage:resolve-reviewer|1d76db|Resolving stage: reviewer"
+            "stage:resolve-opener|1d76db|Resolving stage: opener"
+            "stage:resolve-reviser|1d76db|Resolving stage: reviser"
+        )
+
+        check_labels() {
+            echo "[forge] Checking labels..."
+            local existing_labels
+            existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
+            local recreated=0
+
+            for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
+                local name color desc
+                name="${entry%%|*}"
+                local rest="${entry#*|}"
+                color="${rest%%|*}"
+                desc="${rest#*|}"
+
+                if ! echo "$existing_labels" | grep -qx "$name"; then
+                    gh label create "$name" --color "$color" --description "$desc" --force 2>/dev/null || true
+                    recreated=$((recreated + 1))
+                fi
+            done
+
+            if [ "$recreated" -gt 0 ]; then
+                echo "[forge] Re-created $recreated missing label(s)."
+            fi
+        }
+
         # --- Set stage label on an issue ---
         set_stage_label() {
             local issue="$1" label="$2"
@@ -676,8 +758,7 @@ except:
             for old_label in $existing; do
                 gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
             done
-            # Ensure label exists and add it
-            gh label create "$label" --color "1d76db" --force 2>/dev/null || true
+            # Add the new stage label (pre-created by check_labels)
             gh issue edit "$issue" --add-label "$label" 2>/dev/null || true
         }
 
@@ -689,7 +770,6 @@ except:
 $reason
 
 *Escalated automatically by the Forge pipeline orchestrator.*"
-            gh label create "agent:needs-human" --color "d93f0b" --force 2>/dev/null || true
             gh issue edit "$issue" --add-label "agent:needs-human" 2>/dev/null || true
             # Remove stage labels
             local existing
@@ -933,6 +1013,7 @@ $reason
 
         # --- Main orchestrator loop ---
         check_auth
+        check_labels
 
         while true; do
             echo "[forge] Determining next action..."
