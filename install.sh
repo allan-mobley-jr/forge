@@ -707,14 +707,48 @@ except:
         echo ""
 
         # --- Auth pre-check ---
+        notify_failure() {
+            osascript -e "display notification \"$1\" with title \"Forge\"" 2>/dev/null || true
+        }
+
         check_auth() {
+            local errors=()
+
+            # GitHub CLI
             if ! command -v gh &>/dev/null; then
-                echo "[forge] GitHub CLI (gh) not found in PATH."; exit 1
+                errors+=("GitHub CLI (gh) not found in PATH. Install with: brew install gh")
             elif ! gh auth status &>/dev/null; then
-                echo "[forge] GitHub auth expired. Run: gh auth refresh"; exit 1
+                echo "[forge] GitHub auth invalid. Attempting refresh..."
+                if gh auth refresh &>/dev/null; then
+                    echo "[forge] GitHub auth refreshed."
+                else
+                    errors+=("GitHub not authenticated. Run: gh auth login")
+                fi
             fi
+
+            # Claude CLI
             if ! command -v claude &>/dev/null; then
-                echo "[forge] Claude CLI not found in PATH."; exit 1
+                errors+=("Claude CLI not found in PATH. Install from: https://claude.ai/download")
+            else
+                local logged_in
+                logged_in=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('loggedIn',''))" 2>/dev/null || true)
+                if [ -z "$logged_in" ]; then
+                    errors+=("Unable to check Claude auth. Run: claude auth status")
+                elif [ "$logged_in" != "True" ]; then
+                    errors+=("Claude not authenticated. Run: claude auth login")
+                fi
+            fi
+
+            if [ ${#errors[@]} -gt 0 ]; then
+                echo ""
+                echo -e "[forge] ${RED}Auth check failed:${NC}"
+                for err in "${errors[@]}"; do
+                    echo "  - $err"
+                done
+                echo ""
+                echo "Fix the above, then re-run forge run."
+                notify_failure "Auth check failed — see terminal for details"
+                exit 1
             fi
         }
 
