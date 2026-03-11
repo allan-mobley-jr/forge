@@ -30,7 +30,7 @@ Open `PROMPT.md` in your editor and describe the app you want to build in plain 
 
 ```bash
 forge init                   # bootstraps the project
-claude                       # start building
+forge run                    # start building
 ```
 
 ## How It Works
@@ -47,21 +47,19 @@ claude                       # start building
            │                    │             │           │
            ▼                    ▼             ▼           ▼
    ┌───────────────┐    ┌─────────────────────────────────────┐
-   │    claude     │    │           GitHub (state)            │
-   │  or forge run │───▶│  Issues = backlog  │  PRs = work    │
+   │  forge run    │    │           GitHub (state)            │
+   │  (bash orch.) │───▶│  Issues = backlog  │  PRs = work    │
    └───────┬───────┘    │  Labels = status   │  CI = quality  │
            │            └────────────┬────────────────────────┘
            ▼                         │
-   ┌───────────────┐                 │
-   │  /forge loop  │◀────── reads ───┘
-   │               │
-   │  sync ──▶ route ──┬──▶ /plan   (research + file issues)
-   │    ▲              ├──▶ /build  (implement + open PR)
-   │    │              ├──▶ /revise (address PR feedback)
-   │    │              └──▶ /ask    (escalate to human)
-   │    │                     │
-   │    └─────────────────────┘
-   └───────────────┘
+   ┌───────────────────┐             │
+   │  determine next   │◀── reads ───┘
+   │  action (bash)    │
+   │                   │
+   │  ├─▶ Creating pipeline  (8 stage agents → file issues)
+   │  ├─▶ Resolving pipeline (6 stage agents → implement + PR)
+   │  └─▶ Revision cycle     (on demand → address PR feedback)
+   └───────────────────┘
            │
            ▼
    CI passes ──▶ Auto-merge to main
@@ -69,7 +67,7 @@ claude                       # start building
    Human promotion ──▶ Vercel production deploy
 ```
 
-There are four stages: **install**, **init**, **build loop**, and **merge**. The sections below walk through each one.
+There are four stages: **install**, **init**, **pipeline**, and **merge**. The sections below walk through each one.
 
 ### Stage 1 — Install Forge
 
@@ -104,7 +102,7 @@ Create a directory, write a `PROMPT.md` describing your app, and run `forge init
        ├──▶ Create GitHub repo + push
        ├──▶ Link Vercel project
        ├──▶ Generate AGENTS.md (Next.js framework docs index via @next/codemod)
-       ├──▶ Install Claude Code skills (/forge, /plan, /build, /revise, /sync, /ask)
+       ├──▶ Install Claude Code skills (orchestrators + stage agents)
        ├──▶ Install vendor skills (next-best-practices, web-design-guidelines, etc.)
        ├──▶ Install hooks (file guards, rate limiting, session management)
        ├──▶ Install CI pipeline (lint, typecheck, test, build, E2E)
@@ -120,56 +118,50 @@ Every step checks whether it already ran before acting. If bootstrap fails partw
 forge init --resume
 ```
 
-### Stage 3 — The Autonomous Loop
+### Stage 3 — The Pipeline Orchestrator
 
-Run `claude` in the project directory. The `/forge` skill auto-invokes and enters the build loop:
+Run `forge run` in the project directory to start the bash-orchestrated pipeline:
 
 ```
   ┌──────────────────────────────────────────────────────────────────┐
-  │                        /forge (orchestrator)                     │
+  │                    forge run (bash orchestrator)                 │
   │                                                                  │
-  │   ┌──────────┐                                                   │
-  │   │  /sync   │  Reads GitHub: issues, PRs, labels (3 API calls)  │
-  │   └────┬─────┘  Recovers stale state, promotes unblocked issues  │
+  │   determine_next_action()                                        │
+  │        │  Reads GitHub: issues, PRs, labels, stage state         │
+  │        │  Detects human responses on needs-human issues          │
+  │        │  Detects CHANGES_REQUESTED / CI failures on PRs         │
   │        │                                                         │
-  │        ▼                                                         │
-  │   What needs doing?                                              │
+  │        ├── PROMPT.md, no issues ────▶ Creating pipeline          │
+  │        │                              8 stage agents via         │
+  │        │                              forge-create-orchestrator  │
   │        │                                                         │
-  │        ├── No issues yet ──────────▶ /plan                       │
-  │        │                             Spawns 4 research agents    │
-  │        │                             Files issues as backlog     │
+  │        ├── Backlog issue ready ─────▶ Resolving pipeline         │
+  │        │                              6 stage agents via         │
+  │        │                              forge-resolve-orchestrator │
   │        │                                                         │
-  │        ├── Issues ready ───────────▶ /build                      │
-  │        │                             Claims issue, branches      │
-  │        │                             Implements, tests, opens PR │
+  │        ├── PR needs changes ────────▶ Revision cycle             │
+  │        │                              forge-resolve-orchestrator │
+  │        │                              with --revise flag         │
   │        │                                                         │
-  │        ├── Review requested ───────▶ /revise                     │
-  │        │                             Reads PR comments           │
-  │        │                             Applies fixes, re-pushes    │
+  │        ├── Stuck on a decision ─────▶ Wait for human             │
+  │        │                              agent:needs-human label    │
+  │        │                              24h timeout auto-resolves  │
   │        │                                                         │
-  │        ├── Stuck on a decision ────▶ /ask                        │
-  │        │                             Posts question on issue     │
-  │        │                             Labels agent:needs-human    │
-  │        │                                                         │
-  │        ├── PR ready to merge ──────▶ Auto-merge (squash)         │
-  │        │                             Copilot mode: wait for      │
-  │        │                             review first, resolve any   │
-  │        │                             comments, then merge        │
-  │        │                                                         │
-  │        └── All issues closed ──────▶ /plan (audit for gaps)      │
+  │        └── All issues closed ───────▶ Done                       │
   │                                                                  │
-  │   After each action, /forge loops back to /sync automatically.   │
+  │   Bash controls execution. Each stage is a separate claude -p    │
+  │   session. Labels are state. Comments are artifacts.             │
   └──────────────────────────────────────────────────────────────────┘
 ```
 
-**What /plan does:**
-The agent reads PROMPT.md, spawns 4 research sub-agents (architecture, stack, design, risk), synthesizes their findings into a plan, and files GitHub Issues as an ordered backlog grouped into milestones. Each issue includes an objective, dependencies, implementation notes, and acceptance criteria. On the first run, PROMPT.md contains your app description; after planning, it's archived to `graveyard/`. When all issues are eventually closed, `/forge` routes back to `/plan`, which detects `graveyard/` and enters audit mode — comparing the original requirements against closed issues and filing new issues for any gaps.
+**Creating pipeline** (8 stages — runs when PROMPT.md exists and no issues have been filed):
+The `forge-create-orchestrator` spawns 8 stage agents in order: researcher (reads PROMPT.md, gathers context), architect (architecture analysis), designer (design analysis), stacker (stack analysis), assessor (risk assessment), planner (synthesizes into ordered issue breakdown), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), and filer (creates GitHub milestones and issues, generates SPECIFICATION.md, archives PROMPT.md). Each stage posts its analysis as a structured comment on a planning issue.
 
-**What /build does (one issue per cycle):**
-The agent picks the lowest-numbered open issue with no `agent:*` label, creates a GitHub-linked feature branch (via `gh issue develop`), implements the code, then spawns up to 3 sub-agents in parallel: a review agent, a test agent, and (for UI-affecting issues) a visual check agent that takes screenshots and compares against baselines. It applies fixes, runs quality checks (lint, typecheck, test, build), deploys a Vercel preview if available, and opens a PR. The PR is then auto-merged after CI passes (and Copilot review, if enabled), enforcing a strict one-PR-at-a-time lifecycle. If quality checks fail, a debug sub-agent gets one retry. If it still fails, the issue is labeled `agent:needs-human` so you can step in. If a build times out, work-in-progress is pushed to the branch and the next session resumes from it.
+**Resolving pipeline** (6 stages — runs once per backlog issue):
+The `forge-resolve-orchestrator` spawns 6 stage agents: researcher (explores codebase, triages), planner (designs implementation approach), implementor (writes code, pushes branch), tester (writes and runs tests), reviewer (self-review, quality checks), and opener (opens PR). One issue at a time, lowest-numbered first.
 
-**What /revise does:**
-When Copilot leaves review comments or a human requests changes on a PR, the agent picks it up on the next cycle. It reads the review comments, critically evaluates each one (fixing valid issues, pushing back on incorrect suggestions), re-runs quality checks, and pushes fixes.
+**Revision cycle** (on demand — runs when a PR has review feedback or CI failures):
+The `forge-resolve-orchestrator --revise` spawns the reviser agent, which reads PR comments, evaluates each one (fixing valid issues, pushing back on incorrect suggestions), and pushes fixes.
 
 ### Stage 4 — Merge
 
@@ -194,12 +186,12 @@ PRs are auto-merged after CI passes. You choose the merge mode during `forge ini
        └── Copilot mode ────▶ GitHub Copilot reviews the PR
               │
               ├── No comments ──▶ Squash-merge
-              └── Comments ─────▶ /revise evaluates each comment
+              └── Comments ─────▶ Revision cycle evaluates each comment
                                   Fixes valid issues, challenges wrong ones
                                   Resolves all threads, then merges
 ```
 
-**Auto mode** removes the reviewer from the critical path entirely — CI is the only gate. **Copilot mode** adds GitHub Copilot as an automated code reviewer; the agent addresses Copilot's feedback before merging. In both modes, human `CHANGES_REQUESTED` reviews still trigger `/revise` and take priority over auto-merge.
+**Auto mode** removes the reviewer from the critical path entirely — CI is the only gate. **Copilot mode** adds GitHub Copilot as an automated code reviewer; the agent addresses Copilot's feedback before merging. In both modes, human `CHANGES_REQUESTED` reviews still trigger a revision cycle and take priority over auto-merge.
 
 The agent escalates when it's stuck instead of guessing.
 
@@ -209,18 +201,19 @@ Forge tracks all project state through GitHub Issue labels. There are no databas
 
 ### How Labels Work
 
-Only one issue is ever active. The agent works on the lowest-numbered open issue. There are just 3 agent labels plus one metadata label:
+Only one issue is ever active. The agent works on the lowest-numbered open issue. Labels track pipeline state:
 
 | Label | What it means |
 |-------|---------------|
-| `agent:in-progress` | The agent is actively working on this issue right now. |
+| `stage:create-*` | The creating pipeline is running this stage (e.g., `stage:create-researcher`). |
+| `stage:resolve-*` | The resolving pipeline is running this stage (e.g., `stage:resolve-implementor`). |
 | `agent:done` | The agent finished and opened a PR. Waiting for CI (and Copilot review, if enabled) before auto-merge. |
 | `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
 | `ai-generated` | The agent created this issue or PR. Tells you at a glance what the agent filed vs. what you filed. |
 
-- **No `agent:*` label** = backlog. The issue is unclaimed and ready to build when its turn comes.
-- **Issue ordering = dependency order.** Lower-numbered issues are built first. `/plan` files issues in the right order so dependencies are naturally satisfied.
-- **Revision detection** is automatic: `/sync` checks if an `agent:done` issue's PR has `CHANGES_REQUESTED` and routes to `/revise` — no separate label needed.
+- **No `agent:*` or `stage:*` label** = backlog. The issue is unclaimed and ready to build when its turn comes.
+- **Issue ordering = dependency order.** Lower-numbered issues are built first. The creating pipeline files issues in the right order so dependencies are naturally satisfied.
+- **Revision detection** is automatic: the bash orchestrator checks if an `agent:done` issue's PR has `CHANGES_REQUESTED` or CI failures and routes to a revision cycle — no separate label needed.
 
 ### Filing Issues for the Agent
 
@@ -235,46 +228,25 @@ These labels are for your own organization and the agent ignores them:
 
 ### What Not to Do
 
-- **Don't remove `agent:in-progress`** while the agent is working — let `/sync` handle stale issues
-- **Don't create labels starting with `agent:`** — that namespace is reserved for the agent's state machine
+- **Don't remove `stage:*` labels** while the agent is working — let the bash orchestrator handle state transitions
+- **Don't create labels starting with `agent:` or `stage:`** — those namespaces are reserved for the pipeline's state machine
 
 ## Running Autonomously
-
-Forge supports two levels of autonomous operation.
-
-### Semi-autonomous (interactive)
-
-```bash
-claude
-```
-
-Runs an interactive session where you can observe progress and interrupt with Ctrl+C. The default `settings.json` pre-approves all tools the forge loop needs, so permission prompts are rare. Best for users who want visibility into the build loop.
-
-### Fully autonomous (headless)
 
 ```bash
 forge run
 ```
 
-Runs headless with automatic session restarts. Each session gets fresh context, syncs state from GitHub, and picks up where the last session left off. PRs are auto-merged after CI passes (and Copilot review, if enabled), so the loop continues building without waiting. The loop exits when all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools).
+Runs the bash pipeline orchestrator. It determines what needs doing (via `determine_next_action`), invokes the appropriate pipeline (creating or resolving), and loops until all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools). Each pipeline stage runs as a separate `claude -p` session with fresh context. PRs are auto-merged after CI passes (and Copilot review, if enabled).
 
 ```bash
-forge run --max-sessions 10   # limit restart count (default: 20)
-forge run --max-budget 50     # limit API spend per session (USD)
-forge run --timeout 3600      # wall-clock timeout per session (requires coreutils: brew install coreutils)
+forge run --max-budget 50     # limit API spend per stage (USD)
+forge run --timeout 3600      # wall-clock timeout per stage (requires coreutils: brew install coreutils)
 ```
 
-The run loop uses `.forge-temp/` for session state (exit status, progress). These files are ephemeral and regenerated each session.
+### Authentication
 
-For a single headless session without restarts:
-
-```bash
-claude -p "/forge"
-```
-
-### Authentication for headless mode
-
-Headless mode (`forge run` and `claude -p`) requires a token or API key that doesn't expire mid-session. `forge init` configures GitHub authentication; Claude API auth must be set up separately using the steps below.
+`forge run` requires a token or API key that doesn't expire mid-session. `forge init` configures GitHub authentication; Claude API auth must be set up separately using the steps below.
 
 **API key users** — set your key in the environment and you're good to go:
 
@@ -298,16 +270,6 @@ echo 'export CLAUDE_CODE_OAUTH_TOKEN="<token>"' >> ~/.zshrc
 source ~/.zshrc
 forge run
 ```
-
-### Escape hatch
-
-The default `settings.json` pre-approves all tools the forge loop needs (git, gh, pnpm, file operations, etc.), so permission prompts are rare in interactive mode. If you do encounter unexpected prompts, `--dangerouslySkipPermissions` bypasses all permission checks:
-
-```bash
-claude --dangerouslySkipPermissions
-```
-
-PreToolUse hooks still fire and block access to sensitive paths (`.env`, `.git/`, `CLAUDE.md`, etc.) even with this flag. Note that `forge run` does not support this flag — use `claude -p "/forge" --dangerouslySkipPermissions` instead if needed for single headless sessions.
 
 ## Extending the Workflow
 
@@ -349,11 +311,10 @@ All project state lives on GitHub — there's nothing local to lose. Coming back
 
 ```bash
 cd my-app
-claude                       # interactive
-forge run                    # headless
+forge run
 ```
 
-The `/forge` skill syncs state from GitHub on every session start — open issues, in-progress PRs, labels — and picks up where it left off.
+The bash orchestrator reads labels and comments from GitHub on every cycle — open issues, in-progress stages, PRs — and picks up where it left off.
 
 
 ## Troubleshooting
@@ -372,9 +333,9 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 | Problem | Fix |
 |---------|-----|
 | Agent gets stuck on an issue | Check GitHub — the issue is likely labeled `agent:needs-human` with a question in the comments. Answer there and the agent continues on the next cycle. |
-| PR quality checks keep failing | The agent gets 2 attempts (initial + debug retry). After that, the issue is labeled `agent:needs-human`. Check the branch — work-in-progress is always pushed. |
+| PR quality checks keep failing | CI failures trigger a revision cycle. If the reviser can't fix them, the issue is labeled `agent:needs-human`. Check the branch — work-in-progress is always pushed. |
 | Rate limit warnings | GitHub allows 5,000 requests/hour. Forge throttles mutations with `sleep 1`, so this is rare. If it happens, wait for the reset time shown in the warning. |
-| Session ends unexpectedly | Context windows are finite. Use `forge run` for automatic restarts with fresh context. `/sync` recovers state from GitHub each time. |
+| Session ends unexpectedly | Context windows are finite. Use `forge run` for automatic restarts with fresh context. The orchestrator recovers state from GitHub each time. |
 | "Not a Forge project" error | Run commands from the project root (where `PROMPT.md` and `CLAUDE.md` live). |
 | Want to add features after initial build | Create a GitHub Issue and start a new session. The agent picks it up by issue number order. |
 
@@ -384,22 +345,20 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 |---------|-------------|
 | `forge init` | Bootstrap a new project (requires `PROMPT.md` in current directory) |
 | `forge init --resume` | Resume a failed or interrupted bootstrap |
-| `forge run` | Run the autonomous build loop (headless, with restarts) |
-| `forge status` | Show current project progress (issue counts, completion %) |
+| `forge run` | Run the autonomous build loop (headless) |
 | `forge update` | Update Forge to the latest version |
 | `forge upgrade` | Update Forge artifacts (skills, vendor skills, hooks, CLAUDE.md, AGENTS.md) in the current project |
 | `forge doctor` | Check tool versions, auth, disk space, and project health |
 | `forge uninstall` | Remove Forge from your system (keeps existing projects) |
-| `forge version` | Show installed version |
-| `forge help <cmd>` | Show detailed help for a command |
+| `forge --version` | Show installed version |
 
 ## Design Decisions
 
-**GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and PR status. Local transient files (`.forge-temp/`) are used for session management only and are rebuilt from GitHub on every session start. Clone the repo on a new Mac, run `claude`, and the session picks up exactly where it left off. This design trades flexibility for reliability — you can never lose state because of a crashed session or a lost laptop.
+**GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and PR status. Clone the repo on a new Mac, run `forge run`, and the session picks up exactly where it left off. This design trades flexibility for reliability — you can never lose state because of a crashed session or a lost laptop.
 
-**Two autonomy levels.** Semi-autonomous (`claude`) for observable, interruptible sessions that work with any auth method. Fully autonomous (`forge run`) for headless operation with API keys or long-lived subscription tokens. Each mode uses the same skills — the difference is session management and restart behavior.
+**Bash orchestrates, not the LLM.** `forge run` is a bash script that determines what needs doing and invokes the right pipeline. Each pipeline stage is a separate `claude -p` session — bash controls execution order, not the LLM. This guarantees every stage runs because bash invokes it.
 
-**Auto-merge with guardrails.** PRs are auto-merged after CI passes, removing the human reviewer from the critical path. In Copilot mode, GitHub Copilot provides automated code review before merge — the agent addresses its feedback, resolving valid issues and challenging incorrect suggestions. Human `CHANGES_REQUESTED` reviews still override and trigger `/revise`. The agent escalates when it's stuck instead of guessing.
+**Auto-merge with guardrails.** PRs are auto-merged after CI passes, removing the human reviewer from the critical path. In Copilot mode, GitHub Copilot provides automated code review before merge — the agent addresses its feedback, resolving valid issues and challenging incorrect suggestions. Human `CHANGES_REQUESTED` reviews still override and trigger a revision cycle. The agent escalates when it's stuck instead of guessing.
 
 **Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow. Constraints enable reliability.
 
@@ -407,17 +366,14 @@ The `/forge` skill syncs state from GitHub on every session start — open issue
 
 ```
 forge/
-├── install.sh              # curl | bash installer
+├── install.sh              # curl | bash installer + pipeline orchestrator
 ├── bootstrap/setup.sh      # Idempotent project setup
-├── skills/                 # Claude Code skill definitions
-│   ├── forge/SKILL.md      #   Master orchestrator
-│   ├── plan/SKILL.md       #   Research & issue filing
-│   │   └── references/     #   Sub-agent prompts (architecture, stack, design, risk)
-│   ├── build/SKILL.md      #   Issue → branch → PR
-│   │   └── references/     #   Sub-agent prompts (review, test, debug)
-│   ├── revise/SKILL.md     #   Address PR review feedback
-│   ├── sync/SKILL.md       #   GitHub state reader
-│   └── ask/SKILL.md        #   Human escalation
+├── skills/                 # Claude Code skill definitions (orchestrators)
+│   ├── forge-create-orchestrator/  # Creating pipeline (8 stages → file issues)
+│   └── forge-resolve-orchestrator/ # Resolving pipeline (6 stages → implement + PR)
+├── agents/                 # Pipeline stage agents
+│   ├── create-*.md         #   8 creating stages (researcher → filer)
+│   └── resolve-*.md        #   7 resolving stages (researcher → reviser)
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
 │   ├── ci.yml              #   Lint + typecheck + test + build + E2E

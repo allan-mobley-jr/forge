@@ -105,8 +105,10 @@ FORGE_REPO="$HOME/.forge/repo"
 
 # Colors
 RED='\033[0;31m'
-BOLD='\033[1m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
@@ -116,25 +118,66 @@ if [ ! -d "$FORGE_REPO" ]; then
     exit 1
 fi
 
+# --- Shared helpers ---
+
+forge_version() {
+    git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD
+}
+
+show_banner() {
+    local version
+    version=$(forge_version)
+    echo ""
+    echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
+    echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
+    echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
+    echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
+    echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
+    echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
+    echo ""
+    echo -e "  Autonomous Next.js Development      ${DIM}${version}${NC}"
+    echo ""
+}
+
+require_forge_project() {
+    if [ ! -d ".claude/skills" ]; then
+        echo -e "${RED}Error:${NC} Not a Forge project."
+        echo "  Run this command from inside a Forge project directory."
+        exit 1
+    fi
+}
+
 case "${1:-}" in
+    --version|-v|-V)
+        echo "Forge $(forge_version)"
+        exit 0
+        ;;
     init)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge init — Bootstrap a new Forge project"
+            echo ""
+            echo "Usage: forge init [--resume]"
+            echo ""
+            echo "Creates a new Forge project in the current directory:"
+            echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
+            echo "  2. Scaffolds a Next.js app from your PROMPT.md"
+            echo "  3. Creates a GitHub repo with branch protection and CI"
+            echo "  4. Links a Vercel project for preview deploys"
+            echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
+            echo ""
+            echo "Options:"
+            echo "  --resume    Resume from where a previous bootstrap stopped"
+            echo ""
+            echo "Requires PROMPT.md in the current directory."
+            exit 0
+        fi
+
         FORGE_RESUME=false
         if [ "${2:-}" = "--resume" ]; then
             FORGE_RESUME=true
         fi
 
-        FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
-
-        echo ""
-        echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
-        echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
-        echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
-        echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
-        echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
-        echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
-        echo ""
-        echo -e "  Autonomous Next.js Development      ${DIM}${FORGE_VERSION}${NC}"
-        echo ""
+        show_banner
 
         if [ -d ".git" ]; then
             if [ "$FORGE_RESUME" = true ]; then
@@ -206,20 +249,32 @@ case "${1:-}" in
         fi
         ;;
     update)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge update — Update Forge itself"
+            echo ""
+            echo "Usage: forge update"
+            echo ""
+            echo "Pulls the latest version of Forge from GitHub and regenerates"
+            echo "the CLI. Run 'forge upgrade' inside a project to update its artifacts."
+            exit 0
+        fi
         curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
         exit $?
         ;;
     upgrade)
-        # Colors for upgrade output
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-
-        # 1. Verify inside a Forge project
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
-            echo -e "${RED}Error:${NC} Not a Forge project."
-            echo "  Run this command from inside a Forge project directory."
-            exit 1
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge upgrade — Update project artifacts"
+            echo ""
+            echo "Usage: forge upgrade"
+            echo ""
+            echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
+            echo "to match the installed Forge version. Creates a backup first."
+            echo ""
+            echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
+            exit 0
         fi
+
+        require_forge_project
 
         echo "Upgrading Forge artifacts..."
         echo ""
@@ -361,16 +416,17 @@ except:
         echo ""
         ;;
     doctor)
-        # Colors for doctor output
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-
-        # 1. Verify inside a Forge project
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
-            echo -e "${RED}Error:${NC} Not a Forge project."
-            echo "  Run this command from inside a Forge project directory."
-            exit 1
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge doctor — Health check"
+            echo ""
+            echo "Usage: forge doctor"
+            echo ""
+            echo "Checks tool versions, authentication, disk space, and whether"
+            echo "project artifacts are up-to-date with the installed Forge version."
+            exit 0
         fi
+
+        require_forge_project
 
         echo ""
         echo "Forge Doctor"
@@ -544,80 +600,24 @@ except:
         fi
         echo ""
         ;;
-    status)
-        GREEN='\033[0;32m'
-        RED='\033[0;31m'
-        BLUE='\033[0;34m'
-
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
-            echo -e "${RED}Error:${NC} Not a Forge project."
-            exit 1
-        fi
-
-        echo ""
-        echo "Forge Status"
-        echo "============"
-        echo ""
-
-        if [ -f .forge-temp/status.json ]; then
-            python3 -c "
-import json
-with open('.forge-temp/status.json') as f:
-    d = json.load(f)
-ts = d.get('timestamp', 'unknown')
-iss = d.get('issues', {})
-print(f'  Last sync: {ts}')
-print(f'  Total issues: {iss.get("total", 0)}')
-print(f'  Closed: {iss.get("closed", 0)}')
-print(f'  Ready: {iss.get("ready", 0)}')
-print(f'  In progress: {iss.get("in_progress", 0)}')
-print(f'  Blocked: {iss.get("blocked", 0)}')
-print(f'  Needs human: {iss.get("needs_human", 0)}')
-print(f'  Revision needed: {iss.get("revision_needed", 0)}')
-print(f'  Awaiting merge: {iss.get("done_awaiting_merge", 0)}')
-total = iss.get('total', 0)
-closed = iss.get('closed', 0)
-if total > 0:
-    pct = int(closed / total * 100)
-    print(f'\n  Progress: {closed}/{total} ({pct}%)')
-"
-        else
-            echo "  No status file found. Run a Forge session first."
-            echo "  Start with: claude"
-        fi
-
-        if [ -f .forge-temp/exit-status ]; then
-            echo ""
-            echo "  Last exit status: $(cat .forge-temp/exit-status)"
-        fi
-        echo ""
-        ;;
     run)
         shift
 
-        # Verify inside a Forge project
-        if [ ! -f ".claude/skills/forge/SKILL.md" ]; then
-            echo -e "${RED}Error: Not a Forge project.${NC}"
-            echo "  Run this command from inside a Forge project directory."
-            exit 1
-        fi
+        require_forge_project
 
         # Parse flags
-        max_sessions=20
         max_budget=""
         timeout_secs=""
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                --max-sessions) max_sessions="$2"; shift 2 ;;
                 --max-budget)   max_budget="$2"; shift 2 ;;
                 --timeout)      timeout_secs="$2"; shift 2 ;;
                 -h|--help)
-                    echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
+                    echo "Usage: forge run [--max-budget N] [--timeout N]"
                     echo ""
-                    echo "  --max-sessions N   Maximum session restarts (default: 20)"
-                    echo "  --max-budget N     Max API spend per session in USD"
-                    echo "  --timeout N        Wall-clock timeout per session in seconds"
+                    echo "  --max-budget N     Max API spend per stage in USD"
+                    echo "  --timeout N        Wall-clock timeout per stage in seconds"
                     exit 0
                     ;;
                 *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
@@ -625,9 +625,6 @@ if total > 0:
         done
 
         # Validate numeric flags
-        if ! [[ "$max_sessions" =~ ^[0-9]+$ ]]; then
-            echo "Error: --max-sessions must be a positive integer"; exit 1
-        fi
         if [ -n "$max_budget" ] && ! [[ "$max_budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
             echo "Error: --max-budget must be a number"; exit 1
         fi
@@ -650,244 +647,366 @@ if total > 0:
         fi
 
         echo ""
-        echo -e "  ${YELLOW}forge run${NC} — autonomous build loop"
-        echo "  Max sessions: $max_sessions"
-        [ -n "$max_budget" ] && echo "  Budget per session: \$$max_budget"
-        [ -n "$timeout_secs" ] && echo "  Timeout per session: ${timeout_secs}s"
+        echo -e "  ${YELLOW}forge run${NC} — pipeline orchestrator"
+        [ -n "$max_budget" ] && echo "  Budget per stage: \$$max_budget"
+        [ -n "$timeout_secs" ] && echo "  Timeout per stage: ${timeout_secs}s"
         echo ""
 
-        session=0
-        while [ "$session" -lt "$max_sessions" ]; do
-            session=$((session + 1))
-            echo "[forge] Session $session/$max_sessions starting..."
-
-            # Auth pre-check: verify tokens before each session
+        # --- Auth pre-check ---
+        check_auth() {
             if ! command -v gh &>/dev/null; then
-                echo ""
-                echo "[forge] GitHub CLI (gh) not found in PATH."
-                echo "  Install: https://cli.github.com/"
-                exit 1
+                echo "[forge] GitHub CLI (gh) not found in PATH."; exit 1
             elif ! gh auth status &>/dev/null; then
-                echo ""
-                echo "[forge] GitHub auth expired or invalid."
-                echo "  Run: gh auth refresh"
-                exit 1
+                echo "[forge] GitHub auth expired. Run: gh auth refresh"; exit 1
             fi
             if ! command -v claude &>/dev/null; then
-                echo ""
-                echo "[forge] Claude CLI not found in PATH."
-                echo "  Install: npm install -g @anthropic-ai/claude-code"
-                exit 1
+                echo "[forge] Claude CLI not found in PATH."; exit 1
             fi
+        }
 
-            cmd=(claude -p "/forge")
+        # --- Set stage label on an issue ---
+        set_stage_label() {
+            local issue="$1" label="$2"
+            # Remove any existing stage: labels
+            local existing
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            for old_label in $existing; do
+                gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
+            done
+            # Ensure label exists and add it
+            gh label create "$label" --color "1d76db" --force 2>/dev/null || true
+            gh issue edit "$issue" --add-label "$label" 2>/dev/null || true
+        }
+
+        # --- Escalate to human ---
+        escalate() {
+            local issue="$1" reason="$2"
+            gh issue comment "$issue" --body "## Agent Question
+
+$reason
+
+*Escalated automatically by the Forge pipeline orchestrator.*"
+            gh label create "agent:needs-human" --color "d93f0b" --force 2>/dev/null || true
+            gh issue edit "$issue" --add-label "agent:needs-human" 2>/dev/null || true
+            # Remove stage labels
+            local existing
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            for old_label in $existing; do
+                gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
+            done
+        }
+
+        # --- Run a Claude Code session ---
+        run_claude_session() {
+            local skill_invocation="$1"
+            local cmd=(claude -p "$skill_invocation")
             [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 
-            exit_code=0
+            local exit_code=0
             if [ -n "$timeout_cmd" ]; then
                 "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
             else
                 "${cmd[@]}" || exit_code=$?
             fi
+            return $exit_code
+        }
 
-            if [ -f .forge-temp/exit-status ]; then
-                exit_status=$(cat .forge-temp/exit-status)
-                rm -f .forge-temp/exit-status
+        # --- Creating Pipeline ---
+        run_creating_pipeline() {
+            local project_name
+            project_name=$(basename "$(pwd)")
+            echo "[forge] Starting creating pipeline for: $project_name"
 
-                case "$exit_status" in
-                    complete)
-                        echo ""
-                        echo "[forge] All issues closed. Project complete!"
-                        exit 0
-                        ;;
-                    needs-human)
-                        echo ""
-                        echo "[forge] Action required. Review open PRs and check GitHub issues."
-                        echo "[forge] Polling for changes every 60s (Ctrl+C to stop)..."
-                        while true; do
-                            # Fetch all open agent PRs in a single call
-                            if ! agent_pr_json=$(gh pr list --state open -L 200 --json headRefName,reviewDecision \
-                                --jq '[.[] | select(.headRefName | startswith("agent/"))]'); then
-                                echo "[forge] Failed to query GitHub PRs. Run 'gh auth refresh' or check connectivity."
-                                exit 1
-                            fi
-                            review_change=$(echo "$agent_pr_json" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for x in d if x.get('reviewDecision')=='CHANGES_REQUESTED'))")
-                            agent_prs=$(echo "$agent_pr_json" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
-                            if [ "$review_change" -gt 0 ]; then
-                                echo "[forge] Review comments detected. Restarting to handle revisions..."
-                                break
-                            elif [ "$agent_prs" -eq 0 ]; then
-                                echo "[forge] No open agent PRs detected. Restarting to continue build loop..."
-                                break
-                            fi
+            # Create planning issue (if one doesn't already exist)
+            local plan_issue
+            plan_issue=$(gh issue list --state open --json number,title \
+                --jq '[.[] | select(.title | startswith("Planning:"))] | .[0].number // empty' 2>/dev/null)
 
-                            # Check for human responses on needs-human issues
-                            if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
-                                --json number,comments -L 200 2>/dev/null); then
-                                has_response=$(echo "$needs_human_json" | python3 -c "
+            if [ -z "$plan_issue" ]; then
+                plan_issue=$(gh issue create \
+                    --title "Planning: $project_name" \
+                    --body "Forge creating pipeline. Stages will post their analysis as comments." \
+                    --label "ai-generated" 2>/dev/null | grep -o '[0-9]*$')
+                if [ -z "$plan_issue" ]; then
+                    echo "[forge] Failed to create planning issue."
+                    return 1
+                fi
+            fi
+            echo "[forge] Planning issue: #$plan_issue"
+
+            if ! run_claude_session "/forge-create-orchestrator $plan_issue"; then
+                echo "[forge] Creating orchestrator failed."
+                return 1
+            fi
+            echo "[forge] Creating pipeline complete."
+        }
+
+        # --- Resolving Pipeline ---
+        # Usage: run_resolving_pipeline <issue-number>
+        run_resolving_pipeline() {
+            local issue="$1"
+            echo "[forge] Starting resolving pipeline for issue #$issue"
+
+            if ! run_claude_session "/forge-resolve-orchestrator $issue"; then
+                echo "[forge] Resolving orchestrator failed for issue #$issue."
+                return 1
+            fi
+            echo "[forge] Resolving pipeline complete for issue #$issue"
+            return 0
+        }
+
+        # --- Revise stage (on demand, via resolve orchestrator) ---
+        run_revise_stage() {
+            local issue="$1"
+            echo "[forge] Running revision cycle for issue #$issue"
+
+            if ! run_claude_session "/forge-resolve-orchestrator $issue --revise"; then
+                echo "[forge] Revision orchestrator failed for issue #$issue."
+                return 1
+            fi
+            return 0
+        }
+
+        # --- Apply 24h timeout default ---
+        # Posts acknowledgment and removes needs-human label
+        apply_timeout_default() {
+            local issue="$1"
+            echo "[forge] 24h timeout on issue #$issue. Applying default option..."
+            gh issue comment "$issue" --body "## Acknowledged
+
+24-hour timeout reached. Applying the default option specified in the escalation comment above.
+
+*Applied automatically by the Forge pipeline orchestrator.*" 2>/dev/null || true
+            gh issue edit "$issue" --remove-label "agent:needs-human" 2>/dev/null || true
+        }
+
+        # --- Determine next action ---
+        # Prints one of: create, resolve:<issue>, revise:<issue>, wait, done
+        determine_next_action() {
+            # Check for needs-human issues with responses or timeouts
+            local needs_human_json
+            if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
+                --json number,comments -L 200 2>/dev/null); then
+
+                # Check for human responses (highest priority)
+                local responded_issue
+                responded_issue=$(echo "$needs_human_json" | python3 -c "
 import json, sys, re
 issues = json.load(sys.stdin)
-agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
+agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged|\[Stage:)', re.MULTILINE)
 for issue in issues:
     comments = issue.get('comments', [])
-    # Find last agent escalation comment
     q_idx = -1
     for i, c in enumerate(comments):
         if agent_header.search(c.get('body', '')):
             q_idx = i
     if q_idx >= 0:
-        # Any comment after the question that is NOT an agent header = human response
         for c in comments[q_idx + 1:]:
             if not agent_header.search(c.get('body', '')):
-                print('responded')
+                print(issue['number'])
                 sys.exit(0)
-print('waiting')
-")
-                                if [ "$has_response" = "responded" ]; then
-                                    echo "[forge] Human response detected on a needs-human issue. Restarting..."
-                                    break
-                                fi
+" 2>/dev/null)
+                if [ -n "$responded_issue" ]; then
+                    gh issue edit "$responded_issue" --remove-label "agent:needs-human" 2>/dev/null || true
+                    echo "resolve:$responded_issue"
+                    return
+                fi
 
-                                # Check 24h timeout on most recent question
-                                timeout_hit=$(echo "$needs_human_json" | python3 -c "
+                # Check for 24h timeout (separate from response detection)
+                local timeout_issue
+                timeout_issue=$(echo "$needs_human_json" | python3 -c "
 import json, sys, re
 from datetime import datetime, timezone
 issues = json.load(sys.stdin)
-pattern = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged)', re.MULTILINE)
+agent_header = re.compile(r'^## (Agent Question|Build Failed|Revision Limit Reached|Merge Conflict|Acknowledged|\[Stage:)', re.MULTILINE)
 now = datetime.now(timezone.utc)
 for issue in issues:
     comments = issue.get('comments', [])
     for c in reversed(comments):
-        if pattern.search(c.get('body', '')):
+        body = c.get('body', '')
+        if agent_header.search(body):
             created = c.get('createdAt', '')
             if created:
-                t = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                if (now - t).total_seconds() >= 86400:
-                    print('timeout')
-                    sys.exit(0)
+                try:
+                    t = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    if (now - t).total_seconds() >= 86400:
+                        print(issue['number'])
+                        sys.exit(0)
+                except ValueError:
+                    pass
             break
-print('waiting')
-")
-                                if [ "$timeout_hit" = "timeout" ]; then
-                                    echo "[forge] 24h timeout reached on a needs-human issue. Restarting to apply default..."
-                                    break
-                                fi
-                            fi
-
-                            sleep 60
-                        done
-                        ;;
-                    error)
-                        echo ""
-                        echo "[forge] Session ended with errors. Check GitHub issues."
-                        exit 1
-                        ;;
-                    needs-restart)
-                        echo "[forge] More work to do. Restarting in 5s..."
-                        sleep 5
-                        ;;
-                    *)
-                        echo "[forge] Unknown status: $exit_status. Restarting in 5s..."
-                        sleep 5
-                        ;;
-                esac
-            else
-                echo "[forge] Session ended without status (exit code $exit_code). Restarting in 5s..."
-                sleep 5
+" 2>/dev/null)
+                if [ -n "$timeout_issue" ]; then
+                    apply_timeout_default "$timeout_issue"
+                    echo "resolve:$timeout_issue"
+                    return
+                fi
             fi
-        done
 
-        echo ""
-        echo "[forge] Reached max sessions ($max_sessions). Check progress on GitHub."
-        exit 1
-        ;;
-    help)
-        case "${2:-}" in
-            init)
-                echo "forge init — Bootstrap a new Forge project"
-                echo ""
-                echo "Usage: forge init [--resume]"
-                echo ""
-                echo "Creates a new Forge project in the current directory:"
-                echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
-                echo "  2. Scaffolds a Next.js app from your PROMPT.md"
-                echo "  3. Creates a GitHub repo with branch protection and CI"
-                echo "  4. Links a Vercel project for preview deploys"
-                echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
-                echo ""
-                echo "Options:"
-                echo "  --resume    Resume from where a previous bootstrap stopped"
-                echo ""
-                echo "Requires PROMPT.md in the current directory."
-                ;;
-            run)
-                echo "forge run — Autonomous headless build loop"
-                echo ""
-                echo "Usage: forge run [--max-sessions N] [--max-budget N] [--timeout N]"
-                echo ""
-                echo 'Runs claude -p "/forge" in a restart loop. Each session syncs'
-                echo "state from GitHub, builds the next issue, and writes exit status."
-                echo "The loop restarts until all issues are closed or human input is needed."
-                echo ""
-                echo "Options:"
-                echo "  --max-sessions N   Maximum restarts (default: 20)"
-                echo "  --max-budget N     API spend cap per session in USD"
-                echo "  --timeout N        Wall-clock timeout per session in seconds"
-                ;;
-            status)
-                echo "forge status — Show current project progress"
-                echo ""
-                echo "Usage: forge status"
-                echo ""
-                echo "Reads .forge-temp/status.json (written by /forge after each /sync)"
-                echo "and displays issue counts, completion percentage, and last exit status."
-                ;;
-            update)
-                echo "forge update — Update Forge itself"
-                echo ""
-                echo "Usage: forge update"
-                echo ""
-                echo "Pulls the latest version of Forge from GitHub and regenerates"
-                echo "the CLI. Run 'forge upgrade' inside a project to update its artifacts."
-                ;;
-            upgrade)
-                echo "forge upgrade — Update project artifacts"
-                echo ""
-                echo "Usage: forge upgrade"
-                echo ""
-                echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
-                echo "to match the installed Forge version. Creates a backup first."
-                echo ""
-                echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
-                ;;
-            doctor)
-                echo "forge doctor — Health check"
-                echo ""
-                echo "Usage: forge doctor"
-                echo ""
-                echo "Checks tool versions, authentication, disk space, and whether"
-                echo "project artifacts are up-to-date with the installed Forge version."
-                ;;
-            uninstall)
-                echo "forge uninstall — Remove Forge"
-                echo ""
-                echo "Usage: forge uninstall"
-                echo ""
-                echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
-                echo "shell config files. Does NOT affect existing Forge projects."
-                ;;
-            "")
-                echo "Usage: forge help <command>"
-                echo ""
-                echo "Commands: init, run, status, update, upgrade, doctor, uninstall, version"
-                ;;
-            *)
-                echo "Unknown command: $2"
-                echo "Run 'forge help' for available commands."
-                ;;
-        esac
+            # Check for agent:done issues needing revision (CHANGES_REQUESTED on PR)
+            local done_issues
+            done_issues=$(gh issue list --state open --label "agent:done" --json number -L 200 --jq '.[].number' 2>/dev/null || true)
+            for done_issue in $done_issues; do
+                local pr_review
+                pr_review=$(gh pr list --search "closes #$done_issue" --json reviewDecision --jq '.[0].reviewDecision' 2>/dev/null || true)
+                if [ "$pr_review" = "CHANGES_REQUESTED" ]; then
+                    echo "revise:$done_issue"
+                    return
+                fi
+                # Check for CI failures
+                local pr_number
+                pr_number=$(gh pr list --search "closes #$done_issue" --json number --jq '.[0].number' 2>/dev/null || true)
+                if [ -n "$pr_number" ]; then
+                    local ci_status
+                    ci_status=$(gh pr checks "$pr_number" 2>/dev/null | grep -c "fail" || true)
+                    if [ "$ci_status" -gt 0 ]; then
+                        echo "revise:$done_issue"
+                        return
+                    fi
+                fi
+            done
+
+            # Check for in-progress stage issues (resume interrupted pipeline)
+            local stage_issues
+            stage_issues=$(gh issue list --state open --json number,labels -L 200 --jq '
+                [.[] | select(.labels | map(.name) | any(startswith("stage:")))] | sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+            if [ -n "$stage_issues" ]; then
+                # Determine which pipeline based on the stage label
+                local stage_label
+                stage_label=$(gh issue view "$stage_issues" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[0]' 2>/dev/null || true)
+                if echo "$stage_label" | grep -q "stage:create-"; then
+                    # Creating pipeline was interrupted — remove stale label, orchestrator will resume
+                    gh issue edit "$stage_issues" --remove-label "$stage_label" 2>/dev/null || true
+                    echo "create"
+                    return
+                elif echo "$stage_label" | grep -q "stage:resolve-"; then
+                    echo "resolve:$stage_issues"
+                    return
+                fi
+            fi
+
+            # Check for backlog issues (no agent:* or stage:* labels)
+            local backlog_issue
+            backlog_issue=$(gh issue list --state open --json number,labels -L 200 --jq '
+                [.[] | select(.labels | map(.name) | all(
+                    (startswith("agent:") | not) and (startswith("stage:") | not)
+                ))] | sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+            if [ -n "$backlog_issue" ]; then
+                echo "resolve:$backlog_issue"
+                return
+            fi
+
+            # Check if PROMPT.md exists and no issues have been filed yet (need planning)
+            if [ -f "PROMPT.md" ]; then
+                local total_issues
+                total_issues=$(gh issue list --state all --json number -L 1 --jq 'length' 2>/dev/null || true)
+                if [ "${total_issues:-0}" -eq 0 ]; then
+                    echo "create"
+                    return
+                fi
+                # Check for graveyard — if PROMPT.md exists but hasn't been archived, might need re-planning
+                if [ ! -d "graveyard" ]; then
+                    # PROMPT.md exists, issues exist, no graveyard — could be mid-planning
+                    # Check if any planning issues exist
+                    local planning_issues
+                    planning_issues=$(gh issue list --state all --search "Planning:" --json number -L 1 --jq 'length' 2>/dev/null || true)
+                    if [ "${planning_issues:-0}" -eq 0 ]; then
+                        echo "create"
+                        return
+                    fi
+                fi
+            fi
+
+            # Check if all issues are closed
+            local open_count
+            open_count=$(gh issue list --state open --json number -L 200 --jq 'length' 2>/dev/null || true)
+            if [ "${open_count:-0}" -eq 0 ]; then
+                # Check for audit mode (graveyard exists, all closed)
+                if [ -d "graveyard" ]; then
+                    echo "done"
+                    return
+                fi
+            fi
+
+            # Needs-human issues still open with no response, or agent:done PRs awaiting merge
+            if [ -n "$done_issues" ] || [ -n "$needs_human_json" ]; then
+                echo "wait"
+                return
+            fi
+
+            echo "done"
+        }
+
+        # --- Main orchestrator loop ---
+        check_auth
+
+        while true; do
+            echo "[forge] Determining next action..."
+            action=$(determine_next_action)
+
+            case "$action" in
+                create)
+                    run_creating_pipeline
+                    result=$?
+                    if [ "$result" -eq 2 ]; then
+                        # Pipeline blocked — wait for human
+                        echo "[forge] Pipeline blocked. Polling for human response..."
+                    elif [ "$result" -ne 0 ]; then
+                        echo "[forge] Creating pipeline failed."
+                        exit 1
+                    fi
+                    ;;
+                resolve:*)
+                    issue="${action#resolve:}"
+                    run_resolving_pipeline "$issue"
+                    result=$?
+                    if [ "$result" -eq 2 ]; then
+                        echo "[forge] Pipeline blocked on issue #$issue. Continuing..."
+                    elif [ "$result" -ne 0 ]; then
+                        echo "[forge] Resolving pipeline failed on issue #$issue. Continuing..."
+                    fi
+                    ;;
+                revise:*)
+                    issue="${action#revise:}"
+                    run_revise_stage "$issue"
+                    ;;
+                wait)
+                    echo "[forge] Waiting for human input or PR merge. Polling every 60s..."
+                    while true; do
+                        sleep 60
+                        check_auth
+                        next=$(determine_next_action)
+                        if [ "$next" != "wait" ]; then
+                            echo "[forge] Change detected. Resuming..."
+                            break
+                        fi
+                    done
+                    ;;
+                done)
+                    echo ""
+                    echo "[forge] All issues closed. Project complete!"
+                    exit 0
+                    ;;
+                *)
+                    echo "[forge] Unexpected action: $action"
+                    exit 1
+                    ;;
+            esac
+        done
         ;;
     uninstall)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge uninstall — Remove Forge"
+            echo ""
+            echo "Usage: forge uninstall"
+            echo ""
+            echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
+            echo "shell config files. Does NOT affect existing Forge projects."
+            exit 0
+        fi
+
         echo ""
         echo "This will remove Forge from your system."
         echo ""
@@ -925,46 +1044,29 @@ print('waiting')
         echo ""
         exit 0
         ;;
-    version)
-        echo "Forge $(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)"
-        ;;
-    *)
-        FORGE_VERSION=$(git -C "$FORGE_REPO" describe --tags 2>/dev/null || git -C "$FORGE_REPO" rev-parse --short HEAD)
-
-        echo ""
-        echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
-        echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
-        echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
-        echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
-        echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
-        echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
-        echo ""
-        echo -e "  Autonomous Next.js Development      ${DIM}${FORGE_VERSION}${NC}"
-        echo ""
+    --help|-h|*)
+        show_banner
         echo "Usage: forge <command>"
         echo ""
         echo "Commands:"
         echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
-        echo "  run              Run the autonomous build loop (headless, with restarts)"
-        echo "  status           Show current project progress"
+        echo "  run              Run the autonomous build loop (headless)"
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
         echo "  uninstall        Remove Forge from your system"
-        echo "  version          Show installed version"
-        echo "  help <command>   Show detailed help for a command"
         echo ""
-        echo "Run flags:"
-        echo "  --max-sessions N   Maximum session restarts (default: 20)"
-        echo "  --max-budget N     Max API spend per session in USD"
-        echo "  --timeout N        Wall-clock timeout per session in seconds"
+        echo "Flags:"
+        echo "  --version          Show installed version"
+        echo ""
+        echo "Run 'forge <command> --help' for detailed help on a command."
         echo ""
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"
         echo "  2. Write a PROMPT.md describing your app"
         echo "  3. forge init"
-        echo "  4. claude"
+        echo "  4. forge run"
         ;;
 esac
 FORGE_CMD
@@ -999,7 +1101,7 @@ echo ""
 echo "    mkdir my-app && cd my-app"
 echo "    # Describe your app in PROMPT.md"
 echo "    forge init"
-echo "    claude"
+echo "    forge run"
 echo ""
 # Fish shell support
 FISH_CONFIG="$HOME/.config/fish/conf.d/forge.fish"

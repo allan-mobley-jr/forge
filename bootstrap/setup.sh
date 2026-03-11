@@ -115,14 +115,14 @@ info "Forge:   $FORGE_REPO"
 echo ""
 
 # ============================================================
-# Phase 1: Tool Installation Checks (Steps 1-9)
+# Phase 1: Tool Installation Checks
 # ============================================================
 
 info "--- Checking tools ---"
 
-# Step 1: Homebrew
-step_01_homebrew() {
-    local label="1. Homebrew installed"
+# Homebrew
+check_homebrew() {
+    local label="Homebrew installed"
     if command -v brew &>/dev/null; then
         skip "$label"
         return
@@ -132,9 +132,9 @@ step_01_homebrew() {
     ok "$label"
 }
 
-# Step 2: Node.js (>= 18 required)
-step_02_node() {
-    local label="2. Node.js installed (>= 18)"
+# Node.js (>= 18 required)
+check_node() {
+    local label="Node.js installed (>= 18)"
     if command -v node &>/dev/null; then
         local node_major
         node_major=$(node --version | sed 's/v//' | cut -d. -f1)
@@ -151,9 +151,9 @@ step_02_node() {
     ok "$label"
 }
 
-# Step 3: pnpm (>= 8 required)
-step_03_pnpm() {
-    local label="3. pnpm installed (>= 8)"
+# pnpm (>= 8 required)
+check_pnpm() {
+    local label="pnpm installed (>= 8)"
     if command -v pnpm &>/dev/null; then
         local pnpm_major
         pnpm_major=$(pnpm --version | cut -d. -f1)
@@ -170,9 +170,9 @@ step_03_pnpm() {
     ok "$label"
 }
 
-# Step 4: gh CLI
-step_04_gh() {
-    local label="4. gh CLI installed"
+# gh CLI
+check_gh() {
+    local label="gh CLI installed"
     if command -v gh &>/dev/null; then
         skip "$label"
         return
@@ -181,9 +181,9 @@ step_04_gh() {
     ok "$label"
 }
 
-# Step 5: gh authenticated
-step_05_gh_auth() {
-    local label="5. gh authenticated"
+# gh authenticated
+check_gh_auth() {
+    local label="gh authenticated"
     if gh auth status &>/dev/null; then
         skip "$label"
         return
@@ -193,9 +193,9 @@ step_05_gh_auth() {
     ok "$label"
 }
 
-# Step 6: SSH key
-step_06_ssh_key() {
-    local label="6. SSH key exists"
+# SSH key
+check_ssh_key() {
+    local label="SSH key exists"
     if ls ~/.ssh/id_*.pub &>/dev/null; then
         skip "$label"
         return
@@ -208,9 +208,9 @@ step_06_ssh_key() {
     ok "$label"
 }
 
-# Step 7: git config (identity + SSH signing)
-step_07_git_config() {
-    local label="7. git config (identity, SSH signing)"
+# git config (identity + SSH signing)
+check_git_config() {
+    local label="git config (identity, SSH signing)"
     if git config --global user.name &>/dev/null \
         && git config --global user.email &>/dev/null \
         && git config --global commit.gpgsign &>/dev/null; then
@@ -245,9 +245,9 @@ step_07_git_config() {
     ok "$label"
 }
 
-# Step 8: Vercel CLI
-step_08_vercel() {
-    local label="8. Vercel CLI installed"
+# Vercel CLI
+check_vercel() {
+    local label="Vercel CLI installed"
     # Ensure PNPM_HOME is on PATH so command -v can find globally-installed bins.
     # On --resume, PNPM_HOME was written to .zshrc by a previous run but isn't
     # in the current shell's PATH yet.
@@ -283,9 +283,9 @@ step_08_vercel() {
     ok "$label"
 }
 
-# Step 9: Vercel authenticated
-step_09_vercel_auth() {
-    local label="9. Vercel authenticated"
+# Vercel authenticated
+check_vercel_auth() {
+    local label="Vercel authenticated"
     if vercel whoami &>/dev/null; then
         skip "$label"
         return
@@ -296,15 +296,15 @@ step_09_vercel_auth() {
 }
 
 # ============================================================
-# Phase 2: Project Setup (Steps 10-22)
+# Phase 2: Project Setup
 # ============================================================
 
 echo ""
 info "--- Setting up project ---"
 
-# Step 10: git init
-step_10_git_init() {
-    local label="10. git initialized"
+# git init
+init_git() {
+    local label="git initialized"
     if [ -d .git ]; then
         skip "$label"
         return
@@ -313,9 +313,9 @@ step_10_git_init() {
     ok "$label"
 }
 
-# Step 10b: Scaffold Next.js app
-step_10b_scaffold() {
-    local label="10b. Next.js app scaffolded"
+# Scaffold Next.js app
+scaffold_nextjs() {
+    local label="Next.js app scaffolded"
     # Restore PROMPT.md if stranded by a previous interrupted run
     if [ ! -f PROMPT.md ] && [ -f "$PROMPT_BACKUP" ]; then
         mv "$PROMPT_BACKUP" PROMPT.md
@@ -335,11 +335,11 @@ step_10b_scaffold() {
     ok "$label"
 }
 
-# Step 10b2: Fix pnpm-workspace.yaml missing packages field
+# Fix pnpm-workspace.yaml missing packages field
 # create-next-app generates pnpm-workspace.yaml without a packages field,
 # which causes CI to fail at actions/setup-node@v4.
-step_10b2_fix_pnpm_workspace() {
-    local label="10b2. pnpm-workspace.yaml has packages field"
+fix_pnpm_workspace() {
+    local label="pnpm-workspace.yaml has packages field"
     if [ ! -f pnpm-workspace.yaml ]; then
         skip "$label (no pnpm-workspace.yaml)"
         return
@@ -360,9 +360,9 @@ EOF
     ok "$label"
 }
 
-# Step 10c: Install test dependencies
-step_10c_test_deps() {
-    local label="10c. Test dependencies installed"
+# Install test dependencies
+install_test_deps() {
+    local label="Test dependencies installed"
     if node -e "const p=require('./package.json'); process.exit(p.devDependencies?.vitest ? 0 : 1)" 2>/dev/null; then
         skip "$label"
         return
@@ -374,9 +374,9 @@ step_10c_test_deps() {
     ok "$label"
 }
 
-# Step 10d: Test configuration files
-step_10d_test_config() {
-    local label="10d. Test configuration"
+# Test configuration files
+write_test_config() {
+    local label="Test configuration"
     if [ -f vitest.config.ts ]; then
         skip "$label"
         return
@@ -459,10 +459,10 @@ PLAYWRIGHT
     ok "$label"
 }
 
-# Step 10e: Generate AGENTS.md (Next.js docs index)
+# Generate AGENTS.md (Next.js docs index)
 # Try @latest first; fall back to @canary where the subcommand already exists.
-step_10e_agents_md() {
-    local label="10e. AGENTS.md (Next.js docs index)"
+generate_agents_md() {
+    local label="AGENTS.md (Next.js docs index)"
     if [ -f AGENTS.md ]; then
         skip "$label"
         return
@@ -475,9 +475,9 @@ step_10e_agents_md() {
     fi
 }
 
-# Step 11: Initial commit
-step_11_initial_commit() {
-    local label="11. Initial commit"
+# Initial commit
+initial_commit() {
+    local label="Initial commit"
     if git rev-parse HEAD &>/dev/null; then
         skip "$label"
         return
@@ -487,9 +487,9 @@ step_11_initial_commit() {
     ok "$label"
 }
 
-# Step 12: Create GitHub repo
-step_12_github_repo() {
-    local label="12. GitHub repository"
+# Create GitHub repo
+create_github_repo() {
+    local label="GitHub repository"
     if git remote get-url origin &>/dev/null; then
         skip "$label"
         return
@@ -517,9 +517,9 @@ step_12_github_repo() {
     ok "$label"
 }
 
-# Step 13: Push to GitHub (fallback if step 12's --push didn't cover it)
-step_13_push() {
-    local label="13. Pushed to GitHub"
+# Push to GitHub (fallback if create_github_repo's --push didn't cover it)
+push_to_github() {
+    local label="Pushed to GitHub"
     if git rev-parse --verify origin/main &>/dev/null 2>&1; then
         skip "$label"
         return
@@ -528,9 +528,9 @@ step_13_push() {
     ok "$label"
 }
 
-# Step 14: Vercel project linked
-step_14_vercel_link() {
-    local label="14. Vercel project linked"
+# Vercel project linked
+link_vercel() {
+    local label="Vercel project linked"
     if [ -f .vercel/project.json ]; then
         skip "$label"
         return
@@ -540,9 +540,9 @@ step_14_vercel_link() {
     ok "$label"
 }
 
-# Step 14b: Connect GitHub repo to Vercel (non-critical)
-step_14b_vercel_git_connect() {
-    local label="14b. Vercel GitHub integration"
+# Connect GitHub repo to Vercel (non-critical)
+connect_vercel_git() {
+    local label="Vercel GitHub integration"
     info "  Connecting GitHub repo to Vercel..."
     local output status=0
     output=$(vercel git connect --yes 2>&1) || status=$?
@@ -553,21 +553,22 @@ step_14b_vercel_git_connect() {
     fi
 }
 
-# Step 15: Copy skills
-step_15_copy_skills() {
-    local label="15. Forge skills installed"
-    if [ -f .claude/skills/forge/SKILL.md ]; then
+# Install skills and agents
+install_skills() {
+    local label="Forge skills and agents installed"
+    if [ -f .claude/skills/forge-create-orchestrator/SKILL.md ]; then
         skip "$label"
         return
     fi
-    mkdir -p .claude/skills
+    mkdir -p .claude/skills .claude/agents
     cp -r "$FORGE_REPO/skills/"* .claude/skills/
+    cp "$FORGE_REPO/agents/"*.md .claude/agents/
     ok "$label"
 }
 
-# Step 15b: Install official vendor skills
-step_15b_vendor_skills() {
-    local label="15b. Official vendor skills"
+# Install official vendor skills
+setup_vendor_skills() {
+    local label="Official vendor skills"
     if [ -f .claude/skills/.vendor-skills-installed ]; then
         skip "$label"
         return
@@ -587,9 +588,9 @@ step_15b_vendor_skills() {
     fi
 }
 
-# Step 16: Copy hooks
-step_16_copy_hooks() {
-    local label="16. Hooks configuration"
+# Install hooks
+install_hooks() {
+    local label="Hooks configuration"
     if [ -f .claude/settings.json ]; then
         skip "$label"
         return
@@ -616,9 +617,9 @@ if plugins:
     ok "$label"
 }
 
-# Step 17: Copy CI workflow
-step_17_copy_ci() {
-    local label="17. CI workflow"
+# Install CI workflow
+install_ci_workflows() {
+    local label="CI workflow"
     if [ -f .github/workflows/ci.yml ] && [ -f .github/workflows/deploy-production.yml ]; then
         skip "$label"
         return
@@ -629,9 +630,9 @@ step_17_copy_ci() {
     ok "$label"
 }
 
-# Step 18: Generate CLAUDE.md (requires perl)
-step_18_generate_claude_md() {
-    local label="18. CLAUDE.md generated"
+# Generate CLAUDE.md (requires perl)
+generate_claude_md() {
+    local label="CLAUDE.md generated"
     if [ -f CLAUDE.md ]; then
         skip "$label"
         return
@@ -671,9 +672,9 @@ step_18_generate_claude_md() {
     ok "$label"
 }
 
-# Step 18b: Commit project configuration
-step_18b_commit_config() {
-    local label="18b. Project configuration committed"
+# Commit project configuration
+commit_config() {
+    local label="Project configuration committed"
     if git log --oneline --grep="add Forge configuration" 2>/dev/null | grep -q .; then
         skip "$label"
         return
@@ -693,10 +694,10 @@ step_18b_commit_config() {
     ok "$label"
 }
 
-# Step 17b: PR merge mode (must run before step 18 — CLAUDE.md needs the mode)
+# PR merge mode (must run before generate_claude_md — CLAUDE.md needs the mode)
 FORGE_MERGE_MODE=""
-step_17b_merge_mode() {
-    local label="17b. PR merge mode"
+configure_merge_mode() {
+    local label="PR merge mode"
     # Resume: detect from config.json
     if [ -z "$FORGE_MERGE_MODE" ]; then
         local project_name
@@ -732,9 +733,9 @@ except:
     ok "$label (${FORGE_MERGE_MODE})"
 }
 
-# Step 19: Branch protection (non-critical)
-step_19_branch_protection() {
-    local label="19. Branch protection ruleset"
+# Branch protection (non-critical)
+setup_branch_protection() {
+    local label="Branch protection ruleset"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
@@ -852,9 +853,9 @@ print(json.dumps(ruleset, indent=2))
     ok "$label"
 }
 
-# Step 19b: Repository settings (non-critical)
-step_19b_repo_settings() {
-    local label="19b. Repository settings"
+# Repository settings (non-critical)
+configure_repo_settings() {
+    local label="Repository settings"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
@@ -885,9 +886,9 @@ SETTINGS
     ok "$label"
 }
 
-# Step 19c: Verify Copilot code review rule was applied (non-critical)
-step_19c_copilot_review() {
-    local label="19c. Copilot code review"
+# Verify Copilot code review rule was applied (non-critical)
+verify_copilot_review() {
+    local label="Copilot code review"
     if [ "$FORGE_MERGE_MODE" != "copilot" ]; then
         return
     fi
@@ -907,9 +908,9 @@ step_19c_copilot_review() {
     fi
 }
 
-# Step 19d: Create production branch (non-critical)
-step_19d_production_branch() {
-    local label="19d. Production branch"
+# Create production branch (non-critical)
+create_production_branch() {
+    local label="Production branch"
     # Check remote directly (local tracking refs may be stale on resume)
     if git ls-remote --heads origin production 2>/dev/null | grep -q production; then
         skip "$label"
@@ -927,9 +928,9 @@ step_19d_production_branch() {
     ok "$label"
 }
 
-# Step 19e: Vercel production config (non-critical)
-step_19e_vercel_production_config() {
-    local label="19e. Vercel production config"
+# Vercel production config (non-critical)
+configure_vercel_production() {
+    local label="Vercel production config"
     if ! command -v vercel &>/dev/null; then
         add_warning "Vercel CLI not found — skipping Vercel production config."
         return
@@ -979,9 +980,9 @@ exit(0 if any(e.get('slug')=='staging' for e in envs) else 1)
     ok "$label"
 }
 
-# Step 19f: Production branch protection (non-critical)
-step_19f_production_protection() {
-    local label="19f. Production branch protection"
+# Production branch protection (non-critical)
+protect_production_branch() {
+    local label="Production branch protection"
     local repo
     repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
     if [ -z "$repo" ]; then
@@ -1040,12 +1041,11 @@ print(json.dumps(ruleset, indent=2))
     ok "$label"
 }
 
-# Step 20: Create labels (non-critical, --force makes it idempotent)
-step_20_create_labels() {
-    local label="20. GitHub label taxonomy"
+# Create labels (non-critical, --force makes it idempotent)
+create_labels() {
+    local label="GitHub label taxonomy"
     local failed=0
     info "  Creating labels..."
-    gh label create "agent:in-progress"  --color "FBCA04" --description "Agent actively working"         --force 2>/dev/null || failed=1
     gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"     --force 2>/dev/null || failed=1
     gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"      --force 2>/dev/null || failed=1
     gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"     --force 2>/dev/null || failed=1
@@ -1056,9 +1056,9 @@ step_20_create_labels() {
     ok "$label"
 }
 
-# Step 20b: Remove overlapping default labels (non-critical, idempotent)
-step_20b_cleanup_default_labels() {
-    local label="20b. Remove overlapping default labels"
+# Remove overlapping default labels (non-critical, idempotent)
+cleanup_default_labels() {
+    local label="Remove overlapping default labels"
     info "  Cleaning up default labels..."
     for name in "bug" "enhancement" "help wanted" "question"; do
         gh label delete "$name" --yes 2>/dev/null || true
@@ -1066,9 +1066,9 @@ step_20b_cleanup_default_labels() {
     ok "$label"
 }
 
-# Step 21: Write or update config (non-critical)
-step_21_write_config() {
-    local label="21. Forge config"
+# Write or update config (non-critical)
+write_forge_config() {
+    local label="Forge config"
     mkdir -p "$FORGE_CONFIG_DIR"
     local project_name github_repo
     project_name=$(basename "$PROJECT_DIR")
@@ -1111,44 +1111,44 @@ EOF
 # Run all steps
 # ============================================================
 
-step_01_homebrew
-step_02_node
-step_03_pnpm
-step_04_gh
-step_05_gh_auth
-step_06_ssh_key
-step_07_git_config
-step_08_vercel
-step_09_vercel_auth
+check_homebrew
+check_node
+check_pnpm
+check_gh
+check_gh_auth
+check_ssh_key
+check_git_config
+check_vercel
+check_vercel_auth
 
-step_10_git_init
-step_10b_scaffold
-step_10b2_fix_pnpm_workspace
-step_10c_test_deps
-step_10d_test_config
-step_10e_agents_md
-step_11_initial_commit
-step_12_github_repo
-step_13_push
-step_14_vercel_link
-step_14b_vercel_git_connect
-step_15_copy_skills
-step_15b_vendor_skills
-step_16_copy_hooks
-step_17_copy_ci
-step_17b_merge_mode
-step_18_generate_claude_md
-step_18b_commit_config
+init_git
+scaffold_nextjs
+fix_pnpm_workspace
+install_test_deps
+write_test_config
+generate_agents_md
+initial_commit
+create_github_repo
+push_to_github
+link_vercel
+connect_vercel_git
+install_skills
+setup_vendor_skills
+install_hooks
+install_ci_workflows
+configure_merge_mode
+generate_claude_md
+commit_config
 # Non-critical steps — failures are captured as warnings, not fatal
-step_19_branch_protection
-step_19b_repo_settings
-step_19c_copilot_review
-step_19d_production_branch
-step_19e_vercel_production_config
-step_19f_production_protection
-step_20_create_labels
-step_20b_cleanup_default_labels
-step_21_write_config || add_warning "Forge config write failed. Not critical — bootstrap metadata only."
+setup_branch_protection
+configure_repo_settings
+verify_copilot_review
+create_production_branch
+configure_vercel_production
+protect_production_branch
+create_labels
+cleanup_default_labels
+write_forge_config || add_warning "Forge config write failed. Not critical — bootstrap metadata only."
 
 # ============================================================
 # Done
@@ -1158,7 +1158,7 @@ print_summary
 echo ""
 echo "  Your Forge project is ready. Run:"
 echo ""
-echo "    claude"
+echo "    forge run"
 echo ""
-echo "  The /forge skill will auto-invoke and start planning your app."
+echo "  The pipeline orchestrator will start planning your app."
 echo ""

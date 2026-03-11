@@ -41,11 +41,11 @@
       "MultiEdit",
       "Glob",
       "Grep",
-      "Task",
       "Skill",
       "WebFetch",
       "WebSearch",
-      "TodoWrite"
+      "TodoWrite",
+      "Agent"
     ],
     "deny": [
       "Bash(rm -rf *)",
@@ -81,7 +81,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,sys,os; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); ap=os.path.abspath(p) if p else ''; blocked_exact=['.env','.env.local','.env.production','.env.development']; blocked_dirs=['.git/','node_modules/','.vercel/']; blocked_names=['CLAUDE.md','AGENTS.md']; blocked_prefixes=['.claude/skills/']; hit=any(os.path.basename(ap)==b for b in blocked_exact) or any(('/'+b) in (ap+'/') for b in blocked_dirs) or any(os.path.basename(ap)==b for b in blocked_names) or any(b in ap for b in blocked_prefixes); sys.exit(2 if hit else 0)\""
+            "command": "python3 -c \"import json,sys,os; d=json.load(sys.stdin); p=d.get('tool_input',{}).get('file_path',''); ap=os.path.abspath(p) if p else ''; blocked_exact=['.env','.env.local','.env.production','.env.development']; blocked_dirs=['.git/','node_modules/','.vercel/']; blocked_names=['CLAUDE.md','AGENTS.md']; blocked_prefixes=['.claude/skills/','.claude/agents/']; hit=any(os.path.basename(ap)==b for b in blocked_exact) or any(('/'+b) in (ap+'/') for b in blocked_dirs) or any(os.path.basename(ap)==b for b in blocked_names) or any(b in ap for b in blocked_prefixes); sys.exit(2 if hit else 0)\""
           }
         ]
       },
@@ -100,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '--- FORGE CONTEXT RECOVERY ---'; echo 'You are the Forge orchestrator in a build loop.'; if [ -f .forge-temp/status.json ]; then echo 'Current progress:'; cat .forge-temp/status.json; fi; if [ -f .forge-temp/current-issue ]; then echo \"Currently working on issue #$(cat .forge-temp/current-issue)\"; fi; echo 'After compaction, re-run /forge to sync state and continue.'; echo '--- END RECOVERY ---'"
+            "command": "echo '--- FORGE CONTEXT RECOVERY ---'; echo 'You are running as a Forge pipeline stage.'; if [ -f .forge-temp/current-issue ]; then echo \"Working on issue #$(cat .forge-temp/current-issue)\"; fi; echo 'Complete your current stage task and post the output comment.'; echo '--- END RECOVERY ---'"
           }
         ]
       }
@@ -130,7 +130,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import json,subprocess,os\nsession_log='.forge-temp/session.log'; issue_file='.forge-temp/current-issue'; status_file='.forge-temp/status.json'; exit_file='.forge-temp/exit-status'\nif os.path.exists(session_log) and os.path.exists(issue_file):\n    issue=open(issue_file).read().strip(); files=open(session_log).read().strip()\n    if files:\n        body='Session ended. Files modified:\\\\n\\\\n'+'\\\\n'.join('- '+f for f in sorted(set(files.splitlines())))\n        subprocess.run(['gh','issue','comment',issue,'--body',body],capture_output=True)\nexisting=open(exit_file).read().strip() if os.path.exists(exit_file) else ''\nif not existing:\n    status='needs-restart'\n    if os.path.exists(status_file):\n        try:\n            data=json.load(open(status_file)); iss=data.get('issues',{})\n            if iss.get('total',0)>0 and iss.get('closed',0)==iss.get('total',0): status='complete'\n            elif iss.get('revision_needed',0)>0: status='needs-restart'\n            elif iss.get('done_awaiting_merge',0)>0 and iss.get('in_progress',0)==0: status='needs-human'\n            elif iss.get('in_progress',0)==0 and iss.get('needs_human',0)>0: status='needs-human'\n        except: status='error'\n    os.makedirs('.forge-temp',exist_ok=True)\n    open(exit_file,'w').write(status)\nfor f in [session_log,issue_file]:\n    if os.path.exists(f): os.remove(f)\""
+            "command": "python3 -c \"import os\nsession_log='.forge-temp/session.log'\nif os.path.exists(session_log): os.remove(session_log)\""
           }
         ]
       }
