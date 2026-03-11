@@ -491,7 +491,7 @@ except:
         fi
 
         if command -v python3 &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} python3 $(python3 --version 2>/dev/null | awk '{print $2}')"
+            echo -e "  ${GREEN}✓${NC} python3 $(python3 --version 2>&1 | awk '{print $2}')"
         else
             echo -e "  ${RED}✗${NC} python3 not installed (required; install with: brew install python3)"
         fi
