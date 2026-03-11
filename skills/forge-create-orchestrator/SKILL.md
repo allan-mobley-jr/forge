@@ -61,7 +61,7 @@ For each stage:
 
 1. **Set stage label:**
    ```bash
-   gh issue edit <issue> --add-label "stage:create-<stage>"
+   gh issue edit <issue> --add-label "agent:create-<stage>"
    ```
 
 2. **Build the Agent prompt:** Compose a prompt with curated context from prior stages (see Context Curation below) and the issue number. The agent's own instructions are built into its definition — you only need to provide context.
@@ -84,8 +84,8 @@ For each stage:
 
 5. **Remove stage label:**
    ```bash
-   # Remove any existing stage: labels
-   existing=$(gh issue view <issue> --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]')
+   # Remove any existing pipeline stage labels
+   existing=$(gh issue view <issue> --json labels --jq '[.labels[].name | select(startswith("agent:create-") or startswith("agent:resolve-"))] | .[]')
    for label in $existing; do gh issue edit <issue> --remove-label "$label"; done
    ```
 

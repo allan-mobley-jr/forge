@@ -518,12 +518,12 @@ except:
         if gh auth status &>/dev/null 2>&1; then
             local required_labels=(
                 "agent:planning" "agent:done" "agent:needs-human" "ai-generated"
-                "stage:create-researcher" "stage:create-architect" "stage:create-designer"
-                "stage:create-stacker" "stage:create-assessor" "stage:create-planner"
-                "stage:create-advocate" "stage:create-filer"
-                "stage:resolve-researcher" "stage:resolve-planner" "stage:resolve-implementor"
-                "stage:resolve-tester" "stage:resolve-reviewer" "stage:resolve-opener"
-                "stage:resolve-reviser"
+                "agent:create-researcher" "agent:create-architect" "agent:create-designer"
+                "agent:create-stacker" "agent:create-assessor" "agent:create-planner"
+                "agent:create-advocate" "agent:create-filer"
+                "agent:resolve-researcher" "agent:resolve-planner" "agent:resolve-implementor"
+                "agent:resolve-tester" "agent:resolve-reviewer" "agent:resolve-opener"
+                "agent:resolve-reviser"
             )
             local existing_labels
             existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
@@ -708,21 +708,21 @@ except:
             "agent:done|0e8a16|PR opened, awaiting review"
             "agent:needs-human|d93f0b|Blocked on human decision"
             "ai-generated|EEEEEE|Issue or PR filed by agent"
-            "stage:create-researcher|1d76db|Creating stage: researcher"
-            "stage:create-architect|1d76db|Creating stage: architect"
-            "stage:create-designer|1d76db|Creating stage: designer"
-            "stage:create-stacker|1d76db|Creating stage: stacker"
-            "stage:create-assessor|1d76db|Creating stage: assessor"
-            "stage:create-planner|1d76db|Creating stage: planner"
-            "stage:create-advocate|1d76db|Creating stage: advocate"
-            "stage:create-filer|1d76db|Creating stage: filer"
-            "stage:resolve-researcher|1d76db|Resolving stage: researcher"
-            "stage:resolve-planner|1d76db|Resolving stage: planner"
-            "stage:resolve-implementor|1d76db|Resolving stage: implementor"
-            "stage:resolve-tester|1d76db|Resolving stage: tester"
-            "stage:resolve-reviewer|1d76db|Resolving stage: reviewer"
-            "stage:resolve-opener|1d76db|Resolving stage: opener"
-            "stage:resolve-reviser|1d76db|Resolving stage: reviser"
+            "agent:create-researcher|1d76db|Creating stage: researcher"
+            "agent:create-architect|1d76db|Creating stage: architect"
+            "agent:create-designer|1d76db|Creating stage: designer"
+            "agent:create-stacker|1d76db|Creating stage: stacker"
+            "agent:create-assessor|1d76db|Creating stage: assessor"
+            "agent:create-planner|1d76db|Creating stage: planner"
+            "agent:create-advocate|1d76db|Creating stage: advocate"
+            "agent:create-filer|1d76db|Creating stage: filer"
+            "agent:resolve-researcher|1d76db|Resolving stage: researcher"
+            "agent:resolve-planner|1d76db|Resolving stage: planner"
+            "agent:resolve-implementor|1d76db|Resolving stage: implementor"
+            "agent:resolve-tester|1d76db|Resolving stage: tester"
+            "agent:resolve-reviewer|1d76db|Resolving stage: reviewer"
+            "agent:resolve-opener|1d76db|Resolving stage: opener"
+            "agent:resolve-reviser|1d76db|Resolving stage: reviser"
         )
 
         check_labels() {
@@ -752,9 +752,9 @@ except:
         # --- Set stage label on an issue ---
         set_stage_label() {
             local issue="$1" label="$2"
-            # Remove any existing stage: labels
+            # Remove any existing pipeline stage labels
             local existing
-            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("agent:create-") or startswith("agent:resolve-"))] | .[]' 2>/dev/null || true)
             for old_label in $existing; do
                 gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
             done
@@ -771,9 +771,9 @@ $reason
 
 *Escalated automatically by the Forge pipeline orchestrator.*"
             gh issue edit "$issue" --add-label "agent:needs-human" 2>/dev/null || true
-            # Remove stage labels
+            # Remove pipeline stage labels
             local existing
-            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]' 2>/dev/null || true)
+            existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(startswith("agent:create-") or startswith("agent:resolve-"))] | .[]' 2>/dev/null || true)
             for old_label in $existing; do
                 gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
             done
@@ -936,28 +936,28 @@ $reason
             # Check for in-progress stage issues (resume interrupted pipeline)
             local stage_issues
             stage_issues=$(gh issue list --state open --json number,labels -L 200 --jq '
-                [.[] | select(.labels | map(.name) | any(startswith("stage:")))] | sort_by(.number) | .[0].number // empty
+                [.[] | select(.labels | map(.name) | any(startswith("agent:create-") or startswith("agent:resolve-")))] | sort_by(.number) | .[0].number // empty
             ' 2>/dev/null || true)
             if [ -n "$stage_issues" ]; then
                 # Determine which pipeline based on the stage label
                 local stage_label
-                stage_label=$(gh issue view "$stage_issues" --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[0]' 2>/dev/null || true)
-                if echo "$stage_label" | grep -q "stage:create-"; then
+                stage_label=$(gh issue view "$stage_issues" --json labels --jq '[.labels[].name | select(startswith("agent:create-") or startswith("agent:resolve-"))] | .[0]' 2>/dev/null || true)
+                if echo "$stage_label" | grep -q "agent:create-"; then
                     # Creating pipeline was interrupted — remove stale label, orchestrator will resume
                     gh issue edit "$stage_issues" --remove-label "$stage_label" 2>/dev/null || true
                     echo "create"
                     return
-                elif echo "$stage_label" | grep -q "stage:resolve-"; then
+                elif echo "$stage_label" | grep -q "agent:resolve-"; then
                     echo "resolve:$stage_issues"
                     return
                 fi
             fi
 
-            # Check for backlog issues (no agent:* or stage:* labels)
+            # Check for backlog issues (no agent:* labels)
             local backlog_issue
             backlog_issue=$(gh issue list --state open --json number,labels -L 200 --jq '
                 [.[] | select(.labels | map(.name) | all(
-                    (startswith("agent:") | not) and (startswith("stage:") | not)
+                    startswith("agent:") | not
                 ))] | sort_by(.number) | .[0].number // empty
             ' 2>/dev/null || true)
             if [ -n "$backlog_issue" ]; then

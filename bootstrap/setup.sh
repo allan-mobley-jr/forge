@@ -1066,23 +1066,23 @@ create_labels() {
     gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"      --force 2>/dev/null || failed=1
 
     # Creating pipeline stage labels
-    gh label create "stage:create-researcher" --color "1d76db" --description "Creating stage: researcher" --force 2>/dev/null || failed=1
-    gh label create "stage:create-architect"  --color "1d76db" --description "Creating stage: architect"  --force 2>/dev/null || failed=1
-    gh label create "stage:create-designer"   --color "1d76db" --description "Creating stage: designer"   --force 2>/dev/null || failed=1
-    gh label create "stage:create-stacker"    --color "1d76db" --description "Creating stage: stacker"    --force 2>/dev/null || failed=1
-    gh label create "stage:create-assessor"   --color "1d76db" --description "Creating stage: assessor"   --force 2>/dev/null || failed=1
-    gh label create "stage:create-planner"    --color "1d76db" --description "Creating stage: planner"    --force 2>/dev/null || failed=1
-    gh label create "stage:create-advocate"   --color "1d76db" --description "Creating stage: advocate"   --force 2>/dev/null || failed=1
-    gh label create "stage:create-filer"      --color "1d76db" --description "Creating stage: filer"      --force 2>/dev/null || failed=1
+    gh label create "agent:create-researcher" --color "1d76db" --description "Creating stage: researcher" --force 2>/dev/null || failed=1
+    gh label create "agent:create-architect"  --color "1d76db" --description "Creating stage: architect"  --force 2>/dev/null || failed=1
+    gh label create "agent:create-designer"   --color "1d76db" --description "Creating stage: designer"   --force 2>/dev/null || failed=1
+    gh label create "agent:create-stacker"    --color "1d76db" --description "Creating stage: stacker"    --force 2>/dev/null || failed=1
+    gh label create "agent:create-assessor"   --color "1d76db" --description "Creating stage: assessor"   --force 2>/dev/null || failed=1
+    gh label create "agent:create-planner"    --color "1d76db" --description "Creating stage: planner"    --force 2>/dev/null || failed=1
+    gh label create "agent:create-advocate"   --color "1d76db" --description "Creating stage: advocate"   --force 2>/dev/null || failed=1
+    gh label create "agent:create-filer"      --color "1d76db" --description "Creating stage: filer"      --force 2>/dev/null || failed=1
 
     # Resolving pipeline stage labels
-    gh label create "stage:resolve-researcher"   --color "1d76db" --description "Resolving stage: researcher"   --force 2>/dev/null || failed=1
-    gh label create "stage:resolve-planner"      --color "1d76db" --description "Resolving stage: planner"      --force 2>/dev/null || failed=1
-    gh label create "stage:resolve-implementor"  --color "1d76db" --description "Resolving stage: implementor"  --force 2>/dev/null || failed=1
-    gh label create "stage:resolve-tester"       --color "1d76db" --description "Resolving stage: tester"       --force 2>/dev/null || failed=1
-    gh label create "stage:resolve-reviewer"     --color "1d76db" --description "Resolving stage: reviewer"     --force 2>/dev/null || failed=1
-    gh label create "stage:resolve-opener"       --color "1d76db" --description "Resolving stage: opener"       --force 2>/dev/null || failed=1
-    gh label create "stage:resolve-reviser"      --color "1d76db" --description "Resolving stage: reviser"      --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-researcher"   --color "1d76db" --description "Resolving stage: researcher"   --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-planner"      --color "1d76db" --description "Resolving stage: planner"      --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-implementor"  --color "1d76db" --description "Resolving stage: implementor"  --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-tester"       --color "1d76db" --description "Resolving stage: tester"       --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-reviewer"     --color "1d76db" --description "Resolving stage: reviewer"     --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-opener"       --color "1d76db" --description "Resolving stage: opener"       --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-reviser"      --color "1d76db" --description "Resolving stage: reviser"      --force 2>/dev/null || failed=1
 
     if [ "$failed" -eq 1 ]; then
         add_warning "Some labels failed to create. Run manually: gh label list"

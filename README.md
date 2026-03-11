@@ -205,13 +205,13 @@ Only one issue is ever active. The agent works on the lowest-numbered open issue
 
 | Label | What it means |
 |-------|---------------|
-| `stage:create-*` | The creating pipeline is running this stage (e.g., `stage:create-researcher`). |
-| `stage:resolve-*` | The resolving pipeline is running this stage (e.g., `stage:resolve-implementor`). |
+| `agent:create-*` | The creating pipeline is running this stage (e.g., `agent:create-researcher`). |
+| `agent:resolve-*` | The resolving pipeline is running this stage (e.g., `agent:resolve-implementor`). |
 | `agent:done` | The agent finished and opened a PR. Waiting for CI (and Copilot review, if enabled) before auto-merge. |
 | `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
 | `ai-generated` | The agent created this issue or PR. Tells you at a glance what the agent filed vs. what you filed. |
 
-- **No `agent:*` or `stage:*` label** = backlog. The issue is unclaimed and ready to build when its turn comes.
+- **No `agent:*` label** = backlog. The issue is unclaimed and ready to build when its turn comes.
 - **Issue ordering = dependency order.** Lower-numbered issues are built first. The creating pipeline files issues in the right order so dependencies are naturally satisfied.
 - **Revision detection** is automatic: the bash orchestrator checks if an `agent:done` issue's PR has `CHANGES_REQUESTED` or CI failures and routes to a revision cycle — no separate label needed.
 
@@ -228,8 +228,8 @@ These labels are for your own organization and the agent ignores them:
 
 ### What Not to Do
 
-- **Don't remove `stage:*` labels** while the agent is working — let the bash orchestrator handle state transitions
-- **Don't create labels starting with `agent:` or `stage:`** — those namespaces are reserved for the pipeline's state machine
+- **Don't remove `agent:create-*` or `agent:resolve-*` labels** while the agent is working — let the bash orchestrator handle state transitions
+- **Don't create labels starting with `agent:`** — that namespace is reserved for the pipeline's state machine
 
 ## Running Autonomously
 
