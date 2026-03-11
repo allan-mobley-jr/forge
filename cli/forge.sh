@@ -887,17 +887,23 @@ $reason
 
             # Check if the creating pipeline needs to run
             local all_issues_count
-            all_issues_count=$(gh issue list --state all --json number --jq 'length' 2>/dev/null || true)
+            all_issues_count=$(gh issue list --state all -L 2 --json number --jq 'length' 2>/dev/null || true)
             if [ "${all_issues_count:-0}" -eq 0 ]; then
                 # First run — create the planning issue and enter the creating pipeline
                 local project_name
                 project_name=$(basename "$(pwd)")
-                gh issue create \
+                if gh issue create \
                     --title "Planning: $project_name" \
                     --body "" \
-                    --label "agent:planning" 2>/dev/null || true
-                echo "create"
-                return
+                    --label "agent:planning" \
+                    --label "ai-generated" 2>/dev/null; then
+                    echo "create"
+                    return
+                else
+                    echo "[forge] Failed to create planning issue." >&2
+                    echo "wait"
+                    return
+                fi
             elif [ "${all_issues_count}" -eq 1 ]; then
                 # Single issue — check if it's the planning issue (creating pipeline still running)
                 local has_planning
