@@ -147,6 +147,26 @@ require_forge_project() {
     fi
 }
 
+require_forge_skills() {
+    require_forge_project
+    local missing=()
+    for skill in forge-create-orchestrator forge-resolve-orchestrator; do
+        if [ ! -f ".claude/skills/${skill}/SKILL.md" ]; then
+            missing+=("$skill")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo -e "${RED}Error:${NC} Required Forge skills missing:"
+        for skill in "${missing[@]}"; do
+            echo "  - ${skill}"
+        done
+        echo ""
+        echo "  Run ${BOLD}forge upgrade${NC} to install missing skills,"
+        echo "  or ${BOLD}forge init${NC} from a project directory to bootstrap."
+        exit 1
+    fi
+}
+
 case "${1:-}" in
     --version|-v|-V)
         echo "Forge $(forge_version)"
@@ -603,7 +623,7 @@ except:
     run)
         shift
 
-        require_forge_project
+        require_forge_skills
 
         # Parse flags
         max_budget=""
