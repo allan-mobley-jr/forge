@@ -516,7 +516,7 @@ except:
         echo "Labels:"
 
         if gh auth status &>/dev/null 2>&1; then
-            local required_labels=(
+            required_labels=(
                 "agent:planning" "agent:done" "agent:needs-human" "ai-generated"
                 "agent:create-researcher" "agent:create-architect" "agent:create-designer"
                 "agent:create-stacker" "agent:create-assessor" "agent:create-planner"
@@ -525,9 +525,8 @@ except:
                 "agent:resolve-tester" "agent:resolve-reviewer" "agent:resolve-opener"
                 "agent:resolve-reviser"
             )
-            local existing_labels
             existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
-            local missing_labels=()
+            missing_labels=()
 
             for lbl in "${required_labels[@]}"; do
                 if ! echo "$existing_labels" | grep -qx "$lbl"; then
