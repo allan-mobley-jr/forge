@@ -67,8 +67,7 @@ For each stage:
 
 1. **Set stage label:**
    ```bash
-   gh label create "stage:resolve-<stage>" --color "1d76db" --force 2>/dev/null || true
-   gh issue edit <issue> --add-label "stage:resolve-<stage>"
+   gh issue edit <issue> --add-label "agent:resolve-<stage>"
    ```
 
 2. **Build the Agent prompt:** Compose a prompt with curated context from prior stages and the issue number. The agent's own instructions are built into its definition — you only need to provide context.
@@ -85,7 +84,7 @@ For each stage:
 
 5. **Remove stage label:**
    ```bash
-   existing=$(gh issue view <issue> --json labels --jq '[.labels[].name | select(startswith("stage:"))] | .[]')
+   existing=$(gh issue view <issue> --json labels --jq '[.labels[].name | select(startswith("agent:create-") or startswith("agent:resolve-"))] | .[]')
    for label in $existing; do gh issue edit <issue> --remove-label "$label"; done
    ```
 
@@ -118,7 +117,6 @@ After the opener stage completes:
    ```
 2. Add the `agent:done` label to the issue:
    ```bash
-   gh label create "agent:done" --color "0e8a16" --force 2>/dev/null || true
    gh issue edit <issue> --add-label "agent:done"
    ```
 3. Remove any remaining stage labels.
@@ -149,8 +147,7 @@ When invoked with `--revise`, handle a revision cycle for PR review feedback.
 
 4. **Set stage label:**
    ```bash
-   gh label create "stage:resolve-reviser" --color "1d76db" --force 2>/dev/null || true
-   gh issue edit <issue> --add-label "stage:resolve-reviser"
+   gh issue edit <issue> --add-label "agent:resolve-reviser"
    ```
 
 5. **Build the Agent prompt:** Include the PR review feedback, CI failure details, and the issue number.
