@@ -46,7 +46,18 @@ git checkout -b fix/<number>-<slug>   # or feat/<number>-<slug>
 
 The slug should be 2-4 words from the issue title, kebab-case. Example: `fix/94-doctor-skills-outdated`
 
-### Step 3: Plan the fix
+### Step 3: Discuss the issue
+
+Before planning or writing any code, present your understanding to the user and get alignment:
+
+1. Summarize what the issue is asking for in your own words.
+2. Identify the relevant files and areas of the codebase.
+3. Call out any ambiguity, open questions, or trade-offs you see.
+4. Ask the user if your understanding is correct and whether they have preferences on approach.
+
+**Do not proceed until the user confirms.** This is a checkpoint — the user may have context that changes the approach entirely.
+
+### Step 4: Plan the fix
 
 Before writing any code:
 
@@ -55,13 +66,13 @@ Before writing any code:
 3. Consider side effects — will this fix break something else?
 4. State the plan in 1-3 sentences. If you can't, the issue is too big — split it.
 
-### Step 4: Implement the fix
+### Step 5: Implement the fix
 
 - Make the smallest change that fully addresses the issue.
 - Follow the conventions in CLAUDE.md — atomic commits, one concern per commit.
 - Don't refactor surrounding code, add comments to unchanged code, or "improve" things that aren't broken.
 
-### Step 5: Self-review
+### Step 6: Self-review
 
 Before pushing, review your own work:
 
@@ -72,7 +83,7 @@ Before pushing, review your own work:
 
 If anything is off, fix it before proceeding.
 
-### Step 6: Commit, push, and create PR
+### Step 7: Commit, push, and create PR
 
 Commit with a message that references the issue:
 
@@ -99,7 +110,7 @@ EOF
 )"
 ```
 
-### Step 7: Wait for PR review
+### Step 8: Wait for PR review
 
 After creating the PR, stop and tell the user:
 
