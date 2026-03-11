@@ -30,7 +30,7 @@ If PROMPT.md does not exist or is empty, post a BLOCKED status and stop.
 Check what already exists in the project:
 
 - **Package.json**: Read `package.json` for existing dependencies, scripts, project name
-- **Source structure**: `ls src/` to understand the current scaffold
+- **Source structure**: Glob for `src/*` to understand the current scaffold
 - **Config files**: Check for `next.config.*`, `tailwind.config.*`, `tsconfig.json`
 - **Existing code**: Glob for `src/**/*.{ts,tsx}` to understand what's already scaffolded
 - **AGENTS.md**: Read if present — contains Next.js framework patterns index
