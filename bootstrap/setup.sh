@@ -1057,6 +1057,7 @@ create_labels() {
     local label="GitHub label taxonomy"
     local failed=0
     info "  Creating labels..."
+    gh label create "agent:planning"     --color "0e8a16" --description "Creating pipeline planning issue" --force 2>/dev/null || failed=1
     gh label create "agent:done"         --color "6F42C1" --description "PR opened, awaiting review"     --force 2>/dev/null || failed=1
     gh label create "agent:needs-human"  --color "E4E669" --description "Blocked on human decision"      --force 2>/dev/null || failed=1
     gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"     --force 2>/dev/null || failed=1

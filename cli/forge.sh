@@ -712,24 +712,15 @@ $reason
 
         # --- Creating Pipeline ---
         run_creating_pipeline() {
-            local project_name
-            project_name=$(basename "$(pwd)")
-            echo "[forge] Starting creating pipeline for: $project_name"
+            echo "[forge] Starting creating pipeline"
 
-            # Create planning issue (if one doesn't already exist)
+            # Find the planning issue by label
             local plan_issue
-            plan_issue=$(gh issue list --state open --json number,title \
-                --jq '[.[] | select(.title | startswith("Planning:"))] | .[0].number // empty' 2>/dev/null)
+            plan_issue=$(gh issue list --state open --label "agent:planning" --json number --jq '.[0].number // empty' 2>/dev/null)
 
             if [ -z "$plan_issue" ]; then
-                plan_issue=$(gh issue create \
-                    --title "Planning: $project_name" \
-                    --body "Forge creating pipeline. Stages will post their analysis as comments." \
-                    --label "ai-generated" 2>/dev/null | grep -o '[0-9]*$')
-                if [ -z "$plan_issue" ]; then
-                    echo "[forge] Failed to create planning issue."
-                    return 1
-                fi
+                echo "[forge] No planning issue found."
+                return 1
             fi
             echo "[forge] Planning issue: #$plan_issue"
 
@@ -894,24 +885,32 @@ $reason
                 return
             fi
 
-            # Check if PROMPT.md exists and no issues have been filed yet (need planning)
-            if [ -f "PROMPT.md" ]; then
-                local total_issues
-                total_issues=$(gh issue list --state all --json number -L 1 --jq 'length' 2>/dev/null || true)
-                if [ "${total_issues:-0}" -eq 0 ]; then
+            # Check if the creating pipeline needs to run
+            local all_issues_count
+            all_issues_count=$(gh issue list --state all -L 2 --json number --jq 'length' 2>/dev/null || true)
+            if [ "${all_issues_count:-0}" -eq 0 ]; then
+                # First run — create the planning issue and enter the creating pipeline
+                local project_name
+                project_name=$(basename "$(pwd)")
+                if gh issue create \
+                    --title "Planning: $project_name" \
+                    --body "" \
+                    --label "agent:planning" \
+                    --label "ai-generated" 2>/dev/null; then
                     echo "create"
                     return
+                else
+                    echo "[forge] Failed to create planning issue." >&2
+                    echo "wait"
+                    return
                 fi
-                # Check for graveyard — if PROMPT.md exists but hasn't been archived, might need re-planning
-                if [ ! -d "graveyard" ]; then
-                    # PROMPT.md exists, issues exist, no graveyard — could be mid-planning
-                    # Check if any planning issues exist
-                    local planning_issues
-                    planning_issues=$(gh issue list --state all --search "Planning:" --json number -L 1 --jq 'length' 2>/dev/null || true)
-                    if [ "${planning_issues:-0}" -eq 0 ]; then
-                        echo "create"
-                        return
-                    fi
+            elif [ "${all_issues_count}" -eq 1 ]; then
+                # Single issue — check if it's the planning issue (creating pipeline still running)
+                local has_planning
+                has_planning=$(gh issue list --state open --label "agent:planning" --json number --jq 'length' 2>/dev/null || true)
+                if [ "${has_planning:-0}" -gt 0 ]; then
+                    echo "create"
+                    return
                 fi
             fi
 
@@ -919,11 +918,8 @@ $reason
             local open_count
             open_count=$(gh issue list --state open --json number -L 200 --jq 'length' 2>/dev/null || true)
             if [ "${open_count:-0}" -eq 0 ]; then
-                # Check for audit mode (graveyard exists, all closed)
-                if [ -d "graveyard" ]; then
-                    echo "done"
-                    return
-                fi
+                echo "done"
+                return
             fi
 
             # Needs-human issues still open with no response, or agent:done PRs awaiting merge
