@@ -627,17 +627,14 @@ except:
 
         # Parse flags
         max_budget=""
-        timeout_secs=""
 
         while [[ $# -gt 0 ]]; do
             case "$1" in
                 --max-budget)   max_budget="$2"; shift 2 ;;
-                --timeout)      timeout_secs="$2"; shift 2 ;;
                 -h|--help)
-                    echo "Usage: forge run [--max-budget N] [--timeout N]"
+                    echo "Usage: forge run [--max-budget N]"
                     echo ""
-                    echo "  --max-budget N     Max API spend per stage in USD"
-                    echo "  --timeout N        Wall-clock timeout per stage in seconds"
+                    echo "  --max-budget N     Max API spend per stage in USD (API key only)"
                     exit 0
                     ;;
                 *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
@@ -648,28 +645,65 @@ except:
         if [ -n "$max_budget" ] && ! [[ "$max_budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
             echo "Error: --max-budget must be a number"; exit 1
         fi
-        if [ -n "$timeout_secs" ] && ! [[ "$timeout_secs" =~ ^[0-9]+$ ]]; then
-            echo "Error: --timeout must be a positive integer (seconds)"; exit 1
-        fi
 
-        # Resolve timeout command (GNU coreutils installs as gtimeout on macOS)
-        timeout_cmd=""
-        if [ -n "$timeout_secs" ]; then
-            if command -v timeout &>/dev/null; then
-                timeout_cmd="timeout"
-            elif command -v gtimeout &>/dev/null; then
-                timeout_cmd="gtimeout"
-            else
-                echo "Error: --timeout requires GNU coreutils."
-                echo "  Install with: brew install coreutils"
-                exit 1
+        # Skip --max-budget on subscription plans (only applies to API key usage)
+        if [ -n "$max_budget" ]; then
+            sub_type=""
+            if command -v claude >/dev/null 2>&1; then
+                sub_type=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('subscriptionType',''))" 2>/dev/null || true)
+            fi
+            if [ -n "$sub_type" ] && [ "$sub_type" != "none" ]; then
+                echo -e "  ${YELLOW}Note:${NC} --max-budget ignored (subscription plan: $sub_type)"
+                max_budget=""
             fi
         fi
+
+        # Pre-flight: warn if bypassPermissions is active in local or managed settings
+        check_bypass_permissions() {
+            local bypass_sources=()
+
+            # Check .claude/settings.local.json
+            if [ -f ".claude/settings.local.json" ]; then
+                local local_mode
+                local_mode=$(python3 -c "import json; d=json.load(open('.claude/settings.local.json')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
+                if [ "$local_mode" = "bypassPermissions" ]; then
+                    bypass_sources+=(".claude/settings.local.json")
+                fi
+            fi
+
+            # Check managed settings
+            local managed="/Library/Application Support/ClaudeCode/managed-settings.json"
+            if [ -f "$managed" ]; then
+                local managed_mode
+                managed_mode=$(python3 -c "import json; d=json.load(open('$managed')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
+                if [ "$managed_mode" = "bypassPermissions" ]; then
+                    bypass_sources+=("$managed")
+                fi
+            fi
+
+            if [ ${#bypass_sources[@]} -gt 0 ]; then
+                echo ""
+                echo -e "  ${YELLOW}Warning:${NC} bypassPermissions mode detected in:"
+                for src in "${bypass_sources[@]}"; do
+                    echo "    - $src"
+                done
+                echo ""
+                echo "  Forge agents rely on tool restrictions in their frontmatter to stay"
+                echo "  in their lanes. bypassPermissions may weaken these guardrails."
+                echo ""
+                read -r -p "  Continue anyway? [y/N] " response
+                if [[ ! "$response" =~ ^[Yy]$ ]]; then
+                    echo "Aborted."
+                    exit 1
+                fi
+            fi
+        }
+
+        check_bypass_permissions
 
         echo ""
         echo -e "  ${YELLOW}forge run${NC} — pipeline orchestrator"
         [ -n "$max_budget" ] && echo "  Budget per stage: \$$max_budget"
-        [ -n "$timeout_secs" ] && echo "  Timeout per stage: ${timeout_secs}s"
         echo ""
 
         # --- Auth pre-check ---
@@ -723,11 +757,7 @@ $reason
             [ -n "$max_budget" ] && cmd+=(--max-budget-usd "$max_budget")
 
             local exit_code=0
-            if [ -n "$timeout_cmd" ]; then
-                "$timeout_cmd" "$timeout_secs" "${cmd[@]}" || exit_code=$?
-            else
-                "${cmd[@]}" || exit_code=$?
-            fi
+            "${cmd[@]}" || exit_code=$?
             return $exit_code
         }
 

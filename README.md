@@ -240,8 +240,7 @@ forge run
 Runs the bash pipeline orchestrator. It determines what needs doing (via `determine_next_action`), invokes the appropriate pipeline (creating or resolving), and loops until all issues are closed, safety limits are reached, or an unrecoverable error occurs (e.g., expired GitHub auth or missing tools). Each pipeline stage runs as a separate `claude -p` session with fresh context. PRs are auto-merged after CI passes (and Copilot review, if enabled).
 
 ```bash
-forge run --max-budget 50     # limit API spend per stage (USD)
-forge run --timeout 3600      # wall-clock timeout per stage (requires coreutils: brew install coreutils)
+forge run --max-budget 50     # limit API spend per stage (USD, API key only)
 ```
 
 ### Authentication
