@@ -490,6 +490,12 @@ except:
             echo -e "  ${YELLOW}⚠${NC} Vercel CLI not installed"
         fi
 
+        if command -v python3 &>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} python3 $(python3 --version 2>&1 | awk '{print $2}')"
+        else
+            echo -e "  ${RED}✗${NC} python3 not installed (required; install with: brew install python3)"
+        fi
+
         if command -v claude &>/dev/null; then
             echo -e "  ${GREEN}✓${NC} Claude Code $(claude --version 2>/dev/null | head -1)"
         else

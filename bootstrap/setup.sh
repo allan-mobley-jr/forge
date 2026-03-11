@@ -132,6 +132,17 @@ check_homebrew() {
     ok "$label"
 }
 
+# python3 (used for JSON parsing in install.sh and hooks)
+check_python3() {
+    local label="python3 installed"
+    if command -v python3 &>/dev/null; then
+        skip "$label"
+        return
+    fi
+    brew install python3
+    ok "$label"
+}
+
 # Node.js (>= 18 required)
 check_node() {
     local label="Node.js installed (>= 18)"
@@ -1112,6 +1123,7 @@ EOF
 # ============================================================
 
 check_homebrew
+check_python3
 check_node
 check_pnpm
 check_gh
