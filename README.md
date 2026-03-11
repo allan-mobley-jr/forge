@@ -76,7 +76,7 @@ There are four stages: **install**, **init**, **pipeline**, and **merge**. The s
        │
        ├──▶ Ensures git is available (installs Xcode CLI Tools if needed)
        ├──▶ Clones Forge repo to ~/.forge/repo
-       ├──▶ Creates the forge CLI at ~/.forge/bin/forge
+       ├──▶ Symlinks the forge CLI to ~/.forge/bin/forge
        └──▶ Adds ~/.forge/bin to your shell PATH
 ```
 
