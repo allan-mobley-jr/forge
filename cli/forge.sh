@@ -534,7 +534,7 @@ except:
 
         require_forge_skills
 
-        # Parse flags
+        # Parse flags (before dependency checks so --help always works)
         max_budget=""
 
         while [[ $# -gt 0 ]]; do
@@ -549,6 +549,12 @@ except:
                 *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
             esac
         done
+
+        if ! command -v jq &>/dev/null; then
+            echo -e "${RED}Error:${NC} jq is required for forge run."
+            echo "  Install with: brew install jq"
+            exit 1
+        fi
 
         # Validate numeric flags
         if [ -n "$max_budget" ] && ! [[ "$max_budget" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
