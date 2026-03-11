@@ -140,6 +140,15 @@ show_banner() {
 }
 
 require_forge_project() {
+    if [ ! -d ".claude/skills" ]; then
+        echo -e "${RED}Error:${NC} Not a Forge project."
+        echo "  Run this command from inside a Forge project directory."
+        exit 1
+    fi
+}
+
+require_forge_skills() {
+    require_forge_project
     local missing=()
     for skill in forge-create-orchestrator forge-resolve-orchestrator; do
         if [ ! -f ".claude/skills/${skill}/SKILL.md" ]; then
@@ -614,7 +623,7 @@ except:
     run)
         shift
 
-        require_forge_project
+        require_forge_skills
 
         # Parse flags
         max_budget=""
