@@ -61,7 +61,6 @@ For each stage:
 
 1. **Set stage label:**
    ```bash
-   gh label create "stage:create-<stage>" --color "1d76db" --force 2>/dev/null || true
    gh issue edit <issue> --add-label "stage:create-<stage>"
    ```
 
@@ -128,7 +127,6 @@ The advocate determined the plan needs human input:
    ```
 2. Add the `agent:needs-human` label:
    ```bash
-   gh label create "agent:needs-human" --color "d93f0b" --force 2>/dev/null || true
    gh issue edit <issue> --add-label "agent:needs-human"
    ```
 3. Remove any stage labels and exit.
