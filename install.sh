@@ -718,11 +718,11 @@ except:
             if ! command -v gh &>/dev/null; then
                 errors+=("GitHub CLI (gh) not found in PATH. Install with: brew install gh")
             elif ! gh auth status &>/dev/null; then
-                echo "[forge] GitHub auth expired. Attempting refresh..."
+                echo "[forge] GitHub auth invalid. Attempting refresh..."
                 if gh auth refresh &>/dev/null; then
                     echo "[forge] GitHub auth refreshed."
                 else
-                    errors+=("GitHub auth expired. Run: gh auth login")
+                    errors+=("GitHub not authenticated. Run: gh auth login")
                 fi
             fi
 
@@ -732,8 +732,10 @@ except:
             else
                 local logged_in
                 logged_in=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('loggedIn',''))" 2>/dev/null || true)
-                if [ "$logged_in" != "True" ]; then
-                    errors+=("Claude auth expired. Run: claude auth login")
+                if [ -z "$logged_in" ]; then
+                    errors+=("Unable to check Claude auth. Run: claude auth status")
+                elif [ "$logged_in" != "True" ]; then
+                    errors+=("Claude not authenticated. Run: claude auth login")
                 fi
             fi
 
