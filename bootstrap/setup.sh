@@ -581,7 +581,7 @@ connect_vercel_git() {
 # Install skills and agents
 install_skills() {
     local label="Forge skills and agents installed"
-    if [ -f .claude/skills/forge-create-orchestrator/SKILL.md ]; then
+    if [ -f .claude/skills/forge-smelting-orchestrator/SKILL.md ]; then
         skip "$label"
         return
     fi
@@ -1073,31 +1073,54 @@ create_labels() {
     local failed=0
     info "  Creating labels..."
 
-    # Agent workflow labels
-    gh label create "agent:planning"     --color "0075ca" --description "Creating pipeline planning issue" --force 2>/dev/null || failed=1
-    gh label create "agent:done"         --color "0e8a16" --description "PR opened, awaiting review"      --force 2>/dev/null || failed=1
-    gh label create "agent:needs-human"  --color "d93f0b" --description "Blocked on human decision"       --force 2>/dev/null || failed=1
-    gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"      --force 2>/dev/null || failed=1
+    # Pipeline lifecycle labels (7)
+    gh label create "smelting"           --color "0075ca" --description "Smelting tracking issue"              --force 2>/dev/null || failed=1
+    gh label create "honing"             --color "0075ca" --description "Honing tracking issue"                --force 2>/dev/null || failed=1
+    gh label create "agent:hammering"    --color "c5def5" --description "Hammering pipeline working this issue" --force 2>/dev/null || failed=1
+    gh label create "agent:tempering"    --color "fbca04" --description "Tempering pipeline reviewing this issue" --force 2>/dev/null || failed=1
+    gh label create "agent:done"         --color "0e8a16" --description "PR opened, awaiting merge"           --force 2>/dev/null || failed=1
+    gh label create "agent:needs-human"  --color "d93f0b" --description "Blocked on human decision"           --force 2>/dev/null || failed=1
+    gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"          --force 2>/dev/null || failed=1
 
-    # Creating pipeline stage labels
-    gh label create "agent:create-researcher" --color "1d76db" --description "Creating stage: researcher" --force 2>/dev/null || failed=1
-    gh label create "agent:create-architect"  --color "1d76db" --description "Creating stage: architect"  --force 2>/dev/null || failed=1
-    gh label create "agent:create-designer"   --color "1d76db" --description "Creating stage: designer"   --force 2>/dev/null || failed=1
-    gh label create "agent:create-stacker"    --color "1d76db" --description "Creating stage: stacker"    --force 2>/dev/null || failed=1
-    gh label create "agent:create-assessor"   --color "1d76db" --description "Creating stage: assessor"   --force 2>/dev/null || failed=1
-    gh label create "agent:create-planner"    --color "1d76db" --description "Creating stage: planner"    --force 2>/dev/null || failed=1
-    gh label create "agent:create-advocate"   --color "1d76db" --description "Creating stage: advocate"   --force 2>/dev/null || failed=1
-    gh label create "agent:create-filer"      --color "1d76db" --description "Creating stage: filer"      --force 2>/dev/null || failed=1
+    # Pass tracking labels (6)
+    gh label create "smelting:pass-1"    --color "1d76db" --description "Smelting pass 1: analysis"            --force 2>/dev/null || failed=1
+    gh label create "smelting:pass-2"    --color "1d76db" --description "Smelting pass 2: review"              --force 2>/dev/null || failed=1
+    gh label create "hammering:pass-1"   --color "1d76db" --description "Hammering pass 1: implement"         --force 2>/dev/null || failed=1
+    gh label create "hammering:pass-2"   --color "1d76db" --description "Hammering pass 2: self-review"       --force 2>/dev/null || failed=1
+    gh label create "honing:pass-1"      --color "1d76db" --description "Honing pass 1: triage and audit"     --force 2>/dev/null || failed=1
+    gh label create "honing:pass-2"      --color "1d76db" --description "Honing pass 2: challenge and file"   --force 2>/dev/null || failed=1
 
-    # Resolving pipeline stage labels
-    gh label create "agent:resolve-researcher"   --color "1d76db" --description "Resolving stage: researcher"   --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-planner"      --color "1d76db" --description "Resolving stage: planner"      --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-advocate"     --color "1d76db" --description "Resolving stage: advocate"     --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-implementor"  --color "1d76db" --description "Resolving stage: implementor"  --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-tester"       --color "1d76db" --description "Resolving stage: tester"       --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-reviewer"     --color "1d76db" --description "Resolving stage: reviewer"     --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-opener"       --color "1d76db" --description "Resolving stage: opener"       --force 2>/dev/null || failed=1
-    gh label create "agent:resolve-reviser"      --color "1d76db" --description "Resolving stage: reviser"      --force 2>/dev/null || failed=1
+    # Smelting stage labels (8)
+    gh label create "smelting:architect"  --color "1d76db" --description "Smelting stage: architect"           --force 2>/dev/null || failed=1
+    gh label create "smelting:designer"   --color "1d76db" --description "Smelting stage: designer"            --force 2>/dev/null || failed=1
+    gh label create "smelting:stacker"    --color "1d76db" --description "Smelting stage: stacker"             --force 2>/dev/null || failed=1
+    gh label create "smelting:assessor"   --color "1d76db" --description "Smelting stage: assessor"            --force 2>/dev/null || failed=1
+    gh label create "smelting:planner"    --color "1d76db" --description "Smelting stage: planner"             --force 2>/dev/null || failed=1
+    gh label create "smelting:advocate"   --color "1d76db" --description "Smelting stage: advocate"            --force 2>/dev/null || failed=1
+    gh label create "smelting:reviewer"   --color "1d76db" --description "Smelting stage: reviewer"            --force 2>/dev/null || failed=1
+    gh label create "smelting:filer"      --color "1d76db" --description "Smelting stage: filer"               --force 2>/dev/null || failed=1
+
+    # Hammering stage labels (6)
+    gh label create "hammering:researcher"   --color "1d76db" --description "Hammering stage: researcher"     --force 2>/dev/null || failed=1
+    gh label create "hammering:planner"      --color "1d76db" --description "Hammering stage: planner"        --force 2>/dev/null || failed=1
+    gh label create "hammering:advocate"     --color "1d76db" --description "Hammering stage: advocate"       --force 2>/dev/null || failed=1
+    gh label create "hammering:implementor"  --color "1d76db" --description "Hammering stage: implementor"    --force 2>/dev/null || failed=1
+    gh label create "hammering:tester"       --color "1d76db" --description "Hammering stage: tester"         --force 2>/dev/null || failed=1
+    gh label create "hammering:reviewer"     --color "1d76db" --description "Hammering stage: reviewer"       --force 2>/dev/null || failed=1
+
+    # Tempering stage labels (4)
+    gh label create "tempering:reviewer"     --color "1d76db" --description "Tempering stage: reviewer"       --force 2>/dev/null || failed=1
+    gh label create "tempering:advocate"     --color "1d76db" --description "Tempering stage: advocate"       --force 2>/dev/null || failed=1
+    gh label create "tempering:opener"       --color "1d76db" --description "Tempering stage: opener"         --force 2>/dev/null || failed=1
+    gh label create "tempering:reviser"      --color "1d76db" --description "Tempering stage: reviser"        --force 2>/dev/null || failed=1
+
+    # Honing stage labels (6)
+    gh label create "honing:triager"         --color "1d76db" --description "Honing stage: triager"           --force 2>/dev/null || failed=1
+    gh label create "honing:auditor"         --color "1d76db" --description "Honing stage: auditor"           --force 2>/dev/null || failed=1
+    gh label create "honing:domain-researcher" --color "1d76db" --description "Honing stage: domain researcher" --force 2>/dev/null || failed=1
+    gh label create "honing:planner"         --color "1d76db" --description "Honing stage: planner"           --force 2>/dev/null || failed=1
+    gh label create "honing:advocate"        --color "1d76db" --description "Honing stage: advocate"          --force 2>/dev/null || failed=1
+    gh label create "honing:filer"           --color "1d76db" --description "Honing stage: filer"             --force 2>/dev/null || failed=1
 
     if [ "$failed" -eq 1 ]; then
         add_warning "Some labels failed to create. Run manually: gh label list"

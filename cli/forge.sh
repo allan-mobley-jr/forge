@@ -488,13 +488,26 @@ except:
 
         if gh auth status &>/dev/null 2>&1; then
             required_labels=(
-                "agent:planning" "agent:done" "agent:needs-human" "ai-generated"
-                "agent:create-researcher" "agent:create-architect" "agent:create-designer"
-                "agent:create-stacker" "agent:create-assessor" "agent:create-planner"
-                "agent:create-advocate" "agent:create-filer"
-                "agent:resolve-researcher" "agent:resolve-planner" "agent:resolve-advocate"
-                "agent:resolve-implementor" "agent:resolve-tester" "agent:resolve-reviewer"
-                "agent:resolve-opener" "agent:resolve-reviser"
+                # Pipeline lifecycle
+                "smelting" "honing" "agent:hammering" "agent:tempering"
+                "agent:done" "agent:needs-human" "ai-generated"
+                # Pass tracking
+                "smelting:pass-1" "smelting:pass-2"
+                "hammering:pass-1" "hammering:pass-2"
+                "honing:pass-1" "honing:pass-2"
+                # Smelting stages
+                "smelting:architect" "smelting:designer" "smelting:stacker"
+                "smelting:assessor" "smelting:planner" "smelting:advocate"
+                "smelting:reviewer" "smelting:filer"
+                # Hammering stages
+                "hammering:researcher" "hammering:planner" "hammering:advocate"
+                "hammering:implementor" "hammering:tester" "hammering:reviewer"
+                # Tempering stages
+                "tempering:reviewer" "tempering:advocate"
+                "tempering:opener" "tempering:reviser"
+                # Honing stages
+                "honing:triager" "honing:auditor" "honing:domain-researcher"
+                "honing:planner" "honing:advocate" "honing:filer"
             )
             existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
             missing_labels=()
@@ -692,51 +705,70 @@ except:
             return $exit_code
         }
 
-        # --- Creating Pipeline ---
-        run_creating_pipeline() {
-            echo "[forge] Starting creating pipeline"
+        # --- Smelting Pipeline ---
+        # Usage: run_smelting_pipeline <tracking-issue-number>
+        run_smelting_pipeline() {
+            local issue="$1"
+            echo "[forge] Starting smelting pipeline (tracking issue #$issue)"
 
-            # Find the planning issue by label
-            local plan_issue
-            plan_issue=$(gh issue list --state open --label "agent:planning" --json number --jq '.[0].number // empty' 2>/dev/null)
-
-            if [ -z "$plan_issue" ]; then
-                echo "[forge] No planning issue found."
+            if ! run_claude_session "/forge-smelting-orchestrator $issue"; then
+                echo "[forge] Smelting orchestrator failed."
                 return 1
             fi
-            echo "[forge] Planning issue: #$plan_issue"
-
-            if ! run_claude_session "/forge-create-orchestrator $plan_issue"; then
-                echo "[forge] Creating orchestrator failed."
-                return 1
-            fi
-            echo "[forge] Creating pipeline complete."
+            echo "[forge] Smelting pipeline complete."
         }
 
-        # --- Resolving Pipeline ---
-        # Usage: run_resolving_pipeline <issue-number>
-        run_resolving_pipeline() {
+        # --- Hammering Pipeline ---
+        # Usage: run_hammering_pipeline <issue-number>
+        run_hammering_pipeline() {
             local issue="$1"
-            echo "[forge] Starting resolving pipeline for issue #$issue"
+            echo "[forge] Starting hammering pipeline for issue #$issue"
 
-            if ! run_claude_session "/forge-resolve-orchestrator $issue"; then
-                echo "[forge] Resolving orchestrator failed for issue #$issue."
+            if ! run_claude_session "/forge-hammering-orchestrator $issue"; then
+                echo "[forge] Hammering orchestrator failed for issue #$issue."
                 return 1
             fi
-            echo "[forge] Resolving pipeline complete for issue #$issue"
+            echo "[forge] Hammering pipeline complete for issue #$issue"
             return 0
         }
 
-        # --- Revise stage (on demand, via resolve orchestrator) ---
+        # --- Tempering Pipeline ---
+        # Usage: run_tempering_pipeline <issue-number>
+        run_tempering_pipeline() {
+            local issue="$1"
+            echo "[forge] Starting tempering pipeline for issue #$issue"
+
+            if ! run_claude_session "/forge-tempering-orchestrator $issue"; then
+                echo "[forge] Tempering orchestrator failed for issue #$issue."
+                return 1
+            fi
+            echo "[forge] Tempering pipeline complete for issue #$issue"
+            return 0
+        }
+
+        # --- Revise stage (on demand, via tempering orchestrator) ---
         run_revise_stage() {
             local issue="$1"
             echo "[forge] Running revision cycle for issue #$issue"
 
-            if ! run_claude_session "/forge-resolve-orchestrator $issue --revise"; then
+            if ! run_claude_session "/forge-tempering-orchestrator $issue --revise"; then
                 echo "[forge] Revision orchestrator failed for issue #$issue."
                 return 1
             fi
             return 0
+        }
+
+        # --- Honing Pipeline ---
+        # Usage: run_honing_pipeline <tracking-issue-number>
+        run_honing_pipeline() {
+            local issue="$1"
+            echo "[forge] Starting honing pipeline (tracking issue #$issue)"
+
+            if ! run_claude_session "/forge-honing-orchestrator $issue"; then
+                echo "[forge] Honing orchestrator failed."
+                return 1
+            fi
+            echo "[forge] Honing pipeline complete."
         }
 
         # --- Main orchestrator loop ---
@@ -748,30 +780,78 @@ except:
             action=$(determine_next_action)
 
             case "$action" in
-                create)
-                    run_creating_pipeline
-                    result=$?
-                    if [ "$result" -eq 2 ]; then
-                        # Pipeline blocked — wait for human
-                        echo "[forge] Pipeline blocked. Polling for human response..."
-                    elif [ "$result" -ne 0 ]; then
-                        echo "[forge] Creating pipeline failed."
+                smelt)
+                    # Brand new repo — create Smelting tracking issue
+                    project_name=$(basename "$(pwd)")
+                    tracking_url=$(gh issue create \
+                        --title "Smelting: $project_name" \
+                        --body "" \
+                        --label "smelting" \
+                        --label "ai-generated" 2>/dev/null) || {
+                        echo "[forge] Failed to create Smelting tracking issue."
                         exit 1
+                    }
+                    tracking_issue="${tracking_url##*/}"
+                    echo "[forge] Created Smelting tracking issue #$tracking_issue"
+                    run_smelting_pipeline "$tracking_issue"
+                    result=$?
+                    if [ "$result" -ne 0 ]; then
+                        echo "[forge] Smelting pipeline failed. Continuing..."
                     fi
                     ;;
-                resolve:*)
-                    issue="${action#resolve:}"
-                    run_resolving_pipeline "$issue"
+                smelt:*)
+                    issue="${action#smelt:}"
+                    run_smelting_pipeline "$issue"
                     result=$?
-                    if [ "$result" -eq 2 ]; then
-                        echo "[forge] Pipeline blocked on issue #$issue. Continuing..."
-                    elif [ "$result" -ne 0 ]; then
-                        echo "[forge] Resolving pipeline failed on issue #$issue. Continuing..."
+                    if [ "$result" -ne 0 ]; then
+                        echo "[forge] Smelting pipeline failed on issue #$issue. Continuing..."
+                    fi
+                    ;;
+                hammer:*)
+                    issue="${action#hammer:}"
+                    run_hammering_pipeline "$issue"
+                    result=$?
+                    if [ "$result" -ne 0 ]; then
+                        echo "[forge] Hammering pipeline failed on issue #$issue. Continuing..."
+                    fi
+                    ;;
+                temper:*)
+                    issue="${action#temper:}"
+                    run_tempering_pipeline "$issue"
+                    result=$?
+                    if [ "$result" -ne 0 ]; then
+                        echo "[forge] Tempering pipeline failed on issue #$issue. Continuing..."
                     fi
                     ;;
                 revise:*)
                     issue="${action#revise:}"
                     run_revise_stage "$issue"
+                    ;;
+                hone)
+                    # No open ai-generated issues — create Honing tracking issue
+                    tracking_url=$(gh issue create \
+                        --title "Honing: $(date +%Y-%m-%d)" \
+                        --body "" \
+                        --label "honing" \
+                        --label "ai-generated" 2>/dev/null) || {
+                        echo "[forge] Failed to create Honing tracking issue."
+                        exit 1
+                    }
+                    tracking_issue="${tracking_url##*/}"
+                    echo "[forge] Created Honing tracking issue #$tracking_issue"
+                    run_honing_pipeline "$tracking_issue"
+                    result=$?
+                    if [ "$result" -ne 0 ]; then
+                        echo "[forge] Honing pipeline failed. Continuing..."
+                    fi
+                    ;;
+                hone:*)
+                    issue="${action#hone:}"
+                    run_honing_pipeline "$issue"
+                    result=$?
+                    if [ "$result" -ne 0 ]; then
+                        echo "[forge] Honing pipeline failed on issue #$issue. Continuing..."
+                    fi
                     ;;
                 wait)
                     echo "[forge] Waiting for human input or PR merge. Polling every 60s..."
@@ -784,11 +864,6 @@ except:
                             break
                         fi
                     done
-                    ;;
-                done)
-                    echo ""
-                    echo "[forge] All issues closed. Project complete!"
-                    exit 0
                     ;;
                 *)
                     echo "[forge] Unexpected action: $action"

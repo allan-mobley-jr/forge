@@ -5,26 +5,36 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 ## Repository Structure
 
 ```
-skills/                        — Claude Code skill definitions (orchestrators + utilities)
-  forge-create-orchestrator/   — Creating pipeline orchestrator (context curation + quality gates)
-  forge-resolve-orchestrator/  — Resolving pipeline orchestrator (implementation + revision cycles)
-agents/                        — Claude Code agent definitions (pipeline stages)
-  create-researcher.md         — Creating pipeline stage 1: gather context
-  create-architect.md          — Creating pipeline stage 2: architecture analysis
-  create-designer.md           — Creating pipeline stage 3: design analysis
-  create-stacker.md            — Creating pipeline stage 4: stack analysis
-  create-assessor.md           — Creating pipeline stage 5: risk assessment
-  create-planner.md            — Creating pipeline stage 6: issue breakdown
-  create-advocate.md           — Creating pipeline stage 7: devil's advocate
-  create-filer.md              — Creating pipeline stage 8: file issues
-  resolve-researcher.md        — Resolving pipeline stage 1: codebase research
-  resolve-planner.md           — Resolving pipeline stage 2: implementation plan
-  resolve-advocate.md          — Resolving pipeline stage 3: devil's advocate
-  resolve-implementor.md       — Resolving pipeline stage 4: write code
-  resolve-tester.md            — Resolving pipeline stage 5: write tests
-  resolve-reviewer.md          — Resolving pipeline stage 6: self-review
-  resolve-opener.md            — Resolving pipeline stage 7: open PR
-  resolve-reviser.md           — On-demand: PR review feedback
+skills/                              — Claude Code skill definitions (orchestrators)
+  forge-smelting-orchestrator/       — Smelting pipeline: PROMPT.md → specification + issue queue
+  forge-hammering-orchestrator/      — Hammering pipeline: implement one ai-generated issue
+  forge-tempering-orchestrator/      — Tempering pipeline: independent review + PR opening
+  forge-honing-orchestrator/         — Honing pipeline: triage, audit, file maintenance issues
+agents/                              — Claude Code agent definitions (pipeline stages)
+  smelting-architect.md              — Smelting stage: architecture analysis
+  smelting-designer.md               — Smelting stage: design analysis
+  smelting-stacker.md                — Smelting stage: stack analysis
+  smelting-assessor.md               — Smelting stage: risk assessment
+  smelting-planner.md                — Smelting stage: issue breakdown
+  smelting-advocate.md               — Smelting stage: devil's advocate
+  smelting-reviewer.md               — Smelting stage: meta-review of plan
+  smelting-filer.md                  — Smelting stage: file issues + SPECIFICATION.md
+  hammering-researcher.md            — Hammering stage: codebase research
+  hammering-planner.md               — Hammering stage: implementation plan
+  hammering-advocate.md              — Hammering stage: devil's advocate
+  hammering-implementor.md           — Hammering stage: write code
+  hammering-tester.md                — Hammering stage: write tests
+  hammering-reviewer.md              — Hammering stage: self-review
+  tempering-reviewer.md              — Tempering stage: independent code review (read-only)
+  tempering-advocate.md              — Tempering stage: challenge review fairness
+  tempering-opener.md                — Tempering stage: open PR
+  tempering-reviser.md               — Tempering stage: PR review feedback
+  honing-triager.md                  — Honing stage: triage human issues
+  honing-auditor.md                  — Honing stage: audit app vs spec
+  honing-domain-researcher.md        — Honing stage: external domain research
+  honing-planner.md                  — Honing stage: propose maintenance issues
+  honing-advocate.md                 — Honing stage: challenge proposed issues
+  honing-filer.md                    — Honing stage: file issues
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
 templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
