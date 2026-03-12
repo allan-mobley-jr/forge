@@ -1078,6 +1078,7 @@ create_labels() {
     # Resolving pipeline stage labels
     gh label create "agent:resolve-researcher"   --color "1d76db" --description "Resolving stage: researcher"   --force 2>/dev/null || failed=1
     gh label create "agent:resolve-planner"      --color "1d76db" --description "Resolving stage: planner"      --force 2>/dev/null || failed=1
+    gh label create "agent:resolve-advocate"     --color "1d76db" --description "Resolving stage: advocate"     --force 2>/dev/null || failed=1
     gh label create "agent:resolve-implementor"  --color "1d76db" --description "Resolving stage: implementor"  --force 2>/dev/null || failed=1
     gh label create "agent:resolve-tester"       --color "1d76db" --description "Resolving stage: tester"       --force 2>/dev/null || failed=1
     gh label create "agent:resolve-reviewer"     --color "1d76db" --description "Resolving stage: reviewer"     --force 2>/dev/null || failed=1
