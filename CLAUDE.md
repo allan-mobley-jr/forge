@@ -57,6 +57,14 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 
 When working through GitHub issues, use `/fix-issue <number>` (or `/fix-issue` for the next open issue). This enforces the full cycle: branch, plan, implement, self-review, PR, wait for merge. One issue at a time — never start the next until the current PR is merged.
 
+### Labels
+
+When creating issues or PRs, apply relevant labels:
+
+- **Component:** `cli`, `bootstrap`, `skills`, `agents`, `hooks`, `ci`
+- **Pipeline:** `pipeline:smelting`, `pipeline:hammering`, `pipeline:tempering`, `pipeline:honing`
+- **Type:** `bug`, `enhancement`, `documentation`, `refactor`, `chore`
+
 After a PR merges, clean up before moving on (see [After a PR is merged](#after-a-pr-is-merged) below).
 
 ## Git Workflow
