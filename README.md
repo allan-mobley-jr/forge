@@ -104,11 +104,12 @@ Create a directory, write a `PROMPT.md` describing your app, and run `forge init
   forge init
        │
        │  Phase 1: Tool checks
-       ├──▶ Homebrew, Node ≥18, pnpm ≥8
+       ├──▶ Homebrew, Python 3, Node ≥18, pnpm ≥8
        ├──▶ GitHub CLI + authentication
        ├──▶ SSH key generation + upload
        ├──▶ Git identity + commit signing
        ├──▶ Vercel CLI + authentication
+       ├──▶ Claude Code auth token
        │
        │  Phase 2: Project setup
        ├──▶ git init + scaffold Next.js (TypeScript, Tailwind, App Router)
@@ -123,6 +124,7 @@ Create a directory, write a `PROMPT.md` describing your app, and run `forge init
        ├──▶ Choose merge mode (copilot or auto)
        ├──▶ Generate CLAUDE.md from template
        ├──▶ Set up branch protection + labels (+ Copilot review if selected)
+       ├──▶ Create production branch + configure Vercel staging/production
        └──▶ Done — ready to build
 ```
 
