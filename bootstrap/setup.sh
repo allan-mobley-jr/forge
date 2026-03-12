@@ -1158,6 +1158,25 @@ check_git_config
 check_vercel
 check_vercel_auth
 
+# Claude long-lived auth token (non-critical — forge run needs it, not bootstrap)
+check_claude_auth_token() {
+    local label="Claude long-lived auth token"
+    if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+        skip "$label (ANTHROPIC_API_KEY)"
+        return
+    fi
+    if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+        skip "$label (CLAUDE_CODE_OAUTH_TOKEN)"
+        return
+    fi
+    add_warning "No long-lived Claude auth token detected. forge run requires one for headless operation."
+    echo "    Run: claude setup-token"
+    echo "    Then add CLAUDE_CODE_OAUTH_TOKEN to your shell profile (~/.zshrc)"
+    echo "    See: https://docs.anthropic.com/en/docs/claude-code/cli-usage#non-interactive-mode"
+}
+
+check_claude_auth_token
+
 init_git
 scaffold_nextjs
 fix_pnpm_workspace
