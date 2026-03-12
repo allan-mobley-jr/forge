@@ -101,18 +101,18 @@ gh run view <run-id> --log-failed
 
 ### 5. Handle Merge Conflicts
 
-Check for conflicts:
+Probe for conflicts (always abort — this is a check, not an actual merge):
 
 ```bash
 git merge main --no-commit --no-ff 2>&1
+merge_result=$?
+git merge --abort 2>/dev/null || true
 ```
 
-**Simple conflicts** (< 3 files, clear resolution): resolve them.
-**Complex conflicts** (> 3 files or unclear resolution): abort merge, post BLOCKED status.
+If `merge_result` is non-zero, conflicts exist:
 
-```bash
-git merge --abort
-```
+**Simple conflicts** (< 3 files, clear resolution): rebase onto main and resolve them.
+**Complex conflicts** (> 3 files or unclear resolution): post BLOCKED status.
 
 ### 6. Apply Fixes
 
