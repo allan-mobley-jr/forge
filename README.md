@@ -167,15 +167,6 @@ Run `forge run` in the project directory to start the bash-orchestrated pipeline
   └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Creating pipeline** (8 stages — runs when PROMPT.md exists and no issues have been filed):
-The `forge-create-orchestrator` spawns 8 stage agents in order: researcher (reads PROMPT.md, gathers context), architect (architecture analysis), designer (design analysis), stacker (stack analysis), assessor (risk assessment), planner (synthesizes into ordered issue breakdown), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), and filer (creates GitHub milestones and issues, generates SPECIFICATION.md, archives PROMPT.md). Each stage posts its analysis as a structured comment on a planning issue.
-
-**Resolving pipeline** (7 stages — runs once per backlog issue):
-The `forge-resolve-orchestrator` spawns 7 stage agents: researcher (explores codebase, triages), planner (designs implementation approach), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), implementor (writes code, pushes branch), tester (writes and runs tests), reviewer (self-review, quality checks), and opener (opens PR). One issue at a time, lowest-numbered first.
-
-**Revision cycle** (on demand — runs when a PR has review feedback or CI failures):
-The `forge-resolve-orchestrator --revise` spawns the reviser agent, which reads PR comments, evaluates each one (fixing valid issues, pushing back on incorrect suggestions), and pushes fixes.
-
 ### Stage 4 — Merge
 
 PRs are auto-merged after CI passes. You choose the merge mode during `forge init`:
@@ -194,7 +185,6 @@ PRs are auto-merged after CI passes. You choose the merge mode during `forge ini
   CI passes
        │
        ├── Auto mode ────────▶ Squash-merge immediately
-       │                       Vercel deploys to production
        │
        └── Copilot mode ────▶ GitHub Copilot reviews the PR
               │
@@ -202,11 +192,10 @@ PRs are auto-merged after CI passes. You choose the merge mode during `forge ini
               └── Comments ─────▶ Revision cycle evaluates each comment
                                   Fixes valid issues, challenges wrong ones
                                   Resolves all threads, then merges
+       │
+       ▼
+  Vercel deploys to staging
 ```
-
-**Auto mode** removes the reviewer from the critical path entirely — CI is the only gate. **Copilot mode** adds GitHub Copilot as an automated code reviewer; the agent addresses Copilot's feedback before merging. In both modes, human `CHANGES_REQUESTED` reviews still trigger a revision cycle and take priority over auto-merge.
-
-The agent escalates when it's stuck instead of guessing.
 
 ## Label System
 
