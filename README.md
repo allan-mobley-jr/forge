@@ -29,10 +29,6 @@ $${\color{#d97706}\textbf{Describe\ your\ app\ in\ plain\ English\ —\ Forge\ p
 - GitHub account with the [Vercel GitHub App](https://github.com/apps/vercel) installed
 - Vercel account
 
-The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
-
-> **Note:** Branch protection rulesets (required status checks + conversation resolution before merging to `main`) require GitHub Pro or a public repository. On a free plan with a private repo, the agent can push directly to `main` without CI gating. This is acceptable for solo projects but not recommended.
-
 ## Quick Start
 
 ```bash
@@ -69,23 +65,22 @@ forge run                    # start building
    │  (bash orch.) │───▶│  Issues = backlog  │  PRs = work    │
    └───────┬───────┘    │  Labels = status   │  CI = quality  │
            │            └────────────┬────────────────────────┘
-           ▼                         │
-   ┌───────────────────┐             │
-   │  determine next   │◀── reads ───┘
-   │  action (bash)    │
-   │                   │
-   │  ├─▶ Creating pipeline  (8 stage agents → file issues)
-   │  ├─▶ Resolving pipeline (7 stage agents → implement + PR)
-   │  └─▶ Revision cycle     (on demand → address PR feedback)
-   └───────────────────┘
+           │                         │
+           │                         │
+           ▼                         ▼
+   ┌────────────────────────────────────────────────────────────┐
+   │  determine next action (bash)                              │
+   │                                                            │
+   │  ├─▶ Creating pipeline  (8 stage agents → file issues)     │
+   │  ├─▶ Resolving pipeline (7 stage agents → implement + PR)  │
+   │  └─▶ Revision cycle     (on demand → address PR feedback)  │
+   └────────────────────────────────────────────────────────────┘
            │
            ▼
    CI passes ──▶ Auto-merge to main
    Merge ──▶ Vercel staging deploy
    Human promotion ──▶ Vercel production deploy
 ```
-
-There are four stages: **install**, **init**, **pipeline**, and **merge**. The sections below walk through each one.
 
 ### Stage 1 — Install Forge
 
