@@ -56,6 +56,10 @@ Before discussing or planning, gather the information you need:
 3. Trace the relevant code paths — understand how the pieces connect.
 4. Note any constraints, edge cases, or dependencies you discover.
 
+**Validate the premise:**
+5. Verify the issue's assumptions against the **current** code. Issues may have been filed against an older version of the codebase — other PRs may have changed the relevant code paths since then.
+6. Confirm the problem actually exists. Trace the exact scenario described in the issue and check whether the current code already handles it.
+
 **Web (when needed):**
 If the issue involves unfamiliar APIs, libraries, protocols, or domain concepts, search the web to fill knowledge gaps. Don't guess — look it up.
 
@@ -65,10 +69,11 @@ This step is about gathering facts, not forming opinions yet.
 
 Before planning or writing any code, present your understanding to the user and get alignment:
 
-1. Summarize what the issue is asking for in your own words.
-2. Identify the relevant files and areas of the codebase.
-3. Call out any ambiguity, open questions, or trade-offs you see.
-4. Ask the user if your understanding is correct and whether they have preferences on approach.
+1. **Challenge the premise first.** Does the problem described in the issue still exist? If the codebase has changed since filing, say so. Don't propose a fix for a problem that isn't there.
+2. Summarize what the issue is asking for in your own words.
+3. Identify the relevant files and areas of the codebase.
+4. Call out any ambiguity, open questions, or trade-offs you see.
+5. Ask the user if your understanding is correct and whether they have preferences on approach.
 
 **Do not proceed until the user confirms.** This is a checkpoint — the user may have context that changes the approach entirely.
 
