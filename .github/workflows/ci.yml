@@ -9,8 +9,20 @@ jobs:
       contents: read
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install shellcheck
         run: brew install shellcheck
       - name: Run shellcheck
-        run: shellcheck --severity=warning -x install.sh bootstrap/setup.sh
+        run: shellcheck --severity=warning -x install.sh bootstrap/setup.sh cli/forge.sh cli/forge-lib.sh
+
+  bats:
+    name: Bats Tests
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install bats-core and jq
+        run: brew install bats-core jq
+      - name: Run tests
+        run: bats tests/cli/
