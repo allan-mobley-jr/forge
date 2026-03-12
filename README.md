@@ -1,8 +1,26 @@
-# ⚒ Forge
+# ${\color{#d97706}\textsf{⚒ Forge}}$ ${\color{#d97706}\textsf{—}}$ ${\color{#d97706}\textit{You\ bring\ the\ blueprint.\ The\ smith\ does\ the\ rest.}}$
 
-<img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge — Autonomous Next.js Development" width="1280" />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge — Autonomous Next.js development" width="1280" />
+</p>
 
-Forge is an autonomous development system that turns a plain-English description of your app into a working Next.js project — planned, built, and deployed through GitHub Issues, PRs, and Vercel. You describe what you want. Claude Code does the rest. PRs are auto-merged after CI passes, with optional GitHub Copilot code review as a quality gate.
+<br/>
+
+$${\color{#d97706}\textbf{Autonomous\ Next.js\ development\ powered\ by\ Claude\ Code.}}$$
+
+$${\color{#d97706}\textbf{Describe\ your\ app\ in\ plain\ English\ —\ Forge\ plans,\ builds,\ and\ deploys\ it\ through\ GitHub\ and\ Vercel.}}$$
+
+<div align="center">
+  <a href="#quick-start">Quick Start</a>
+  <span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+  <a href="#how-it-works">How It Works</a>
+  <span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+  <a href="#running-autonomously">Running Autonomously</a>
+  <span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+  <a href="#troubleshooting">Troubleshooting</a>
+</div>
+
+<br/>
 
 ## Requirements
 
@@ -10,10 +28,6 @@ Forge is an autonomous development system that turns a plain-English description
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Pro subscription, Max subscription, or API key
 - GitHub account with the [Vercel GitHub App](https://github.com/apps/vercel) installed
 - Vercel account
-
-The bootstrap installs and configures everything else (Homebrew, Node.js, pnpm, GitHub CLI, Vercel CLI, SSH keys).
-
-> **Note:** Branch protection rulesets (required status checks + conversation resolution before merging to `main`) require GitHub Pro or a public repository. On a free plan with a private repo, the agent can push directly to `main` without CI gating. This is acceptable for solo projects but not recommended.
 
 ## Quick Start
 
@@ -51,23 +65,22 @@ forge run                    # start building
    │  (bash orch.) │───▶│  Issues = backlog  │  PRs = work    │
    └───────┬───────┘    │  Labels = status   │  CI = quality  │
            │            └────────────┬────────────────────────┘
-           ▼                         │
-   ┌───────────────────┐             │
-   │  determine next   │◀── reads ───┘
-   │  action (bash)    │
-   │                   │
-   │  ├─▶ Creating pipeline  (8 stage agents → file issues)
-   │  ├─▶ Resolving pipeline (7 stage agents → implement + PR)
-   │  └─▶ Revision cycle     (on demand → address PR feedback)
-   └───────────────────┘
+           │                         │
+           │                         │
+           ▼                         ▼
+   ┌────────────────────────────────────────────────────────────┐
+   │  determine next action (bash)                              │
+   │                                                            │
+   │  ├─▶ Creating pipeline  (8 stage agents → file issues)     │
+   │  ├─▶ Resolving pipeline (7 stage agents → implement + PR)  │
+   │  └─▶ Revision cycle     (on demand → address PR feedback)  │
+   └────────────────────────────────────────────────────────────┘
            │
            ▼
    CI passes ──▶ Auto-merge to main
    Merge ──▶ Vercel staging deploy
    Human promotion ──▶ Vercel production deploy
 ```
-
-There are four stages: **install**, **init**, **pipeline**, and **merge**. The sections below walk through each one.
 
 ### Stage 1 — Install Forge
 
@@ -84,7 +97,7 @@ After restarting your terminal, you have the `forge` command. Re-running the ins
 
 ### Stage 2 — Bootstrap a Project (`forge init`)
 
-Create a directory, write a `PROMPT.md` describing your app, and run `forge init`. The bootstrap runs ~21 idempotent steps in two phases:
+Create a directory, write a `PROMPT.md` describing your app, and run `forge init`. The bootstrap runs idempotent steps in two phases:
 
 ```
   forge init
@@ -154,15 +167,6 @@ Run `forge run` in the project directory to start the bash-orchestrated pipeline
   └──────────────────────────────────────────────────────────────────┘
 ```
 
-**Creating pipeline** (8 stages — runs when PROMPT.md exists and no issues have been filed):
-The `forge-create-orchestrator` spawns 8 stage agents in order: researcher (reads PROMPT.md, gathers context), architect (architecture analysis), designer (design analysis), stacker (stack analysis), assessor (risk assessment), planner (synthesizes into ordered issue breakdown), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), and filer (creates GitHub milestones and issues, generates SPECIFICATION.md, archives PROMPT.md). Each stage posts its analysis as a structured comment on a planning issue.
-
-**Resolving pipeline** (7 stages — runs once per backlog issue):
-The `forge-resolve-orchestrator` spawns 7 stage agents: researcher (explores codebase, triages), planner (designs implementation approach), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), implementor (writes code, pushes branch), tester (writes and runs tests), reviewer (self-review, quality checks), and opener (opens PR). One issue at a time, lowest-numbered first.
-
-**Revision cycle** (on demand — runs when a PR has review feedback or CI failures):
-The `forge-resolve-orchestrator --revise` spawns the reviser agent, which reads PR comments, evaluates each one (fixing valid issues, pushing back on incorrect suggestions), and pushes fixes.
-
 ### Stage 4 — Merge
 
 PRs are auto-merged after CI passes. You choose the merge mode during `forge init`:
@@ -181,7 +185,6 @@ PRs are auto-merged after CI passes. You choose the merge mode during `forge ini
   CI passes
        │
        ├── Auto mode ────────▶ Squash-merge immediately
-       │                       Vercel deploys to production
        │
        └── Copilot mode ────▶ GitHub Copilot reviews the PR
               │
@@ -189,11 +192,10 @@ PRs are auto-merged after CI passes. You choose the merge mode during `forge ini
               └── Comments ─────▶ Revision cycle evaluates each comment
                                   Fixes valid issues, challenges wrong ones
                                   Resolves all threads, then merges
+       │
+       ▼
+  Vercel deploys to staging
 ```
-
-**Auto mode** removes the reviewer from the critical path entirely — CI is the only gate. **Copilot mode** adds GitHub Copilot as an automated code reviewer; the agent addresses Copilot's feedback before merging. In both modes, human `CHANGES_REQUESTED` reviews still trigger a revision cycle and take priority over auto-merge.
-
-The agent escalates when it's stuck instead of guessing.
 
 ## Label System
 
@@ -256,7 +258,7 @@ forge run
 
 Add the export to `~/.zshrc` to make it permanent.
 
-**Pro and Max subscription users** — OAuth tokens expire after ~10 minutes in headless mode. Generate a long-lived token instead:
+**Pro and Max subscription users** — OAuth tokens are short-lived and can't refresh in headless mode. Generate a long-lived token instead:
 
 ```bash
 claude setup-token
@@ -365,7 +367,10 @@ The bash orchestrator reads labels and comments from GitHub on every cycle — o
 
 ```
 forge/
-├── install.sh              # curl | bash installer + pipeline orchestrator
+├── install.sh              # curl | bash installer
+├── cli/                    # Forge CLI
+│   ├── forge.sh            #   Main executable (init, run, update, upgrade, doctor, uninstall)
+│   └── forge-lib.sh        #   Shared library (state machine, determine_next_action)
 ├── bootstrap/setup.sh      # Idempotent project setup
 ├── skills/                 # Claude Code skill definitions (orchestrators)
 │   ├── forge-create-orchestrator/  # Creating pipeline (8 stages → file issues)
@@ -377,6 +382,7 @@ forge/
 ├── workflows/              # GitHub Actions templates
 │   ├── ci.yml              #   Lint + typecheck + test + build + E2E
 │   └── deploy-production.yml #  PR-based main → production promotion
+├── tests/                  # CLI tests (bats framework)
 └── templates/
     ├── CLAUDE.md.hbs       # Project CLAUDE.md template
     ├── PROMPT.md           # Example starter prompt
