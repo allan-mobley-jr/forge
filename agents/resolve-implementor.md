@@ -1,6 +1,6 @@
 ---
 name: resolve-implementor
-description: "Resolving pipeline stage 3: write code and push to feature branch"
+description: "Resolving pipeline stage 4: write code and push to feature branch"
 tools: Bash, Read, Write, Edit, MultiEdit, Glob, Grep, WebSearch, WebFetch
 ---
 

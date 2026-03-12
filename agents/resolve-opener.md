@@ -1,6 +1,6 @@
 ---
 name: resolve-opener
-description: "Resolving pipeline stage 6: open PR with synthesized body from all stage comments"
+description: "Resolving pipeline stage 7: open PR with synthesized body from all stage comments"
 tools: Bash, Read, Glob, Grep
 disallowedTools: Write, Edit, MultiEdit
 ---
