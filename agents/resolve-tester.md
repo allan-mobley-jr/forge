@@ -1,6 +1,6 @@
 ---
 name: resolve-tester
-description: "Resolving pipeline stage 4: write and run tests"
+description: "Resolving pipeline stage 5: write and run tests"
 tools: Bash, Read, Write, Edit, Glob, Grep
 ---
 

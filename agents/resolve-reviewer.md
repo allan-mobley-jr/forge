@@ -1,6 +1,6 @@
 ---
 name: resolve-reviewer
-description: "Resolving pipeline stage 5: self-review, quality checks, apply fixes"
+description: "Resolving pipeline stage 6: self-review, quality checks, apply fixes"
 tools: Bash, Read, Write, Edit, MultiEdit, Glob, Grep
 ---
 

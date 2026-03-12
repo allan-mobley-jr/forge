@@ -19,10 +19,11 @@ agents/                        — Claude Code agent definitions (pipeline stage
   create-filer.md              — Creating pipeline stage 8: file issues
   resolve-researcher.md        — Resolving pipeline stage 1: codebase research
   resolve-planner.md           — Resolving pipeline stage 2: implementation plan
-  resolve-implementor.md       — Resolving pipeline stage 3: write code
-  resolve-tester.md            — Resolving pipeline stage 4: write tests
-  resolve-reviewer.md          — Resolving pipeline stage 5: self-review
-  resolve-opener.md            — Resolving pipeline stage 6: open PR
+  resolve-advocate.md          — Resolving pipeline stage 3: devil's advocate
+  resolve-implementor.md       — Resolving pipeline stage 4: write code
+  resolve-tester.md            — Resolving pipeline stage 5: write tests
+  resolve-reviewer.md          — Resolving pipeline stage 6: self-review
+  resolve-opener.md            — Resolving pipeline stage 7: open PR
   resolve-reviser.md           — On-demand: PR review feedback
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates

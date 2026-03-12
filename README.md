@@ -57,7 +57,7 @@ forge run                    # start building
    │  action (bash)    │
    │                   │
    │  ├─▶ Creating pipeline  (8 stage agents → file issues)
-   │  ├─▶ Resolving pipeline (6 stage agents → implement + PR)
+   │  ├─▶ Resolving pipeline (7 stage agents → implement + PR)
    │  └─▶ Revision cycle     (on demand → address PR feedback)
    └───────────────────┘
            │
@@ -136,7 +136,7 @@ Run `forge run` in the project directory to start the bash-orchestrated pipeline
   │        │                              forge-create-orchestrator  │
   │        │                                                         │
   │        ├── Backlog issue ready ─────▶ Resolving pipeline         │
-  │        │                              6 stage agents via         │
+  │        │                              7 stage agents via         │
   │        │                              forge-resolve-orchestrator │
   │        │                                                         │
   │        ├── PR needs changes ────────▶ Revision cycle             │
@@ -157,8 +157,8 @@ Run `forge run` in the project directory to start the bash-orchestrated pipeline
 **Creating pipeline** (8 stages — runs when PROMPT.md exists and no issues have been filed):
 The `forge-create-orchestrator` spawns 8 stage agents in order: researcher (reads PROMPT.md, gathers context), architect (architecture analysis), designer (design analysis), stacker (stack analysis), assessor (risk assessment), planner (synthesizes into ordered issue breakdown), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), and filer (creates GitHub milestones and issues, generates SPECIFICATION.md, archives PROMPT.md). Each stage posts its analysis as a structured comment on a planning issue.
 
-**Resolving pipeline** (6 stages — runs once per backlog issue):
-The `forge-resolve-orchestrator` spawns 6 stage agents: researcher (explores codebase, triages), planner (designs implementation approach), implementor (writes code, pushes branch), tester (writes and runs tests), reviewer (self-review, quality checks), and opener (opens PR). One issue at a time, lowest-numbered first.
+**Resolving pipeline** (7 stages — runs once per backlog issue):
+The `forge-resolve-orchestrator` spawns 7 stage agents: researcher (explores codebase, triages), planner (designs implementation approach), advocate (challenges the plan — PROCEED/REVISE/ESCALATE), implementor (writes code, pushes branch), tester (writes and runs tests), reviewer (self-review, quality checks), and opener (opens PR). One issue at a time, lowest-numbered first.
 
 **Revision cycle** (on demand — runs when a PR has review feedback or CI failures):
 The `forge-resolve-orchestrator --revise` spawns the reviser agent, which reads PR comments, evaluates each one (fixing valid issues, pushing back on incorrect suggestions), and pushes fixes.
@@ -369,10 +369,10 @@ forge/
 ├── bootstrap/setup.sh      # Idempotent project setup
 ├── skills/                 # Claude Code skill definitions (orchestrators)
 │   ├── forge-create-orchestrator/  # Creating pipeline (8 stages → file issues)
-│   └── forge-resolve-orchestrator/ # Resolving pipeline (6 stages → implement + PR)
+│   └── forge-resolve-orchestrator/ # Resolving pipeline (7 stages → implement + PR)
 ├── agents/                 # Pipeline stage agents
 │   ├── create-*.md         #   8 creating stages (researcher → filer)
-│   └── resolve-*.md        #   7 resolving stages (researcher → reviser)
+│   └── resolve-*.md        #   8 resolving agents (7 stages + reviser)
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
 │   ├── ci.yml              #   Lint + typecheck + test + build + E2E

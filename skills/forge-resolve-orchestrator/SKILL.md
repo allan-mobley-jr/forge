@@ -12,7 +12,7 @@ allowed-tools:
 
 # forge-resolve-orchestrator
 
-You are the **resolving pipeline orchestrator**. You manage the full lifecycle of implementing a single GitHub issue: the 6-stage resolving pipeline AND revision cycles for PR feedback.
+You are the **resolving pipeline orchestrator**. You manage the full lifecycle of implementing a single GitHub issue: the 7-stage resolving pipeline AND revision cycles for PR feedback.
 
 ## Constraint
 
@@ -29,7 +29,7 @@ You receive the issue number and an optional mode flag:
 /forge-resolve-orchestrator <issue-number> --revise
 ```
 
-- **Without `--revise`:** Run the full 6-stage resolving pipeline.
+- **Without `--revise`:** Run the full 7-stage resolving pipeline.
 - **With `--revise`:** Run a revision cycle to address PR review feedback.
 
 ---
@@ -56,10 +56,11 @@ Execute stages in this order:
 |---|-------|-------------|-------------|
 | 1 | resolve-researcher | Researcher | Explore codebase, triage, domain research |
 | 2 | resolve-planner | Planner | Design implementation + self-advocate |
-| 3 | resolve-implementor | Implementor | Write code, push branch |
-| 4 | resolve-tester | Tester | Write and run tests |
-| 5 | resolve-reviewer | Reviewer | Self-review, quality checks |
-| 6 | resolve-opener | Opener | Open PR with synthesized body |
+| 3 | resolve-advocate | Advocate | Challenge the plan (PROCEED / REVISE / ESCALATE) |
+| 4 | resolve-implementor | Implementor | Write code, push branch |
+| 5 | resolve-tester | Tester | Write and run tests |
+| 6 | resolve-reviewer | Reviewer | Self-review, quality checks |
+| 7 | resolve-opener | Opener | Open PR with synthesized body |
 
 ### Per-Stage Procedure
 
@@ -93,10 +94,45 @@ For each stage:
 ### Context Curation Strategy
 
 - **Researcher → Planner:** Pass the full researcher summary. The planner needs complete context about the codebase and issue requirements.
-- **Planner → Implementor:** Pass the full planner summary (implementation plan). The implementor needs the exact plan to follow.
+- **Planner → Advocate:** Pass the full planner summary (implementation plan). The advocate needs the complete plan to challenge it.
+- **Advocate → Implementor:** Pass the full planner summary (implementation plan). The implementor needs the exact plan to follow. If the advocate triggered a REVISE cycle, pass the revised plan.
 - **Implementor → Tester:** Pass a synthesis of the plan + what the implementor actually built (files changed, approach taken).
 - **Tester → Reviewer:** Pass what was implemented and what tests were written/run.
 - **Reviewer → Opener:** Pass the review findings and the implementation summary for the PR body.
+
+### Advocate Gate
+
+The advocate stage returns one of three verdicts:
+
+#### PROCEED
+Continue to the implementor stage normally.
+
+#### REVISE
+The advocate found issues with the plan. Handle this:
+
+1. Extract the advocate's specific feedback from the returned summary.
+2. Re-run the **planner** agent with the advocate's feedback included as additional context: "The advocate identified these issues with your plan: [feedback]. Please revise your plan to address them."
+3. Re-run the **advocate** agent to evaluate the revised plan.
+4. Maximum 1 revision cycle. After that, proceed to the implementor regardless.
+
+#### ESCALATE
+The advocate determined the plan needs human input:
+
+1. Post an escalation comment on the issue:
+   ```bash
+   gh issue comment <issue> --body "## Agent Question
+
+   The advocate stage escalated this implementation plan to a human.
+
+   [Include the advocate's escalation reasoning]
+
+   *Escalated automatically by the Forge pipeline orchestrator.*"
+   ```
+2. Add the `agent:needs-human` label:
+   ```bash
+   gh issue edit <issue> --add-label "agent:needs-human"
+   ```
+3. Remove any stage labels and exit.
 
 ### Researcher BLOCKED Handling
 

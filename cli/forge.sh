@@ -521,9 +521,9 @@ except:
                 "agent:create-researcher" "agent:create-architect" "agent:create-designer"
                 "agent:create-stacker" "agent:create-assessor" "agent:create-planner"
                 "agent:create-advocate" "agent:create-filer"
-                "agent:resolve-researcher" "agent:resolve-planner" "agent:resolve-implementor"
-                "agent:resolve-tester" "agent:resolve-reviewer" "agent:resolve-opener"
-                "agent:resolve-reviser"
+                "agent:resolve-researcher" "agent:resolve-planner" "agent:resolve-advocate"
+                "agent:resolve-implementor" "agent:resolve-tester" "agent:resolve-reviewer"
+                "agent:resolve-opener" "agent:resolve-reviser"
             )
             existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
             missing_labels=()
@@ -717,6 +717,7 @@ except:
             "agent:create-filer|1d76db|Creating stage: filer"
             "agent:resolve-researcher|1d76db|Resolving stage: researcher"
             "agent:resolve-planner|1d76db|Resolving stage: planner"
+            "agent:resolve-advocate|1d76db|Resolving stage: advocate"
             "agent:resolve-implementor|1d76db|Resolving stage: implementor"
             "agent:resolve-tester|1d76db|Resolving stage: tester"
             "agent:resolve-reviewer|1d76db|Resolving stage: reviewer"
