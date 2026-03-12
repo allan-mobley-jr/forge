@@ -511,6 +511,15 @@ except:
             fi
         fi
 
+        if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+            echo -e "  ${GREEN}✓${NC} Claude auth: API key"
+        elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+            echo -e "  ${GREEN}✓${NC} Claude auth: long-lived token (setup-token)"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Claude auth: short-lived OAuth — may expire during forge run"
+            echo "    Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN in your shell profile"
+        fi
+
         # 6. Check labels
         echo ""
         echo "Labels:"
@@ -697,6 +706,16 @@ except:
                 echo "Fix the above, then re-run forge run."
                 notify_failure "Auth check failed — see terminal for details"
                 exit 1
+            fi
+
+            # Warn if using short-lived OAuth (no long-lived token configured) — once per run
+            if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${_forge_oauth_warned:-}" ]; then
+                _forge_oauth_warned=1
+                echo -e "[forge] ${YELLOW}Warning:${NC} No long-lived auth token detected."
+                echo "  Short-lived OAuth tokens expire after ~8-12h and may fail during headless runs."
+                echo "  Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN in your shell profile."
+                echo "  See: https://docs.anthropic.com/en/docs/claude-code/cli-usage#non-interactive-mode"
+                echo ""
             fi
         }
 
