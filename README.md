@@ -1,7 +1,7 @@
 # ${\color{#d97706}\textsf{⚒ Forge}}$ ${\color{#d97706}\textsf{—}}$ ${\color{#d97706}\textit{You\ bring\ the\ blueprint.\ The\ smith\ does\ the\ rest.}}$
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge" width="1280" />
+  <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge — Autonomous Next.js development" width="1280" />
 </p>
 
 <br/>
