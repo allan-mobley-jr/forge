@@ -71,7 +71,7 @@ forge run                    # start building
    ┌────────────────────────────────────────────────────────────┐
    │  determine next action (bash)                              │
    │                                                            │
-   │  ├─▶ Smelting pipeline   (8 stage agents → file issues)     │
+   │  ├─▶ Smelting pipeline   (8 stage agents → file issues)    │
    │  ├─▶ Hammering pipeline  (6 stage agents → implement)      │
    │  ├─▶ Tempering pipeline  (4 stage agents → review + PR)    │
    │  └─▶ Honing pipeline     (6 stage agents → maintenance)    │
@@ -137,42 +137,42 @@ forge init --resume
 Run `forge run` in the project directory to start the bash-orchestrated pipeline:
 
 ```
-  ┌──────────────────────────────────────────────────────────────────┐
-  │                    forge run (bash orchestrator)                 │
-  │                                                                  │
-  │   determine_next_action()                                        │
-  │        │  Reads GitHub: issues, PRs, labels, stage state         │
-  │        │  Detects human responses on needs-human issues          │
-  │        │  Detects CHANGES_REQUESTED / CI failures on PRs         │
-  │        │                                                         │
+  ┌───────────────────────────────────────────────────────────-───────┐
+  │                    forge run (bash orchestrator)                  │
+  │                                                                   │
+  │   determine_next_action()                                         │
+  │        │  Reads GitHub: issues, PRs, labels, stage state          │
+  │        │  Detects human responses on needs-human issues           │
+  │        │  Detects CHANGES_REQUESTED / CI failures on PRs          │
+  │        │                                                          │
   │        ├── PROMPT.md, no issues ────▶ Smelting pipeline           │
-  │        │                              8 stage agents via         │
-  │        │                              forge-smelting-orchestrator│
-  │        │                                                         │
-  │        ├── Backlog issue ready ─────▶ Hammering pipeline         │
-  │        │                              6 stage agents via         │
+  │        │                              8 stage agents via          │
+  │        │                              forge-smelting-orchestrator │
+  │        │                                                          │
+  │        ├── Backlog issue ready ─────▶ Hammering pipeline          │
+  │        │                              6 stage agents via          │
   │        │                              forge-hammering-orchestrator│
-  │        │                                                         │
-  │        ├── Implementation done ────▶ Tempering pipeline          │
-  │        │                              4 stage agents via         │
+  │        │                                                          │
+  │        ├── Implementation done ────▶ Tempering pipeline           │
+  │        │                              4 stage agents via          │
   │        │                              forge-tempering-orchestrator│
-  │        │                                                         │
-  │        ├── PR needs changes ────────▶ Revision cycle             │
-  │        │                              tempering-reviser agent    │
-  │        │                                                         │
-  │        ├── All issues done ────────▶ Honing pipeline             │
-  │        │                              6 stage agents via         │
-  │        │                              forge-honing-orchestrator  │
-  │        │                                                         │
-  │        ├── Stuck on a decision ─────▶ Wait for human             │
-  │        │                              agent:needs-human label    │
-  │        │                              24h timeout auto-resolves  │
-  │        │                                                         │
-  │        └── All issues closed ───────▶ Done                       │
-  │                                                                  │
-  │   Bash controls execution. Each stage is a separate claude -p    │
-  │   session. Labels are state. Comments are artifacts.             │
-  └──────────────────────────────────────────────────────────────────┘
+  │        │                                                          │
+  │        ├── PR needs changes ────────▶ Revision cycle              │
+  │        │                              tempering-reviser agent     │
+  │        │                                                          │
+  │        ├── All issues done ────────▶ Honing pipeline              │
+  │        │                              6 stage agents via          │
+  │        │                              forge-honing-orchestrator   │
+  │        │                                                          │
+  │        ├── Stuck on a decision ─────▶ Wait for human              │
+  │        │                              agent:needs-human label     │
+  │        │                              24h timeout auto-resolves   │
+  │        │                                                          │
+  │        └── All issues closed ───────▶ Done                        │
+  │                                                                   │
+  │   Bash controls execution. Each stage is a separate claude -p     │
+  │   session. Labels are state. Comments are artifacts.              │
+  └──────────────────────────────────────────────────────────────-────┘
 ```
 
 ### Stage 4 — Merge
@@ -381,30 +381,30 @@ The bash orchestrator reads labels and comments from GitHub on every cycle — o
 
 ```
 forge/
-├── install.sh              # curl | bash installer
-├── cli/                    # Forge CLI
-│   ├── forge.sh            #   Main executable (init, run, update, upgrade, doctor, uninstall)
-│   └── forge-lib.sh        #   Shared library (state machine, determine_next_action)
-├── bootstrap/setup.sh      # Idempotent project setup
-├── skills/                 # Claude Code skill definitions (orchestrators)
-│   ├── forge-smelting-orchestrator/   # Smelting pipeline (8 stages → file issues)
-│   ├── forge-hammering-orchestrator/  # Hammering pipeline (6 stages → implement)
-│   ├── forge-tempering-orchestrator/  # Tempering pipeline (4 stages → review + PR)
-│   └── forge-honing-orchestrator/     # Honing pipeline (6 stages → maintenance)
-├── agents/                 # Pipeline stage agents (24 total)
-│   ├── smelting-*.md       #   8 smelting stages (architect → filer)
-│   ├── hammering-*.md      #   6 hammering stages (researcher → reviewer)
-│   ├── tempering-*.md      #   4 tempering stages (reviewer → reviser)
-│   └── honing-*.md         #   6 honing stages (triager → filer)
-├── hooks/settings.json     # Permissions and hook definitions
-├── workflows/              # GitHub Actions templates
-│   ├── ci.yml              #   Lint + typecheck + test + build + E2E
-│   └── deploy-production.yml #  PR-based main → production promotion
-├── tests/                  # CLI tests (bats framework)
+├── install.sh                          # curl | bash installer
+├── cli/                                # Forge CLI
+│   ├── forge.sh                        #   Main executable (init, run, update, upgrade, doctor, uninstall)
+│   └── forge-lib.sh                    #   Shared library (state machine, determine_next_action)
+├── bootstrap/setup.sh                  # Idempotent project setup
+├── skills/                             # Claude Code skill definitions (orchestrators)
+│   ├── forge-smelting-orchestrator/    # Smelting pipeline (8 stages → file issues)
+│   ├── forge-hammering-orchestrator/   # Hammering pipeline (6 stages → implement)
+│   ├── forge-tempering-orchestrator/   # Tempering pipeline (4 stages → review + PR)
+│   └── forge-honing-orchestrator/      # Honing pipeline (6 stages → maintenance)
+├── agents/                             # Pipeline stage agents (24 total)
+│   ├── smelting-*.md                   #   8 smelting stages (architect → filer)
+│   ├── hammering-*.md                  #   6 hammering stages (researcher → reviewer)
+│   ├── tempering-*.md                  #   4 tempering stages (reviewer → reviser)
+│   └── honing-*.md                     #   6 honing stages (triager → filer)
+├── hooks/settings.json                 # Permissions and hook definitions
+├── workflows/                          # GitHub Actions templates
+│   ├── ci.yml                          #   Lint + typecheck + test + build + E2E
+│   └── deploy-production.yml           #  PR-based main → production promotion
+├── tests/                              # CLI tests (bats framework)
 └── templates/
-    ├── CLAUDE.md.hbs       # Project CLAUDE.md template
-    ├── PROMPT.md           # Example starter prompt
-    └── issue-body.md       # Issue body template
+    ├── CLAUDE.md.hbs                   # Project CLAUDE.md template
+    ├── PROMPT.md                       # Example starter prompt
+    └── issue-body.md                   # Issue body template
 ```
 
 ## License
