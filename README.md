@@ -1,8 +1,26 @@
-# ⚒ Forge
+# ${\color{#d97706}\textsf{⚒ Forge}}$ ${\color{#d97706}\textsf{—}}$ ${\color{#d97706}\textit{You\ bring\ the\ blueprint.\ The\ smith\ does\ the\ rest.}}$
 
-<img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge — Autonomous Next.js Development" width="1280" />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge" width="1280" />
+</p>
 
-Forge is an autonomous development system that turns a plain-English description of your app into a working Next.js project — planned, built, and deployed through GitHub Issues, PRs, and Vercel. You describe what you want. Claude Code does the rest. PRs are auto-merged after CI passes, with optional GitHub Copilot code review as a quality gate.
+<br/>
+
+$${\color{#d97706}\textbf{Autonomous\ Next.js\ development\ powered\ by\ Claude\ Code.}}$$
+
+$${\color{#d97706}\textbf{Describe\ your\ app\ in\ plain\ English\ —\ Forge\ plans,\ builds,\ and\ deploys\ it\ through\ GitHub\ and\ Vercel.}}$$
+
+<div align="center">
+  <a href="#quick-start">Quick Start</a>
+  <span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+  <a href="#how-it-works">How It Works</a>
+  <span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+  <a href="#running-autonomously">Running Autonomously</a>
+  <span>&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+  <a href="#troubleshooting">Troubleshooting</a>
+</div>
+
+<br/>
 
 ## Requirements
 
@@ -84,7 +102,7 @@ After restarting your terminal, you have the `forge` command. Re-running the ins
 
 ### Stage 2 — Bootstrap a Project (`forge init`)
 
-Create a directory, write a `PROMPT.md` describing your app, and run `forge init`. The bootstrap runs ~21 idempotent steps in two phases:
+Create a directory, write a `PROMPT.md` describing your app, and run `forge init`. The bootstrap runs idempotent steps in two phases:
 
 ```
   forge init
