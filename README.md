@@ -372,7 +372,7 @@ forge/
 │   └── forge-resolve-orchestrator/ # Resolving pipeline (7 stages → implement + PR)
 ├── agents/                 # Pipeline stage agents
 │   ├── create-*.md         #   8 creating stages (researcher → filer)
-│   └── resolve-*.md        #   8 resolving stages (researcher → reviser)
+│   └── resolve-*.md        #   8 resolving agents (7 stages + reviser)
 ├── hooks/settings.json     # Permissions and hook definitions
 ├── workflows/              # GitHub Actions templates
 │   ├── ci.yml              #   Lint + typecheck + test + build + E2E
