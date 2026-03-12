@@ -35,10 +35,12 @@ agents/                              — Claude Code agent definitions (pipeline
   honing-planner.md                  — Honing stage: propose maintenance issues
   honing-advocate.md                 — Honing stage: challenge proposed issues
   honing-filer.md                    — Honing stage: file issues
+cli/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
 templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
 bootstrap/       — setup.sh (38-step idempotent project bootstrap)
+tests/           — CLI tests (bats framework)
 install.sh       — curl | bash installer
 research/        — ad-hoc research notes and scratchpad (not committed)
 ```
