@@ -367,7 +367,10 @@ The bash orchestrator reads labels and comments from GitHub on every cycle — o
 
 ```
 forge/
-├── install.sh              # curl | bash installer + pipeline orchestrator
+├── install.sh              # curl | bash installer
+├── cli/                    # Forge CLI
+│   ├── forge.sh            #   Main executable (init, run, update, upgrade, doctor, uninstall)
+│   └── forge-lib.sh        #   Shared library (state machine, determine_next_action)
 ├── bootstrap/setup.sh      # Idempotent project setup
 ├── skills/                 # Claude Code skill definitions (orchestrators)
 │   ├── forge-create-orchestrator/  # Creating pipeline (8 stages → file issues)
@@ -379,6 +382,7 @@ forge/
 ├── workflows/              # GitHub Actions templates
 │   ├── ci.yml              #   Lint + typecheck + test + build + E2E
 │   └── deploy-production.yml #  PR-based main → production promotion
+├── tests/                  # CLI tests (bats framework)
 └── templates/
     ├── CLAUDE.md.hbs       # Project CLAUDE.md template
     ├── PROMPT.md           # Example starter prompt
