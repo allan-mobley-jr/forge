@@ -158,7 +158,8 @@ Run `forge run` in the project directory to start the bash-orchestrated pipeline
   │        │                              forge-tempering-orchestrator│
   │        │                                                          │
   │        ├── PR needs changes ────────▶ Revision cycle              │
-  │        │                              tempering-reviser agent     │
+  │        │                              forge-tempering-orchestrator│
+  │        │                              <issue> --revise            │
   │        │                                                          │
   │        ├── All issues done ────────▶ Honing pipeline              │
   │        │                              6 stage agents via          │
@@ -223,6 +224,7 @@ Only one issue is ever active. The agent works on the lowest-numbered open issue
 | `tempering:reviewer` .. `tempering:reviser` | The tempering pipeline is running this stage. |
 | `honing` | Honing tracking issue (maintenance audit in progress). |
 | `honing:triager` .. `honing:filer` | The honing pipeline is running this stage. |
+| `smelting:pass-1`, `smelting:pass-2`, etc. | Pass tracking — which pass the pipeline is on for this issue. |
 | `agent:done` | The agent finished and opened a PR. Waiting for CI (and Copilot review, if enabled) before auto-merge. |
 | `agent:needs-human` | The agent got stuck and needs your input. Check the issue comments for the question. |
 | `ai-generated` | The agent created this issue or PR. Tells you at a glance what the agent filed vs. what you filed. |
