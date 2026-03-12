@@ -258,7 +258,7 @@ forge run
 
 Add the export to `~/.zshrc` to make it permanent.
 
-**Pro and Max subscription users** — OAuth tokens expire after ~10 minutes in headless mode. Generate a long-lived token instead:
+**Pro and Max subscription users** — OAuth tokens are short-lived and can't refresh in headless mode. Generate a long-lived token instead:
 
 ```bash
 claude setup-token
