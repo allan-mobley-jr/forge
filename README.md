@@ -74,8 +74,7 @@ forge run                    # start building
    │  ├─▶ Smelting pipeline   (8 stage agents → file issues)     │
    │  ├─▶ Hammering pipeline  (6 stage agents → implement)      │
    │  ├─▶ Tempering pipeline  (4 stage agents → review + PR)    │
-   │  ├─▶ Honing pipeline     (6 stage agents → maintenance)    │
-   │  └─▶ Revision cycle      (on demand → address PR feedback) │
+   │  └─▶ Honing pipeline     (6 stage agents → maintenance)    │
    └────────────────────────────────────────────────────────────┘
            │
            ▼
