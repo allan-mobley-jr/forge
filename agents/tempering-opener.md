@@ -19,10 +19,11 @@ gh issue view <issue-number> --json body,title,comments
 
 Find all stage comments — both Hammering stages (Researcher, Planner, Implementor, Tester, Reviewer) and Tempering stages (Reviewer, Advocate).
 
-Checkout the feature branch:
+Checkout the feature branch (resolve the exact branch name first):
 
 ```bash
-git checkout agent/issue-<number>-*
+BRANCH=$(git branch -r --list "origin/agent/issue-<number>-*" | head -n 1 | xargs | sed 's|^origin/||')
+git checkout "$BRANCH"
 ```
 
 ## Process

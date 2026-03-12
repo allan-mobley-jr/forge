@@ -18,10 +18,11 @@ gh issue view <issue-number> --json body,title,comments
 
 Find the `## [Stage: Implementor]` comment for the list of files changed. Also read the issue's acceptance criteria.
 
-Checkout the feature branch:
+Checkout the feature branch (resolve the exact branch name first):
 
 ```bash
-git checkout agent/issue-<number>-*
+BRANCH=$(git branch -r --list "origin/agent/issue-<number>-*" | head -n 1 | xargs | sed 's|^origin/||')
+git checkout "$BRANCH"
 git pull
 ```
 

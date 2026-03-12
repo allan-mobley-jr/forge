@@ -74,7 +74,12 @@ On crash during the parallel stage, re-run only the missing agents.
 
 Spawn both agents concurrently using two Agent tool calls in a single response:
 
-1. **Spawn two agents in parallel:**
+1. **Set stage labels before spawning:**
+   ```bash
+   gh issue edit <issue> --add-label "honing:auditor" --add-label "honing:domain-researcher"
+   ```
+
+2. **Spawn two agents in parallel:**
    ```
    Agent(
      prompt="You are working on honing tracking issue #<number>. Audit the application against SPECIFICATION.md.",
@@ -85,8 +90,6 @@ Spawn both agents concurrently using two Agent tool calls in a single response:
      subagent_type="honing-domain-researcher"
    )
    ```
-
-2. Set stage labels for both: `honing:auditor`, `honing:domain-researcher` (set before spawning).
 
 3. **Evaluate results.** If either is thin or incomplete, retry that specific agent **once**.
 

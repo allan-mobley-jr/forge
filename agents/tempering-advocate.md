@@ -24,7 +24,8 @@ Also read SPECIFICATION.md and CLAUDE.md for project conventions.
 Checkout the feature branch to verify the reviewer's claims against actual code:
 
 ```bash
-git checkout agent/issue-<number>-*
+BRANCH=$(git branch -r --list "origin/agent/issue-<number>-*" | head -n 1 | xargs | sed 's|^origin/||')
+git checkout "$BRANCH"
 git pull
 ```
 

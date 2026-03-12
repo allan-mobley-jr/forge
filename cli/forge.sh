@@ -782,18 +782,16 @@ except:
             case "$action" in
                 smelt)
                     # Brand new repo — create Smelting tracking issue
-                    local project_name
                     project_name=$(basename "$(pwd)")
-                    local tracking_issue
-                    tracking_issue=$(gh issue create \
+                    tracking_url=$(gh issue create \
                         --title "Smelting: $project_name" \
                         --body "" \
                         --label "smelting" \
-                        --label "ai-generated" \
-                        --json number --jq '.number' 2>/dev/null) || {
+                        --label "ai-generated" 2>/dev/null) || {
                         echo "[forge] Failed to create Smelting tracking issue."
                         exit 1
                     }
+                    tracking_issue="${tracking_url##*/}"
                     echo "[forge] Created Smelting tracking issue #$tracking_issue"
                     run_smelting_pipeline "$tracking_issue"
                     result=$?
@@ -831,16 +829,15 @@ except:
                     ;;
                 hone)
                     # No open ai-generated issues — create Honing tracking issue
-                    local tracking_issue
-                    tracking_issue=$(gh issue create \
+                    tracking_url=$(gh issue create \
                         --title "Honing: $(date +%Y-%m-%d)" \
                         --body "" \
                         --label "honing" \
-                        --label "ai-generated" \
-                        --json number --jq '.number' 2>/dev/null) || {
+                        --label "ai-generated" 2>/dev/null) || {
                         echo "[forge] Failed to create Honing tracking issue."
                         exit 1
                     }
+                    tracking_issue="${tracking_url##*/}"
                     echo "[forge] Created Honing tracking issue #$tracking_issue"
                     run_honing_pipeline "$tracking_issue"
                     result=$?

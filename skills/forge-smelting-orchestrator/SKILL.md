@@ -58,9 +58,9 @@ On crash during the parallel stage, re-run only the missing agents.
 
 Spawn all three agents concurrently using three Agent tool calls in a single response:
 
-1. **Set pass label:**
+1. **Set pass and stage labels:**
    ```bash
-   gh issue edit <issue> --add-label "smelting:pass-1"
+   gh issue edit <issue> --add-label "smelting:pass-1" --add-label "smelting:architect" --add-label "smelting:designer" --add-label "smelting:stacker"
    ```
 
 2. **Spawn three agents in parallel:**
@@ -81,7 +81,12 @@ Spawn all three agents concurrently using three Agent tool calls in a single res
 
 3. **Evaluate results:** Check each agent's returned summary. If any is thin or incomplete, retry that specific agent **once** with guidance about what was missing.
 
-4. **Store summaries** from all three for downstream stages.
+4. **Remove stage labels:**
+   ```bash
+   gh issue edit <issue> --remove-label "smelting:architect" --remove-label "smelting:designer" --remove-label "smelting:stacker"
+   ```
+
+5. **Store summaries** from all three for downstream stages.
 
 ### Stage 2: Assessor
 
