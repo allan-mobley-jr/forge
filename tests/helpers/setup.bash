@@ -17,6 +17,8 @@ setup() {
     export FORGE_REPO="$TEST_TMPDIR/forge-repo"
     mkdir -p "$FORGE_REPO"
     git -C "$FORGE_REPO" init --quiet
+    git -C "$FORGE_REPO" config user.name "forge-test"
+    git -C "$FORGE_REPO" config user.email "forge-test@example.com"
     git -C "$FORGE_REPO" commit --allow-empty -m "init" --quiet
 
     # Disable colors for cleaner test output
@@ -43,8 +45,7 @@ MOCK_SCRIPT
     chmod +x "$MOCK_BIN/gh"
 }
 
-# Create a mock `jq` that passes through to real jq.
-# Only needed if tests run on systems without jq.
+# Ensure jq is available, otherwise skip the test.
 ensure_jq() {
     if ! command -v jq &>/dev/null; then
         skip "jq is required for this test"

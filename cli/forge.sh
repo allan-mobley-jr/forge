@@ -10,7 +10,7 @@ if [ ! -d "$FORGE_REPO" ]; then
 fi
 
 # Source shared library (colors, helpers, state machine)
-FORGE_LIB_DIR="${FORGE_LIB_DIR:-$(cd "$(dirname "$0")" && pwd)}"
+FORGE_LIB_DIR="${FORGE_LIB_DIR:-"$FORGE_REPO/cli"}"
 # shellcheck source=cli/forge-lib.sh
 source "${FORGE_LIB_DIR}/forge-lib.sh"
 
