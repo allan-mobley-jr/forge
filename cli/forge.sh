@@ -149,9 +149,15 @@ case "${1:-}" in
             exit 0
         fi
         echo -e "${BLUE}Updating Forge...${NC}"
-        git -C "$FORGE_REPO" fetch --quiet
+        git -C "$FORGE_REPO" fetch --quiet --tags
         local_head=$(git -C "$FORGE_REPO" rev-parse HEAD)
-        git -C "$FORGE_REPO" reset --hard origin/main --quiet
+        # Prefer latest tag (release), fall back to origin/main
+        latest_tag=$(git -C "$FORGE_REPO" describe --tags --abbrev=0 2>/dev/null || true)
+        if [ -n "$latest_tag" ]; then
+            git -C "$FORGE_REPO" checkout "$latest_tag" --quiet 2>/dev/null || true
+        else
+            git -C "$FORGE_REPO" reset --hard origin/main --quiet
+        fi
         new_head=$(git -C "$FORGE_REPO" rev-parse HEAD)
         if [ "$local_head" = "$new_head" ]; then
             echo -e "${GREEN}Already up-to-date ($(forge_version)).${NC}"
