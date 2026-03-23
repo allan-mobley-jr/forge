@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-[[ "$(uname)" == "Darwin" ]] || { echo "Error: Forge requires macOS."; exit 1; }
-
 # Forge Installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash
 
@@ -11,16 +9,19 @@ FORGE_REPO="$FORGE_HOME/repo"
 FORGE_BIN="$FORGE_HOME/bin"
 FORGE_REMOTE="https://github.com/allan-mobley-jr/forge.git"
 
-# --- Retry helper ---
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
 
+# Retry helper
 retry() {
-    local max_attempts=3
-    local delay=2
-    local attempt=1
+    local max_attempts=3 delay=2 attempt=1
     while [ "$attempt" -le "$max_attempts" ]; do
-        if "$@"; then
-            return 0
-        fi
+        if "$@"; then return 0; fi
         if [ "$attempt" -lt "$max_attempts" ]; then
             echo -e "  ${YELLOW}Retrying in ${delay}s... (attempt $((attempt+1))/$max_attempts)${NC}"
             sleep "$delay"
@@ -31,14 +32,6 @@ retry() {
     echo -e "${RED}Failed after $max_attempts attempts.${NC}"
     return 1
 }
-
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-BOLD='\033[1m'
-NC='\033[0m'
 
 echo ""
 echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
@@ -51,33 +44,22 @@ echo ""
 echo "  Autonomous Next.js Development"
 echo ""
 
-# --- Step 1: Ensure git is available (install Apple CLT if needed) ---
+# --- Step 1: Check git ---
 
 if ! command -v git &>/dev/null; then
-    echo -e "${BLUE}Installing Apple Command Line Tools (includes git)...${NC}"
-    xcode-select --install 2>/dev/null
+    echo -e "${RED}Error:${NC} git is required but not installed."
     echo ""
-    echo "  A system dialog should have appeared."
-    echo "  Click ${BOLD}Install${NC} and wait for it to finish."
+    echo "  Install git for your platform:"
+    echo "    macOS:   xcode-select --install"
+    echo "    Ubuntu:  sudo apt install git"
+    echo "    Fedora:  sudo dnf install git"
+    echo "    Windows: https://git-scm.com/downloads"
     echo ""
-
-    timeout=300
-    elapsed=0
-    while ! xcode-select -p &>/dev/null; do
-        sleep 5
-        elapsed=$((elapsed + 5))
-        if [ "$elapsed" -ge "$timeout" ]; then
-            echo -e "${RED}Error:${NC} Timed out waiting for Command Line Tools."
-            echo "  Install manually: xcode-select --install"
-            echo "  Then re-run this installer."
-            exit 1
-        fi
-    done
-
-    echo -e "${GREEN}Command Line Tools installed.${NC}"
+    echo "  Then re-run this installer."
+    exit 1
 fi
 
-# --- Step 2: Clone or update the Forge repository ---
+# --- Step 2: Clone or update ---
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
@@ -125,18 +107,6 @@ if [ -n "$SHELL_RC" ]; then
     fi
 fi
 
-# --- Done ---
-
-echo ""
-echo -e "${GREEN}Forge is installed.${NC}"
-echo ""
-echo "  To start a new project:"
-echo ""
-echo "    mkdir my-app && cd my-app"
-echo "    # Describe your app in PROMPT.md"
-echo "    forge init"
-echo "    forge run"
-echo ""
 # Fish shell support
 FISH_CONFIG="$HOME/.config/fish/conf.d/forge.fish"
 if [ "$(basename "${SHELL:-}")" = "fish" ] || [ -d "$HOME/.config/fish" ]; then
@@ -147,6 +117,17 @@ if [ "$(basename "${SHELL:-}")" = "fish" ] || [ -d "$HOME/.config/fish" ]; then
         echo -e "${GREEN}Added Forge to PATH for fish shell${NC}"
     fi
 fi
+
+# --- Done ---
+
+echo ""
+echo -e "${GREEN}Forge is installed.${NC}"
+echo ""
+echo "  To start a new project:"
+echo ""
+echo "    mkdir my-app && cd my-app"
+echo "    forge init"
+echo ""
 
 if [ -n "$SHELL_RC" ]; then
     echo -e "  ${YELLOW}Note:${NC} Restart your terminal or run ${BOLD}source $SHELL_RC${NC} to use the forge command."
