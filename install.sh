@@ -87,7 +87,7 @@ mkdir -p "$FORGE_BIN"
 # Remove old generated CLI if it exists (upgrade from heredoc to symlink)
 [ -f "$FORGE_BIN/forge" ] && [ ! -L "$FORGE_BIN/forge" ] && rm -f "$FORGE_BIN/forge"
 
-ln -sf "$FORGE_REPO/cli/forge.sh" "$FORGE_BIN/forge"
+ln -sf "$FORGE_REPO/bin/forge.sh" "$FORGE_BIN/forge"
 
 # --- Step 4: Add to PATH ---
 

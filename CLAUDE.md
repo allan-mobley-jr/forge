@@ -12,7 +12,7 @@ agents/                              — Forge craftsman agents (orchestrators)
   temperer.md                        — Temperer: independent code review
   proof-master.md                    — Proof-Master: validate + open PR
   honer.md                           — Honer: audit codebase → improvement ingot
-cli/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
+bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
 CLAUDE.md.dist   — Static CLAUDE.md copied into forge projects

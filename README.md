@@ -214,7 +214,7 @@ Create an issue on GitHub — the Refiner or Blacksmith will pick it up. Human-f
 ```
 forge/
 ├── install.sh                          # curl | bash installer
-├── cli/                                # Forge CLI
+├── bin/                                # Forge CLI
 │   ├── forge.sh                        #   Main executable
 │   └── forge-lib.sh                    #   Shared library (labels, helpers, query functions)
 ├── bootstrap/setup.sh                  # Idempotent project setup

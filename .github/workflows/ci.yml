@@ -13,7 +13,7 @@ jobs:
       - name: Install shellcheck
         run: brew install shellcheck
       - name: Run shellcheck
-        run: shellcheck --severity=warning -x install.sh bootstrap/setup.sh cli/forge.sh cli/forge-lib.sh
+        run: shellcheck --severity=warning -x install.sh bootstrap/setup.sh bin/forge.sh bin/forge-lib.sh
 
   bats:
     name: Bats Tests

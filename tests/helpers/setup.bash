@@ -25,7 +25,7 @@ setup() {
     export RED="" GREEN="" YELLOW="" BLUE="" BOLD="" DIM="" NC=""
 
     # Source the library under test
-    source "$FORGE_TEST_DIR/cli/forge-lib.sh"
+    source "$FORGE_TEST_DIR/bin/forge-lib.sh"
 }
 
 teardown() {
