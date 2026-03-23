@@ -590,27 +590,7 @@ install_skills() {
     ok "$label"
 }
 
-# Install official vendor skills
-setup_vendor_skills() {
-    local label="Official vendor skills"
-    if [ -f .claude/skills/.vendor-skills-installed ]; then
-        skip "$label"
-        return
-    fi
-    info "  Installing official vendor skills..."
-    mkdir -p .claude/skills
 
-    # shellcheck source=bootstrap/vendor-skills.sh
-    source "$FORGE_REPO/bootstrap/vendor-skills.sh"
-
-    if install_vendor_skills; then
-        touch .claude/skills/.vendor-skills-installed
-        ok "$label"
-    else
-        touch .claude/skills/.vendor-skills-installed
-        add_warning "Some vendor skills failed to install. Run individual 'pnpm dlx skills add' commands manually."
-    fi
-}
 
 # Install hooks
 install_hooks() {
@@ -722,9 +702,6 @@ commit_config() {
     # Ensure Forge temp directory and vendor sentinel are gitignored
     if ! grep -Fq '.forge-temp/' .gitignore 2>/dev/null; then
         printf '\n# Forge session temp files\n.forge-temp/\n' >> .gitignore
-    fi
-    if ! grep -Fq '.vendor-skills-installed' .gitignore 2>/dev/null; then
-        printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
     fi
     mkdir -p .forge-temp
     git add .claude/ .github/ .gitignore
@@ -1189,7 +1166,6 @@ push_to_github
 link_vercel
 connect_vercel_git
 install_skills
-setup_vendor_skills
 install_hooks
 create_artifact_dirs
 install_ci_workflows

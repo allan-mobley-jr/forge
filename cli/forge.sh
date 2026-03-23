@@ -186,23 +186,7 @@ case "${1:-}" in
         cp "$FORGE_REPO/agents/"*.md .claude/agents/
         echo -e "  ${GREEN}✓${NC} Agents updated"
 
-        # 4b. Reinstall vendor skills
-        mkdir -p .claude/skills
-        echo "  Installing vendor skills..."
-        source "$FORGE_REPO/bootstrap/vendor-skills.sh"
-        if install_vendor_skills; then
-            touch .claude/skills/.vendor-skills-installed
-            echo -e "  ${GREEN}✓${NC} Vendor skills installed"
-        else
-            echo -e "  ${YELLOW}!${NC} Some vendor skills failed to install; will retry on next upgrade."
-        fi
-
-        # Ensure vendor skills sentinel is gitignored
-        if [ -f .gitignore ] && ! grep -Fq '.vendor-skills-installed' .gitignore 2>/dev/null; then
-            printf '\n# Vendor skills sentinel\n.claude/skills/.vendor-skills-installed\n' >> .gitignore
-        fi
-
-        # 4c. Generate AGENTS.md if missing (try @latest, fall back to @canary)
+        # 4b. Generate AGENTS.md if missing (try @latest, fall back to @canary)
         if [ ! -f AGENTS.md ]; then
             pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 \
               || pnpm dlx @next/codemod@canary agents-md --output AGENTS.md >/dev/null 2>&1 \

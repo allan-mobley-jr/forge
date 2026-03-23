@@ -259,12 +259,22 @@ run_claude_session() {
 
 # run_forge_agent — invoke a Claude Code session with a named agent.
 # Usage: run_forge_agent <agent-name> [prompt]
+# Extracts tools from agent frontmatter and passes --allowedTools for auto-approval.
 # Uses FORGE_MAX_BUDGET global if set.
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
+
+    # Extract tools from agent frontmatter
+    local agent_file=".claude/agents/$(echo "$agent_name" | tr '[:upper:]' '[:lower:]').md"
+    local tools=""
+    if [ -f "$agent_file" ]; then
+        tools=$(sed -n '/^tools:/,/^---/{ /^  - /s/^  - //p }' "$agent_file" | tr '\n' ',' | sed 's/,$//')
+    fi
+
     local cmd=(claude --agent "$agent_name")
     [ -n "$prompt" ] && cmd+=(-p "$prompt")
+    [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     [ -n "$FORGE_MAX_BUDGET" ] && cmd+=(--max-budget-usd "$FORGE_MAX_BUDGET")
 
     local exit_code=0
