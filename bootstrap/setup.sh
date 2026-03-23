@@ -621,6 +621,34 @@ if plugins:
     ok "$label"
 }
 
+# Install Vercel plugin (non-critical)
+install_vercel_plugin() {
+    local label="Vercel plugin"
+    if claude plugin list 2>/dev/null | grep -q "vercel"; then
+        skip "$label"
+        return
+    fi
+    if claude plugin install vercel@claude-plugins-official --scope project 2>/dev/null; then
+        ok "$label"
+    else
+        add_warning "Vercel plugin failed to install. Run manually: claude plugin install vercel@claude-plugins-official --scope project"
+    fi
+}
+
+# Install Playwright MCP server (non-critical)
+install_playwright_mcp() {
+    local label="Playwright MCP server"
+    if claude mcp list 2>/dev/null | grep -q "playwright"; then
+        skip "$label"
+        return
+    fi
+    if claude mcp add --scope project playwright -- npx @playwright/mcp@latest 2>/dev/null; then
+        ok "$label"
+    else
+        add_warning "Playwright MCP failed to install. Run manually: claude mcp add --scope project playwright -- npx @playwright/mcp@latest"
+    fi
+}
+
 # Create artifact directories (ingots + ledger)
 create_artifact_dirs() {
     local label="Artifact directories (ingots, ledger)"
@@ -1167,6 +1195,8 @@ link_vercel
 connect_vercel_git
 install_skills
 install_hooks
+install_vercel_plugin
+install_playwright_mcp
 create_artifact_dirs
 install_ci_workflows
 configure_merge_mode

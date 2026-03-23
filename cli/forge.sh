@@ -214,6 +214,18 @@ if plugins:
         fi
         echo -e "  ${GREEN}✓${NC} Hooks updated"
 
+        # 5b. Ensure Vercel plugin and Playwright MCP are installed
+        if ! claude plugin list 2>/dev/null | grep -q "vercel"; then
+            claude plugin install vercel@claude-plugins-official --scope project 2>/dev/null \
+                && echo -e "  ${GREEN}✓${NC} Vercel plugin installed" \
+                || echo -e "  ${YELLOW}!${NC} Vercel plugin failed to install"
+        fi
+        if ! claude mcp list 2>/dev/null | grep -q "playwright"; then
+            claude mcp add --scope project playwright -- npx @playwright/mcp@latest 2>/dev/null \
+                && echo -e "  ${GREEN}✓${NC} Playwright MCP installed" \
+                || echo -e "  ${YELLOW}!${NC} Playwright MCP failed to install"
+        fi
+
         # 6. Re-render CLAUDE.md
         if [ -f "$BACKUP_DIR/CLAUDE.md" ]; then
             # Extract values from existing CLAUDE.md
