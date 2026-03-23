@@ -30,8 +30,15 @@ show_banner() {
 }
 
 case "${1:-}" in
-    --version|-v|-V)
+    version)
         echo "Forge $(forge_version)"
+        # Check for updates (non-blocking)
+        if remote_head=$(git -C "$FORGE_REPO" ls-remote --heads origin main 2>/dev/null | cut -f1); then
+            local_head=$(git -C "$FORGE_REPO" rev-parse HEAD 2>/dev/null)
+            if [ -n "$remote_head" ] && [ "$local_head" != "$remote_head" ]; then
+                echo -e "  ${YELLOW}Update available.${NC} Run 'forge update'."
+            fi
+        fi
         exit 0
         ;;
     init)
@@ -143,8 +150,14 @@ case "${1:-}" in
         fi
         echo -e "${BLUE}Updating Forge...${NC}"
         git -C "$FORGE_REPO" fetch --quiet
+        local_head=$(git -C "$FORGE_REPO" rev-parse HEAD)
         git -C "$FORGE_REPO" reset --hard origin/main --quiet
-        echo -e "${GREEN}Forge updated to $(forge_version).${NC}"
+        new_head=$(git -C "$FORGE_REPO" rev-parse HEAD)
+        if [ "$local_head" = "$new_head" ]; then
+            echo -e "${GREEN}Already up-to-date ($(forge_version)).${NC}"
+        else
+            echo -e "${GREEN}Forge updated to $(forge_version).${NC}"
+        fi
         ;;
     upgrade)
         if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
@@ -152,7 +165,7 @@ case "${1:-}" in
             echo ""
             echo "Usage: forge upgrade"
             echo ""
-            echo "Updates skills, hooks, and CLAUDE.md in the current Forge project"
+            echo "Updates agents, hooks, and CLAUDE.md in the current Forge project"
             echo "to match the installed Forge version. Creates a backup first."
             echo ""
             echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
@@ -168,7 +181,6 @@ case "${1:-}" in
         BACKUP_DIR=".forge-backup-$(date +%Y-%m-%d-%H%M%S)"
         mkdir -p "$BACKUP_DIR"
         [ -d .claude/agents ] && cp -r .claude/agents/ "$BACKUP_DIR/agents"
-        [ -d .claude/skills ] && cp -r .claude/skills/ "$BACKUP_DIR/skills"
         [ -f .claude/settings.json ] && cp .claude/settings.json "$BACKUP_DIR/settings.json"
         [ -f CLAUDE.md ] && cp CLAUDE.md "$BACKUP_DIR/CLAUDE.md"
         echo -e "  Backed up to ${BOLD}${BACKUP_DIR}/${NC}"
@@ -180,9 +192,12 @@ case "${1:-}" in
             fi
         done
 
-        # 4. Update agents
-        rm -rf .claude/agents/
+        # 4. Update forge agents (preserve user domain agents: my-*.md)
         mkdir -p .claude/agents
+        for f in .claude/agents/*.md; do
+            [ -f "$f" ] || continue
+            case "$(basename "$f")" in my-*) ;; *) rm -f "$f" ;; esac
+        done
         cp "$FORGE_REPO/agents/"*.md .claude/agents/
         echo -e "  ${GREEN}✓${NC} Agents updated"
 
@@ -196,22 +211,6 @@ case "${1:-}" in
 
         # 5. Update hooks
         cp "$FORGE_REPO/hooks/settings.json" .claude/settings.json
-        # Disable any user-installed plugins at project level
-        if [ -f "$HOME/.claude/settings.json" ]; then
-            python3 -c "
-import json, sys
-with open(sys.argv[1]) as f:
-    user = json.load(f)
-with open(sys.argv[2]) as f:
-    proj = json.load(f)
-plugins = user.get('enabledPlugins', {})
-if plugins:
-    proj['enabledPlugins'] = {k: False for k in plugins}
-    with open(sys.argv[2], 'w') as f:
-        json.dump(proj, f, indent=2)
-        f.write('\n')
-" "$HOME/.claude/settings.json" .claude/settings.json 2>/dev/null || true
-        fi
         echo -e "  ${GREEN}✓${NC} Hooks updated"
 
         # 5b. Ensure Vercel plugin and Playwright MCP are installed
@@ -753,7 +752,7 @@ except:
     smelt|auto-smelt)
         FORGE_COMMAND="$1"; shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge smelt — Produce a ingot from PROMPT.md or a feature request"
+            echo "forge smelt — Produce an ingot from PROMPT.md or a feature request"
             echo ""
             echo "Usage: forge smelt [--max-budget N]"
             echo "       forge auto-smelt [--max-budget N]"
@@ -782,7 +781,7 @@ except:
         [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
 
         echo "[forge] Starting Smelter ($mode mode)..."
-        if ! run_forge_agent "Smelter" "Run in $mode mode. Read PROMPT.md and produce a ingot."; then
+        if ! run_forge_agent "Smelter" "Run in $mode mode. Read PROMPT.md and produce an ingot."; then
             echo "[forge] Smelter failed."
             exit 1
         fi
@@ -792,7 +791,7 @@ except:
     refine|auto-refine)
         FORGE_COMMAND="$1"; shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge refine — Create GitHub issues from a ingot"
+            echo "forge refine — Create GitHub issues from an ingot"
             echo ""
             echo "Usage: forge refine [--max-budget N]"
             echo "       forge auto-refine [--max-budget N]"
@@ -1195,8 +1194,8 @@ except:
         echo "Usage: forge <command>"
         echo ""
         echo "Pipeline commands:"
-        echo "  smelt            Produce a ingot from PROMPT.md"
-        echo "  refine           Create GitHub issues from a ingot"
+        echo "  smelt            Produce an ingot from PROMPT.md"
+        echo "  refine           Create GitHub issues from an ingot"
         echo "  hammer           Implement the current issue"
         echo "  temper           Review the current issue's implementation"
         echo "  proof            Validate and open a PR"
@@ -1208,16 +1207,11 @@ except:
         echo "Setup commands:"
         echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
+        echo "  version          Show installed version and check for updates"
         echo "  update           Update Forge to the latest version"
         echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
         echo "  uninstall        Remove Forge from your system"
-        echo ""
-        echo "Legacy:"
-        echo "  run              Deprecated — use 'forge auto-loop'"
-        echo ""
-        echo "Flags:"
-        echo "  --version          Show installed version"
         echo ""
         echo "Run 'forge <command> --help' for detailed help on a command."
         echo ""

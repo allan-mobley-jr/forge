@@ -81,14 +81,21 @@ fi
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
-    retry git -C "$FORGE_REPO" fetch --quiet
-    git -C "$FORGE_REPO" reset --hard origin/main --quiet
-    echo -e "${GREEN}Forge updated.${NC}"
+    retry git -C "$FORGE_REPO" fetch --quiet --tags
 else
     echo -e "${BLUE}Installing Forge...${NC}"
     mkdir -p "$FORGE_HOME"
     retry git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
-    echo -e "${GREEN}Forge installed to $FORGE_REPO${NC}"
+fi
+
+# Checkout latest tag (release) if available, otherwise use main
+latest_tag=$(git -C "$FORGE_REPO" describe --tags --abbrev=0 2>/dev/null || true)
+if [ -n "$latest_tag" ]; then
+    git -C "$FORGE_REPO" checkout "$latest_tag" --quiet 2>/dev/null || true
+    echo -e "${GREEN}Forge installed ($latest_tag).${NC}"
+else
+    git -C "$FORGE_REPO" reset --hard origin/main --quiet
+    echo -e "${GREEN}Forge installed ($(git -C "$FORGE_REPO" rev-parse --short HEAD)).${NC}"
 fi
 
 # --- Step 3: Symlink the forge CLI ---
