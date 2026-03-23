@@ -716,44 +716,6 @@ commit_config() {
     ok "$label"
 }
 
-# PR merge mode (must run before generate_claude_md — CLAUDE.md needs the mode)
-FORGE_MERGE_MODE=""
-configure_merge_mode() {
-    local label="PR merge mode"
-    # Resume: detect from config.json
-    if [ -z "$FORGE_MERGE_MODE" ]; then
-        local project_name
-        project_name=$(basename "$PROJECT_DIR")
-        FORGE_MERGE_MODE=$(python3 -c "
-import json, sys
-try:
-    with open('$FORGE_CONFIG_DIR/config.json') as f:
-        cfg = json.load(f)
-    print(cfg.get('projects', {}).get(sys.argv[1], {}).get('merge_mode', ''))
-except:
-    print('')
-" "$project_name" 2>/dev/null || true)
-    fi
-    if [ -n "$FORGE_MERGE_MODE" ]; then
-        skip "$label (${FORGE_MERGE_MODE})"
-        return
-    fi
-    echo ""
-    info "  PR merge mode:"
-    echo "    1. Auto-merge with Copilot code review (recommended)"
-    echo "    2. Auto-merge (no review)"
-    echo ""
-    printf "  Choose [1]: "
-    read -r mode_choice
-    mode_choice="${mode_choice:-1}"
-    case "$mode_choice" in
-        1) FORGE_MERGE_MODE="copilot" ;;
-        2) FORGE_MERGE_MODE="auto" ;;
-        *) warn "Invalid choice '$mode_choice' — defaulting to copilot"
-           FORGE_MERGE_MODE="copilot" ;;
-    esac
-    ok "$label (${FORGE_MERGE_MODE})"
-}
 
 # Branch protection (non-critical)
 setup_branch_protection() {
@@ -775,63 +737,8 @@ setup_branch_protection() {
     fi
     # The "Quality Checks" context below must match the job name in workflows/ci.yml.
     # Changing either one without the other will block all PRs.
-    # Build ruleset JSON — conditionally include copilot_code_review rule
     local ruleset_json
     ruleset_json=$(python3 -c "
-import json, sys
-merge_mode = sys.argv[1]
-rules = [
-    {'type': 'pull_request', 'parameters': {
-        'required_approving_review_count': 0,
-        'dismiss_stale_reviews_on_push': False,
-        'require_code_owner_review': False,
-        'require_last_push_approval': False,
-        'required_review_thread_resolution': True
-    }},
-    {'type': 'required_status_checks', 'parameters': {
-        'strict_required_status_checks_policy': False,
-        'required_status_checks': [{'context': 'Quality Checks'}]
-    }},
-    {'type': 'non_fast_forward'},
-    {'type': 'deletion'}
-]
-if merge_mode == 'copilot':
-    rules.append({'type': 'copilot_code_review', 'parameters': {
-        'review_on_push': True,
-        'review_draft_pull_requests': False
-    }})
-ruleset = {
-    'name': 'forge-main-protection',
-    'target': 'branch',
-    'enforcement': 'active',
-    'bypass_actors': [{'actor_id': 5, 'actor_type': 'RepositoryRole', 'bypass_mode': 'always'}],
-    'conditions': {'ref_name': {'include': ['refs/heads/main'], 'exclude': []}},
-    'rules': rules
-}
-print(json.dumps(ruleset, indent=2))
-" "$FORGE_MERGE_MODE")
-    # bash 3.2 (macOS default) cannot use heredocs inside $() command
-    # substitution, so redirect stderr to a temp file instead.
-    local api_errfile
-    api_errfile=$(mktemp)
-    if ! echo "$ruleset_json" | gh api "repos/$repo/rulesets" \
-        -X POST \
-        -H "Accept: application/vnd.github+json" \
-        --input - >/dev/null 2>"$api_errfile"; then
-        local api_output
-        api_output=$(cat "$api_errfile")
-        rm -f "$api_errfile"
-        if echo "$api_output" | grep -qi "upgrade to GitHub Pro"; then
-            ok "$label (skipped — requires GitHub Pro or public repo)"
-            info "  The main branch is unprotected — the agent can push directly without PR review."
-            info "  This is fine for solo development. Upgrade or make the repo public to enable protection."
-            return
-        fi
-        # If copilot mode, the copilot_code_review rule may be unsupported.
-        # Retry without it so base protection (status checks, PR required) is still created.
-        if [ "$FORGE_MERGE_MODE" = "copilot" ]; then
-            local base_ruleset_json
-            base_ruleset_json=$(python3 -c "
 import json
 rules = [
     {'type': 'pull_request', 'parameters': {
@@ -858,15 +765,22 @@ ruleset = {
 }
 print(json.dumps(ruleset, indent=2))
 ")
-            if echo "$base_ruleset_json" | gh api "repos/$repo/rulesets" \
-                -X POST \
-                -H "Accept: application/vnd.github+json" \
-                --input - >/dev/null 2>/dev/null; then
-                ok "$label (without Copilot code review rule — not supported for this repo)"
-                info "  Branch protection is active but Copilot code review rule could not be added."
-                info "  The agent will use auto-merge mode for this repo."
-                return
-            fi
+    # bash 3.2 (macOS default) cannot use heredocs inside $() command
+    # substitution, so redirect stderr to a temp file instead.
+    local api_errfile
+    api_errfile=$(mktemp)
+    if ! echo "$ruleset_json" | gh api "repos/$repo/rulesets" \
+        -X POST \
+        -H "Accept: application/vnd.github+json" \
+        --input - >/dev/null 2>"$api_errfile"; then
+        local api_output
+        api_output=$(cat "$api_errfile")
+        rm -f "$api_errfile"
+        if echo "$api_output" | grep -qi "upgrade to GitHub Pro"; then
+            ok "$label (skipped — requires GitHub Pro or public repo)"
+            info "  The main branch is unprotected — the agent can push directly without PR review."
+            info "  This is fine for solo development. Upgrade or make the repo public to enable protection."
+            return
         fi
         add_warning "Branch protection failed. Set up manually: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets"
         return
@@ -908,27 +822,6 @@ SETTINGS
     ok "$label"
 }
 
-# Verify Copilot code review rule was applied (non-critical)
-verify_copilot_review() {
-    local label="Copilot code review"
-    if [ "$FORGE_MERGE_MODE" != "copilot" ]; then
-        return
-    fi
-    local repo
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
-    if [ -z "$repo" ]; then
-        return
-    fi
-    # Check if copilot_code_review rule exists in the forge ruleset
-    local has_copilot
-    has_copilot=$(gh api "repos/$repo/rulesets" \
-        -q '[.[] | select(.name == "forge-main-protection")] | .[0].rules // [] | [.[] | select(.type == "copilot_code_review")] | length' 2>/dev/null || echo "0")
-    if [ "$has_copilot" != "0" ]; then
-        ok "$label"
-    else
-        add_warning "Copilot code review rule was not applied. Requires Copilot Pro/Business. Enable manually: GitHub repo → Settings → Rules → forge-main-protection → Add Copilot code review rule"
-    fi
-}
 
 # Create production branch (non-critical)
 create_production_branch() {
@@ -1117,14 +1010,13 @@ import json, sys
 cfg_path = sys.argv[1]
 with open(cfg_path) as f:
     cfg = json.load(f)
-name, path, repo, created, merge_mode = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
-cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created, 'merge_mode': merge_mode}
+name, path, repo, created = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created}
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
-" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$PROJECT_DIR" "$github_repo" "$created_date" "${FORGE_MERGE_MODE:-auto}"
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$PROJECT_DIR" "$github_repo" "$created_date"
     else
-        local merge_mode="${FORGE_MERGE_MODE:-auto}"
         cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
   "version": "1.0.0",
@@ -1132,8 +1024,7 @@ with open(cfg_path, 'w') as f:
     "$project_name": {
       "path": "$PROJECT_DIR",
       "repo": "$github_repo",
-      "created": "$created_date",
-      "merge_mode": "$merge_mode"
+      "created": "$created_date"
     }
   }
 }
@@ -1176,13 +1067,11 @@ install_vercel_plugin
 install_playwright_mcp
 create_artifact_dirs
 install_ci_workflows
-configure_merge_mode
 generate_claude_md
 commit_config
 # Non-critical steps — failures are captured as warnings, not fatal
 setup_branch_protection
 configure_repo_settings
-verify_copilot_review
 create_production_branch
 configure_vercel_production
 protect_production_branch
