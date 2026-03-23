@@ -65,7 +65,7 @@ forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
-`forge auto-loop` chains hammer → temper → proof per issue through the queue.
+`forge auto-run` chains hammer → temper → proof per issue through the queue.
 
 ## Git Workflow
 

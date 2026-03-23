@@ -414,7 +414,7 @@ case "${1:-}" in
         elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
             echo -e "  ${GREEN}✓${NC} Claude auth: long-lived token (setup-token)"
         else
-            echo -e "  ${YELLOW}⚠${NC} Claude auth: short-lived OAuth — may expire during forge run"
+            echo -e "  ${YELLOW}⚠${NC} Claude auth: short-lived OAuth — may expire during long sessions"
             echo "    Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN in your shell profile"
         fi
 
@@ -441,7 +441,7 @@ case "${1:-}" in
                 echo -e "  ${GREEN}✓${NC} All ${#required_labels[@]} required labels present"
             else
                 echo -e "  ${YELLOW}⚠${NC} Missing ${#missing_labels[@]} label(s): ${missing_labels[*]}"
-                echo "    Run 'forge run' to auto-create missing labels, or 'forge init --resume'"
+                echo "    Run 'forge init --resume' to create missing labels"
             fi
         else
             echo -e "  ${DIM}-${NC} Skipped (GitHub not authenticated)"
@@ -464,225 +464,6 @@ case "${1:-}" in
             echo "  All managed artifacts are up-to-date."
         fi
         echo ""
-        ;;
-    run)
-        shift
-
-        require_forge_skills
-
-        # Parse flags (before dependency checks so --help always works)
-        FORGE_MAX_BUDGET=""
-
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget)   FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                -h|--help)
-                    echo "Usage: forge run [--max-budget N]"
-                    echo ""
-                    echo "  --max-budget N     Max API spend per stage in USD (API key only)"
-                    exit 0
-                    ;;
-                *) echo "Unknown flag: $1. Run 'forge run --help' for usage."; exit 1 ;;
-            esac
-        done
-
-        if ! command -v jq &>/dev/null; then
-            echo -e "${RED}Error:${NC} jq is required for forge run."
-            echo "  Install with: brew install jq"
-            exit 1
-        fi
-
-        # Validate numeric flags
-        if [ -n "$FORGE_MAX_BUDGET" ] && ! [[ "$FORGE_MAX_BUDGET" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
-            echo "Error: --max-budget must be a number"; exit 1
-        fi
-
-        # Skip --max-budget on subscription plans (only applies to API key usage)
-        if [ -n "$FORGE_MAX_BUDGET" ]; then
-            sub_type=""
-            if command -v claude >/dev/null 2>&1; then
-                sub_type=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('subscriptionType',''))" 2>/dev/null || true)
-            fi
-            if [ -n "$sub_type" ] && [ "$sub_type" != "none" ]; then
-                echo -e "  ${YELLOW}Note:${NC} --max-budget ignored (subscription plan: $sub_type)"
-                FORGE_MAX_BUDGET=""
-            fi
-        fi
-
-        # Pre-flight checks (functions now in forge-lib.sh)
-        check_bypass_permissions
-
-        echo ""
-        echo -e "  ${YELLOW}forge run${NC} — pipeline orchestrator"
-        [ -n "$FORGE_MAX_BUDGET" ] && echo "  Budget per stage: \$$FORGE_MAX_BUDGET"
-        echo ""
-
-        # --- Smelting Pipeline ---
-        # Usage: run_smelting_pipeline <tracking-issue-number>
-        run_smelting_pipeline() {
-            issue=""="$1"
-            echo "[forge] Starting smelting pipeline (tracking issue #$issue)"
-
-            if ! run_claude_session "/forge-smelting-orchestrator $issue"; then
-                echo "[forge] Smelting orchestrator failed."
-                return 1
-            fi
-            echo "[forge] Smelting pipeline complete."
-        }
-
-        # --- Hammering Pipeline ---
-        # Usage: run_hammering_pipeline <issue-number>
-        run_hammering_pipeline() {
-            issue=""="$1"
-            echo "[forge] Starting hammering pipeline for issue #$issue"
-
-            if ! run_claude_session "/forge-hammering-orchestrator $issue"; then
-                echo "[forge] Hammering orchestrator failed for issue #$issue."
-                return 1
-            fi
-            echo "[forge] Hammering pipeline complete for issue #$issue"
-            return 0
-        }
-
-        # --- Tempering Pipeline ---
-        # Usage: run_tempering_pipeline <issue-number>
-        run_tempering_pipeline() {
-            issue=""="$1"
-            echo "[forge] Starting tempering pipeline for issue #$issue"
-
-            if ! run_claude_session "/forge-tempering-orchestrator $issue"; then
-                echo "[forge] Tempering orchestrator failed for issue #$issue."
-                return 1
-            fi
-            echo "[forge] Tempering pipeline complete for issue #$issue"
-            return 0
-        }
-
-        # --- Revise stage (on demand, via tempering orchestrator) ---
-        run_revise_stage() {
-            issue=""="$1"
-            echo "[forge] Running revision cycle for issue #$issue"
-
-            if ! run_claude_session "/forge-tempering-orchestrator $issue --revise"; then
-                echo "[forge] Revision orchestrator failed for issue #$issue."
-                return 1
-            fi
-            return 0
-        }
-
-        # --- Honing Pipeline ---
-        # Usage: run_honing_pipeline <tracking-issue-number>
-        run_honing_pipeline() {
-            issue=""="$1"
-            echo "[forge] Starting honing pipeline (tracking issue #$issue)"
-
-            if ! run_claude_session "/forge-honing-orchestrator $issue"; then
-                echo "[forge] Honing orchestrator failed."
-                return 1
-            fi
-            echo "[forge] Honing pipeline complete."
-        }
-
-        # --- Main orchestrator loop ---
-        check_auth
-        check_labels
-
-        while true; do
-            echo "[forge] Determining next action..."
-            action=$(determine_next_action)
-
-            case "$action" in
-                smelt)
-                    # Brand new repo — create Smelting tracking issue
-                    project_name=$(basename "$(pwd)")
-                    tracking_url=$(gh issue create \
-                        --title "Smelting: $project_name" \
-                        --body "" \
-                        --label "smelting" \
-                        --label "ai-generated" 2>/dev/null) || {
-                        echo "[forge] Failed to create Smelting tracking issue."
-                        exit 1
-                    }
-                    tracking_issue="${tracking_url##*/}"
-                    echo "[forge] Created Smelting tracking issue #$tracking_issue"
-                    run_smelting_pipeline "$tracking_issue"
-                    result=$?
-                    if [ "$result" -ne 0 ]; then
-                        echo "[forge] Smelting pipeline failed. Continuing..."
-                    fi
-                    ;;
-                smelt:*)
-                    issue="${action#smelt:}"
-                    run_smelting_pipeline "$issue"
-                    result=$?
-                    if [ "$result" -ne 0 ]; then
-                        echo "[forge] Smelting pipeline failed on issue #$issue. Continuing..."
-                    fi
-                    ;;
-                hammer:*)
-                    issue="${action#hammer:}"
-                    run_hammering_pipeline "$issue"
-                    result=$?
-                    if [ "$result" -ne 0 ]; then
-                        echo "[forge] Hammering pipeline failed on issue #$issue. Continuing..."
-                    fi
-                    ;;
-                temper:*)
-                    issue="${action#temper:}"
-                    run_tempering_pipeline "$issue"
-                    result=$?
-                    if [ "$result" -ne 0 ]; then
-                        echo "[forge] Tempering pipeline failed on issue #$issue. Continuing..."
-                    fi
-                    ;;
-                revise:*)
-                    issue="${action#revise:}"
-                    run_revise_stage "$issue"
-                    ;;
-                hone)
-                    # No open ai-generated issues — create Honing tracking issue
-                    tracking_url=$(gh issue create \
-                        --title "Honing: $(date +%Y-%m-%d)" \
-                        --body "" \
-                        --label "honing" \
-                        --label "ai-generated" 2>/dev/null) || {
-                        echo "[forge] Failed to create Honing tracking issue."
-                        exit 1
-                    }
-                    tracking_issue="${tracking_url##*/}"
-                    echo "[forge] Created Honing tracking issue #$tracking_issue"
-                    run_honing_pipeline "$tracking_issue"
-                    result=$?
-                    if [ "$result" -ne 0 ]; then
-                        echo "[forge] Honing pipeline failed. Continuing..."
-                    fi
-                    ;;
-                hone:*)
-                    issue="${action#hone:}"
-                    run_honing_pipeline "$issue"
-                    result=$?
-                    if [ "$result" -ne 0 ]; then
-                        echo "[forge] Honing pipeline failed on issue #$issue. Continuing..."
-                    fi
-                    ;;
-                wait)
-                    echo "[forge] Waiting for human input or PR merge. Polling every 60s..."
-                    while true; do
-                        sleep 60
-                        check_auth
-                        next=$(determine_next_action)
-                        if [ "$next" != "wait" ]; then
-                            echo "[forge] Change detected. Resuming..."
-                            break
-                        fi
-                    done
-                    ;;
-                *)
-                    echo "[forge] Unexpected action: $action"
-                    exit 1
-                    ;;
-            esac
-        done
         ;;
     # ==========================================================================
     # Craftsman commands — each invokes a named agent via claude --agent
@@ -960,12 +741,12 @@ case "${1:-}" in
         echo "[forge] Honer complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
-    auto-loop)
+    auto-run)
         shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge auto-loop — Autonomously process the issue queue"
+            echo "forge auto-run — Autonomously process the issue queue"
             echo ""
-            echo "Usage: forge auto-loop [--max-budget N]"
+            echo "Usage: forge auto-run [--max-budget N]"
             echo ""
             echo "Chains auto-hammer → auto-temper → auto-proof for each issue,"
             echo "processing one issue at a time through the full pipeline."
@@ -985,7 +766,7 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        echo "[forge] Starting auto-loop..."
+        echo "[forge] Starting auto-run..."
 
         while true; do
             # Find next issue to work on
@@ -1139,7 +920,7 @@ case "${1:-}" in
         echo "  temper           Review the current issue's implementation"
         echo "  proof            Validate and open a PR"
         echo "  hone             Audit the codebase for improvements"
-        echo "  auto-loop        Autonomously process the issue queue"
+        echo "  auto-run        Autonomously process the issue queue"
         echo ""
         echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
         echo ""

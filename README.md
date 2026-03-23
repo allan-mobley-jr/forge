@@ -148,7 +148,7 @@ gh workflow run deploy-production.yml -f confirm=deploy
 | `forge auto-proof` | Same, autonomous |
 | `forge hone` | Audit the codebase for improvements (interactive) |
 | `forge auto-hone` | Same, autonomous |
-| `forge auto-loop` | Chain hammer → temper → proof per issue autonomously |
+| `forge auto-run` | Chain hammer → temper → proof per issue autonomously |
 
 All pipeline commands accept `--max-budget N` (USD per stage, API key only).
 

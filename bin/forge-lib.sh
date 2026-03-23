@@ -366,7 +366,7 @@ find_unprocessed_ingots() {
 }
 
 # count_actionable_issues — count issues in any actionable status.
-# Used by auto-loop to know when to stop.
+# Used by auto-run to know when to stop.
 count_actionable_issues() {
     gh issue list --state open --json labels -L 200 --jq '
         [.[] | select(.labels | map(.name) | any(
@@ -377,7 +377,7 @@ count_actionable_issues() {
     ' 2>/dev/null || echo "0"
 }
 
-# --- Determine next action (legacy — used by forge run) ---
+# --- Determine next action (legacy) ---
 # Prints one of: smelt, smelt:<N>, temper:<N>, revise:<N>, hammer:<N>, hone, hone:<N>, wait
 
 determine_next_action() {
