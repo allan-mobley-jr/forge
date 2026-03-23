@@ -100,50 +100,18 @@ load "../helpers/setup"
     [[ "$output" != *"Re-created"* ]]
 }
 
-# --- set_stage_label ---
-
-@test "set_stage_label removes old stage labels and adds new one" {
-    local calls=()
-    mock_gh_with '
-        args="$*"
-        if [[ "$args" == *"issue view"* ]]; then
-            echo "agent:create-researcher"
-            exit 0
-        fi
-        if [[ "$args" == *"--remove-label"* ]]; then
-            echo "removed" >&2
-            exit 0
-        fi
-        if [[ "$args" == *"--add-label"* ]]; then
-            echo "added" >&2
-            exit 0
-        fi
-    '
-
-    run set_stage_label 1 "agent:create-architect"
-    [[ "$status" -eq 0 ]]
-}
-
 # --- escalate ---
 
 @test "escalate posts comment and adds needs-human label" {
     mock_gh_with '
         args="$*"
         if [[ "$args" == *"issue comment"* ]]; then
-            # Verify the comment body contains Agent Question
             if [[ "$args" == *"Agent Question"* ]]; then
                 exit 0
             fi
             exit 1
         fi
         if [[ "$args" == *"--add-label"*"agent:needs-human"* ]]; then
-            exit 0
-        fi
-        if [[ "$args" == *"issue view"* ]]; then
-            echo ""
-            exit 0
-        fi
-        if [[ "$args" == *"--remove-label"* ]]; then
             exit 0
         fi
     '
@@ -186,17 +154,4 @@ load "../helpers/setup"
         pipe_count=$(echo "$entry" | tr -cd '|' | wc -c | tr -d ' ')
         [[ "$pipe_count" -eq 2 ]]
     done
-}
-
-# --- AGENT_HEADER_PATTERN ---
-
-@test "AGENT_HEADER_PATTERN matches agent headers" {
-    [[ "## Agent Question" =~ $AGENT_HEADER_PATTERN ]]
-    [[ "## Acknowledged" =~ $AGENT_HEADER_PATTERN ]]
-    [[ "## [Stage: researcher]" =~ $AGENT_HEADER_PATTERN ]]
-}
-
-@test "AGENT_HEADER_PATTERN does not match human comments" {
-    [[ ! "Do option A please" =~ $AGENT_HEADER_PATTERN ]]
-    [[ ! "## My Heading" =~ $AGENT_HEADER_PATTERN ]]
 }

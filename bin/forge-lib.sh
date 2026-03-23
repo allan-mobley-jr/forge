@@ -14,7 +14,7 @@ BOLD="${BOLD:-\033[1m}"
 DIM="${DIM:-\033[2m}"
 NC="${NC:-\033[0m}"
 
-# Global: set by the calling command before invoking run_claude_session
+# Global: set by the calling command before invoking run_forge_agent
 FORGE_MAX_BUDGET="${FORGE_MAX_BUDGET:-}"
 
 # --- Shared helpers ---
@@ -68,13 +68,6 @@ FORGE_REQUIRED_LABELS=(
     "status:proved|0e8a16|PR opened"
 )
 
-# Agent comment headers — used to distinguish agent comments from human responses.
-# "## Agent Question" is posted by escalate(). "## Acknowledged" is posted by apply_timeout_default().
-# "## [Stage:" is posted by pipeline stage agents. "## [Pipeline Reset:" is posted by Tempering.
-# Craftsman tags (**[Temperer]**, **[Proof-Master]**, etc.) are used in rework comments.
-AGENT_HEADER_PATTERN='^\#\# (Agent Question|Acknowledged|\[Stage:|\[Pipeline Reset:)'
-CRAFTSMAN_COMMENT_PATTERN='^\*\*\[(Smelter|Refiner|Blacksmith|Temperer|Proof-Master|Honer)\]\*\*'
-
 # --- Label management ---
 
 check_labels() {
@@ -99,11 +92,6 @@ check_labels() {
     if [ "$recreated" -gt 0 ]; then
         echo "[forge] Re-created $recreated missing label(s)."
     fi
-}
-
-set_stage_label() {
-    local issue="$1" label="$2"
-    gh issue edit "$issue" --add-label "$label" 2>/dev/null || true
 }
 
 # transition_status — atomically move an issue from one status label to another.
@@ -148,7 +136,7 @@ apply_timeout_default() {
     gh issue edit "$issue" --remove-label "agent:needs-human" 2>/dev/null || true
 }
 
-# --- Auth and session helpers (extracted from forge.sh run block) ---
+# --- Auth helpers ---
 
 notify_failure() {
     osascript -e "display notification \"$1\" with title \"Forge\"" 2>/dev/null || true
@@ -205,57 +193,7 @@ check_auth() {
     fi
 }
 
-check_bypass_permissions() {
-    local bypass_sources=()
-
-    # Check .claude/settings.local.json
-    if [ -f ".claude/settings.local.json" ]; then
-        local local_mode
-        local_mode=$(python3 -c "import json; d=json.load(open('.claude/settings.local.json')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
-        if [ "$local_mode" = "bypassPermissions" ]; then
-            bypass_sources+=(".claude/settings.local.json")
-        fi
-    fi
-
-    # Check managed settings
-    local managed="/Library/Application Support/ClaudeCode/managed-settings.json"
-    if [ -f "$managed" ]; then
-        local managed_mode
-        managed_mode=$(python3 -c "import json; d=json.load(open('$managed')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
-        if [ "$managed_mode" = "bypassPermissions" ]; then
-            bypass_sources+=("$managed")
-        fi
-    fi
-
-    if [ ${#bypass_sources[@]} -gt 0 ]; then
-        echo ""
-        echo -e "  ${YELLOW}Warning:${NC} bypassPermissions mode detected in:"
-        for src in "${bypass_sources[@]}"; do
-            echo "    - $src"
-        done
-        echo ""
-        echo "  Forge agents rely on tool restrictions in their frontmatter to stay"
-        echo "  in their lanes. bypassPermissions may weaken these guardrails."
-        echo ""
-        read -r -p "  Continue anyway? [y/N] " response
-        if [[ ! "$response" =~ ^[Yy]$ ]]; then
-            echo "Aborted."
-            exit 1
-        fi
-    fi
-}
-
-# run_claude_session — invoke a Claude Code session with a skill (legacy).
-# Uses FORGE_MAX_BUDGET global if set.
-run_claude_session() {
-    local skill_invocation="$1"
-    local cmd=(claude -p "$skill_invocation")
-    [ -n "$FORGE_MAX_BUDGET" ] && cmd+=(--max-budget-usd "$FORGE_MAX_BUDGET")
-
-    local exit_code=0
-    "${cmd[@]}" || exit_code=$?
-    return $exit_code
-}
+# --- Agent invocation ---
 
 # run_forge_agent — invoke a Claude Code session with a named agent.
 # Usage: run_forge_agent <agent-name> [prompt]
@@ -282,7 +220,7 @@ run_forge_agent() {
     return $exit_code
 }
 
-# --- Settings merge helper ---
+# --- Settings merge ---
 
 # merge_forge_hooks — merge forge hooks into .claude/settings.json without wiping other keys.
 # Preserves enabledPlugins, mcpServers, and anything else plugins or MCP add.
@@ -307,13 +245,11 @@ with open(sys.argv[1], 'w') as f:
     fi
 }
 
-# --- Issue query helpers (for new craftsman commands) ---
+# --- Issue query helpers ---
 
 # find_issue_for_hammer — find the lowest open issue for the Blacksmith.
 # Priority: status:rework first, then status:ready.
-# Prints the issue number or empty string.
 find_issue_for_hammer() {
-    # Check for rework issues first (highest priority)
     local rework_issue
     rework_issue=$(gh issue list --state open --label "status:rework" --json number --jq '
         sort_by(.number) | .[0].number // empty
@@ -323,7 +259,6 @@ find_issue_for_hammer() {
         return
     fi
 
-    # Then check for ready issues
     local ready_issue
     ready_issue=$(gh issue list --state open --label "status:ready" --json number --jq '
         sort_by(.number) | .[0].number // empty
@@ -356,7 +291,6 @@ find_unprocessed_ingots() {
         [ -f "$bp" ] || continue
         local ts
         ts=$(basename "$bp" .md)
-        # Skip .gitkeep or other non-timestamp files
         [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{4}$ ]] || continue
         if [ ! -f "ledger/refiner/${ts}.md" ]; then
             unprocessed+=("$ts")
@@ -375,188 +309,4 @@ count_actionable_issues() {
             . == "status:hammering" or . == "status:tempering" or . == "status:proving"
         ))] | length
     ' 2>/dev/null || echo "0"
-}
-
-# --- Determine next action (legacy) ---
-# Prints one of: smelt, smelt:<N>, temper:<N>, revise:<N>, hammer:<N>, hone, hone:<N>, wait
-
-determine_next_action() {
-    # 0. Check for needs-human issues with responses or timeouts
-    local needs_human_json
-    if needs_human_json=$(gh issue list --state open --label "agent:needs-human" \
-        --json number,comments -L 200 2>/dev/null); then
-
-        # Check for human responses (highest priority)
-        local responded_issue
-        responded_issue=$(echo "$needs_human_json" | jq -r --arg pattern "$AGENT_HEADER_PATTERN" '
-            [.[] | {
-                number,
-                comments: [.comments[] | {body, is_agent: (.body | test($pattern; "m"))}]
-            } | {
-                number,
-                last_agent_idx: ([.comments | to_entries[] | select(.value.is_agent) | .key] | max // -1),
-                comments
-            } | select(.last_agent_idx >= 0) | select(
-                [.comments[.last_agent_idx + 1:][] | select(.is_agent | not)] | length > 0
-            )] | .[0].number // empty
-        ' 2>&1) || {
-            echo "[forge] Warning: failed to parse needs-human comments: $responded_issue" >&2
-            responded_issue=""
-        }
-        if [ -n "$responded_issue" ]; then
-            gh issue edit "$responded_issue" --remove-label "agent:needs-human" 2>/dev/null || true
-            # Route back based on pipeline label
-            local pipeline_label
-            pipeline_label=$(gh issue view "$responded_issue" --json labels --jq '[.labels[].name | select(
-                . == "smelting" or . == "honing" or . == "agent:hammering" or . == "agent:tempering"
-            )] | .[0] // empty' 2>/dev/null || true)
-            case "$pipeline_label" in
-                smelting)         echo "smelt:$responded_issue"; return ;;
-                honing)           echo "hone:$responded_issue"; return ;;
-                agent:hammering)  echo "hammer:$responded_issue"; return ;;
-                agent:tempering)  echo "temper:$responded_issue"; return ;;
-                *)                echo "hammer:$responded_issue"; return ;;  # fallback
-            esac
-        fi
-
-        # Check for 24h timeout
-        local timeout_issue
-        timeout_issue=$(echo "$needs_human_json" | jq -r --arg pattern "$AGENT_HEADER_PATTERN" '
-            now as $now |
-            [.[] | {
-                number,
-                last_agent_comment: [.comments[] | select(.body | test($pattern; "m"))] | last
-            } | select(.last_agent_comment != null) | select(
-                (.last_agent_comment.createdAt | fromdateiso8601) < ($now - 86400)
-            )] | .[0].number // empty
-        ' 2>&1) || {
-            echo "[forge] Warning: failed to parse timeout comments: $timeout_issue" >&2
-            timeout_issue=""
-        }
-        if [ -n "$timeout_issue" ]; then
-            apply_timeout_default "$timeout_issue"
-            # Route back based on pipeline label (same logic as response)
-            local pipeline_label
-            pipeline_label=$(gh issue view "$timeout_issue" --json labels --jq '[.labels[].name | select(
-                . == "smelting" or . == "honing" or . == "agent:hammering" or . == "agent:tempering"
-            )] | .[0] // empty' 2>/dev/null || true)
-            case "$pipeline_label" in
-                smelting)         echo "smelt:$timeout_issue"; return ;;
-                honing)           echo "hone:$timeout_issue"; return ;;
-                agent:hammering)  echo "hammer:$timeout_issue"; return ;;
-                agent:tempering)  echo "temper:$timeout_issue"; return ;;
-                *)                echo "hammer:$timeout_issue"; return ;;
-            esac
-        fi
-    fi
-
-    # 1. No issues ever created (brand new repo) → smelt
-    local all_issues_count
-    all_issues_count=$(gh issue list --state all -L 2 --json number --jq 'length' 2>/dev/null || true)
-    if [ "${all_issues_count:-0}" -eq 0 ]; then
-        echo "smelt"
-        return
-    fi
-
-    # 2. Open Smelting tracking issue exists → smelt:<N>
-    local smelting_issue
-    smelting_issue=$(gh issue list --state open --label "smelting" --json number --jq '.[0].number // empty' 2>/dev/null || true)
-    if [ -n "$smelting_issue" ]; then
-        echo "smelt:$smelting_issue"
-        return
-    fi
-
-    # 3. Any issue with agent:tempering label → temper:<N>
-    local tempering_issue
-    tempering_issue=$(gh issue list --state open --label "agent:tempering" --json number --jq 'sort_by(.number) | .[0].number // empty' 2>/dev/null || true)
-    if [ -n "$tempering_issue" ]; then
-        echo "temper:$tempering_issue"
-        return
-    fi
-
-    # 4. Any agent:done issue with CHANGES_REQUESTED or CI failure → revise:<N>
-    local done_issues
-    done_issues=$(gh issue list --state open --label "agent:done" --json number -L 200 --jq '.[].number' 2>/dev/null || true)
-    for done_issue in $done_issues; do
-        local pr_review
-        pr_review=$(gh pr list --search "closes #$done_issue" --json reviewDecision --jq '.[0].reviewDecision' 2>/dev/null || true)
-        if [ "$pr_review" = "CHANGES_REQUESTED" ]; then
-            echo "revise:$done_issue"
-            return
-        fi
-        local pr_number
-        pr_number=$(gh pr list --search "closes #$done_issue" --json number --jq '.[0].number' 2>/dev/null || true)
-        if [ -n "$pr_number" ]; then
-            local ci_status
-            ci_status=$(gh pr checks "$pr_number" 2>/dev/null | grep -c "fail" || true)
-            if [ "$ci_status" -gt 0 ]; then
-                echo "revise:$done_issue"
-                return
-            fi
-        fi
-    done
-
-    # 5. Any issue with agent:hammering label → hammer:<N> (resume)
-    local hammering_issue
-    hammering_issue=$(gh issue list --state open --label "agent:hammering" --json number --jq 'sort_by(.number) | .[0].number // empty' 2>/dev/null || true)
-    if [ -n "$hammering_issue" ]; then
-        echo "hammer:$hammering_issue"
-        return
-    fi
-
-    # 6. Any open ai-generated issue with no agent label → claim + hammer:<N>
-    local backlog_issue
-    backlog_issue=$(gh issue list --state open --label "ai-generated" --json number,labels -L 200 --jq '
-        [.[] | select(.labels | map(.name) | all(
-            . != "agent:hammering" and . != "agent:tempering" and . != "agent:done" and . != "agent:needs-human" and . != "smelting" and . != "honing"
-        ))] | sort_by(.number) | .[0].number // empty
-    ' 2>/dev/null || true)
-    if [ -n "$backlog_issue" ]; then
-        gh issue edit "$backlog_issue" --add-label "agent:hammering" 2>/dev/null || true
-        echo "hammer:$backlog_issue"
-        return
-    fi
-
-    # 7. Open Honing tracking issue exists → hone:<N>
-    local honing_issue
-    honing_issue=$(gh issue list --state open --label "honing" --json number --jq '.[0].number // empty' 2>/dev/null || true)
-    if [ -n "$honing_issue" ]; then
-        echo "hone:$honing_issue"
-        return
-    fi
-
-    # 8. No open ai-generated issues (+ 24h cooldown) → hone
-    local open_ai_count
-    open_ai_count=$(gh issue list --state open --label "ai-generated" --json number -L 200 --jq 'length' 2>/dev/null || true)
-    if [ "${open_ai_count:-0}" -eq 0 ]; then
-        # Check 24h cooldown: if last closed Honing issue was <24h ago and filed zero issues → wait
-        local last_honing_closed_at
-        last_honing_closed_at=$(gh issue list --state closed --label "honing" --json closedAt -L 1 --jq '.[0].closedAt // empty' 2>/dev/null || true)
-        if [ -n "$last_honing_closed_at" ]; then
-            local cooldown_expired
-            cooldown_expired=$(jq -rn --arg ts "$last_honing_closed_at" '
-                (now - ($ts | fromdateiso8601)) > 86400
-            ' 2>/dev/null || echo "true")
-            if [ "$cooldown_expired" = "false" ]; then
-                # Check if the last honing cycle filed any issues
-                local last_honing_number
-                last_honing_number=$(gh issue list --state closed --label "honing" --json number -L 1 --jq '.[0].number // empty' 2>/dev/null || true)
-                if [ -n "$last_honing_number" ]; then
-                    local filed_issues
-                    filed_issues=$(gh issue view "$last_honing_number" --json comments --jq '
-                        [.comments[].body | select(contains("## [Stage: Filer]")) | select(contains("No issues to file"))] | length
-                    ' 2>/dev/null || echo "0")
-                    if [ "$filed_issues" -gt 0 ]; then
-                        echo "wait"
-                        return
-                    fi
-                fi
-            fi
-        fi
-        echo "hone"
-        return
-    fi
-
-    # 9. Otherwise — wait (needs-human still open, or agent:done PRs awaiting merge)
-    echo "wait"
 }
