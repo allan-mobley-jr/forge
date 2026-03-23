@@ -19,7 +19,6 @@ fi
 FORGE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="$(pwd)"
 FORGE_CONFIG_DIR="$HOME/.forge"
-PROMPT_BACKUP="${TMPDIR:-/tmp}/.forge-prompt-backup"
 
 # Colors
 RED='\033[0;31m'
@@ -63,11 +62,6 @@ print_summary() {
 
 # --- Error trap ---
 
-restore_prompt() {
-    if [ ! -f "$PROJECT_DIR/PROMPT.md" ] && [ -f "$PROMPT_BACKUP" ]; then
-        mv "$PROMPT_BACKUP" "$PROJECT_DIR/PROMPT.md" 2>/dev/null || true
-    fi
-}
 
 on_error() {
     local exit_code=$?
@@ -81,7 +75,7 @@ on_error() {
     exit $exit_code
 }
 trap on_error ERR
-trap 'restore_prompt; exit 130' INT TERM
+trap 'exit 130' INT TERM
 
 # --- Preflight ---
 
@@ -200,22 +194,14 @@ init_git() {
 # Scaffold Next.js app
 scaffold_nextjs() {
     local label="Next.js app scaffolded"
-    # Restore PROMPT.md if stranded by a previous interrupted run
-    if [ ! -f PROMPT.md ] && [ -f "$PROMPT_BACKUP" ]; then
-        mv "$PROMPT_BACKUP" PROMPT.md
-        warn "Restored PROMPT.md from previous interrupted run"
-    fi
     if [ -f package.json ]; then
         skip "$label"
         return
     fi
     info "  Scaffolding Next.js app..."
-    # create-next-app refuses non-empty directories — move PROMPT.md outside project
-    mv PROMPT.md "$PROMPT_BACKUP"
     pnpm dlx create-next-app@latest . \
         --typescript --tailwind --eslint --app --src-dir \
         --turbopack --use-pnpm --disable-git --yes
-    mv "$PROMPT_BACKUP" PROMPT.md
     ok "$label"
 }
 
@@ -367,7 +353,7 @@ initial_commit() {
         return
     fi
     git add .
-    git commit -m "Initial commit: scaffold Next.js app with PROMPT.md"
+    git commit -m "Initial commit: scaffold Next.js app"
     ok "$label"
 }
 
@@ -438,7 +424,7 @@ connect_vercel_git() {
 }
 
 # Install agents
-install_skills() {
+install_agents() {
     local label="Forge agents installed"
     if [ -f .claude/agents/smelter.md ]; then
         skip "$label"
@@ -896,7 +882,7 @@ create_github_repo
 push_to_github
 link_vercel
 connect_vercel_git
-install_skills
+install_agents
 install_hooks
 install_vercel_plugin
 install_playwright_mcp
