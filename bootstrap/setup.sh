@@ -680,37 +680,19 @@ generate_claude_md() {
         skip "$label"
         return
     fi
-    if \! command -v perl &>/dev/null; then
+    if ! command -v perl &>/dev/null; then
         add_warning "perl not found — CLAUDE.md generation skipped. Install perl and run forge init --resume."
         return
     fi
-    local project_name github_repo description created_date
+    local project_name description
     project_name=$(basename "$PROJECT_DIR")
-    github_repo=$(gh repo view --json url -q .url 2>/dev/null || echo "https://github.com/unknown")
     description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1 || echo "A Forge project")
-    created_date=$(date +%Y-%m-%d)
-
-    local merge_mode="${FORGE_MERGE_MODE:-auto}"
 
     PROJECT_NAME="$project_name" \
-        GITHUB_REPO="$github_repo" \
         DESCRIPTION="$description" \
-        CREATED_DATE="$created_date" \
-        MERGE_MODE="$merge_mode" \
-        perl -0pe '
+        perl -pe '
             s/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
-            s/\{\{github_repo\}\}/$ENV{GITHUB_REPO}/g;
             s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
-            s/\{\{created_date\}\}/$ENV{CREATED_DATE}/g;
-            if ($ENV{MERGE_MODE} eq "copilot") {
-                s/\{\{#if_auto\}\}.*?\{\{\/if_auto\}\}\n?//gs;
-                s/\{\{#if_copilot\}\}\n?//g;
-                s/\{\{\/if_copilot\}\}\n?//g;
-            } else {
-                s/\{\{#if_copilot\}\}.*?\{\{\/if_copilot\}\}\n?//gs;
-                s/\{\{#if_auto\}\}\n?//g;
-                s/\{\{\/if_auto\}\}\n?//g;
-            }
         ' "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
     ok "$label"
 }
