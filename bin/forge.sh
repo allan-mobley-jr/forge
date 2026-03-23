@@ -31,13 +31,21 @@ show_banner() {
 
 case "${1:-}" in
     version)
-        echo "Forge $(forge_version)"
-        # Check for updates (non-blocking)
-        if remote_head=$(git -C "$FORGE_REPO" ls-remote --heads origin main 2>/dev/null | cut -f1); then
-            local_head=$(git -C "$FORGE_REPO" rev-parse HEAD 2>/dev/null)
-            if [ -n "$remote_head" ] && [ "$local_head" != "$remote_head" ]; then
-                echo -e "  ${YELLOW}Update available.${NC} Run 'forge update'."
+        local_tag=$(git -C "$FORGE_REPO" describe --tags --abbrev=0 2>/dev/null || true)
+        local_sha=$(git -C "$FORGE_REPO" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        echo "Forge ${local_tag:-$local_sha} ($local_sha)"
+
+        # Update check: fetch tags, compare
+        if git -C "$FORGE_REPO" fetch origin --tags --quiet 2>/dev/null; then
+            latest_tag=$(git -C "$FORGE_REPO" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1)
+            if [ -n "$latest_tag" ] && [ "$latest_tag" != "$local_tag" ]; then
+                echo -e "  ${YELLOW}Update available: ${local_tag:-dev} → $latest_tag${NC}"
+                echo "  Run 'forge update'."
+            elif [ -n "$latest_tag" ]; then
+                echo -e "  ${GREEN}Up to date.${NC}"
             fi
+        else
+            echo -e "  ${DIM}(update check skipped — could not reach remote)${NC}"
         fi
         exit 0
         ;;
@@ -48,16 +56,14 @@ case "${1:-}" in
             echo "Usage: forge init [--resume]"
             echo ""
             echo "Creates a new Forge project in the current directory:"
-            echo "  1. Installs tools (Homebrew, Node.js, pnpm, gh, Vercel CLI)"
-            echo "  2. Scaffolds a Next.js app from your PROMPT.md"
+            echo "  1. Checks prerequisites (Node.js, pnpm, gh, claude)"
+            echo "  2. Scaffolds a Next.js app"
             echo "  3. Creates a GitHub repo with branch protection and CI"
             echo "  4. Links a Vercel project for preview deploys"
-            echo "  5. Installs Forge skills, hooks, and CLAUDE.md"
+            echo "  5. Installs Forge agents, hooks, plugins, and CLAUDE.md"
             echo ""
             echo "Options:"
             echo "  --resume    Resume from where a previous bootstrap stopped"
-            echo ""
-            echo "Requires PROMPT.md in the current directory."
             exit 0
         fi
 
@@ -79,45 +85,6 @@ case "${1:-}" in
                 echo "    forge init --resume"
                 exit 1
             fi
-        fi
-
-
-        # --- Install / update Claude Code (native binary) ---
-        echo "Installing Claude Code..."
-        curl -fsSL https://claude.ai/install.sh | bash
-        echo ""
-
-        # --- Check billing: API key vs subscription ---
-        if [ "$FORGE_RESUME" != true ] || [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-            if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-                echo "  ⚠  ANTHROPIC_API_KEY is set in your environment."
-                echo "     Forge will use the API key instead of your subscription."
-                echo "     API usage is billed per-token with no automatic spending cap."
-                echo "     Set a limit: https://console.anthropic.com/settings/limits"
-                echo ""
-                printf "  Continue with API key? (y/n) [n]: "
-                read -r use_api_key
-                use_api_key="${use_api_key:-n}"
-                if [ "$use_api_key" != "y" ] && [ "$use_api_key" != "Y" ]; then
-                    echo "  Unset the key and re-run:"
-                    echo "    unset ANTHROPIC_API_KEY"
-                    exit 1
-                fi
-            else
-                echo "  Forge works best with a Claude Max subscription."
-                echo "  A Pro subscription will burn through its daily limit quickly."
-                echo "  Learn more: https://claude.ai/upgrade"
-                echo ""
-                printf "  Do you have a Claude Max subscription? (y/n) [y]: "
-                read -r has_max
-                has_max="${has_max:-y}"
-                if [ "$has_max" != "y" ] && [ "$has_max" != "Y" ]; then
-                    echo "  A Max subscription is recommended for Forge."
-                    echo "  Sign up at https://claude.ai/upgrade then re-run forge init."
-                    exit 1
-                fi
-            fi
-            echo ""
         fi
 
         if [ "$FORGE_RESUME" = true ]; then

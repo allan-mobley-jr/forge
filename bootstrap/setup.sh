@@ -85,14 +85,6 @@ trap 'restore_prompt; exit 130' INT TERM
 
 # --- Preflight ---
 
-if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
-    fail "No PROMPT.md found in $PROJECT_DIR"
-    echo ""
-    echo "Create a PROMPT.md describing your application, then run this again."
-    echo "See: https://github.com/allan-mobley-jr/forge#quick-start"
-    exit 1
-fi
-
 if [ -d "$PROJECT_DIR/.git" ]; then
     if [ "$FORGE_RESUME" != true ]; then
         fail "This directory is already a git repository."
@@ -115,209 +107,76 @@ info "Forge:   $FORGE_REPO"
 echo ""
 
 # ============================================================
-# Phase 1: Tool Installation Checks
+# Phase 1: Prerequisite Checks
 # ============================================================
 
-info "--- Checking tools ---"
+info "--- Checking prerequisites ---"
 
-# Homebrew
-check_homebrew() {
-    local label="Homebrew installed"
-    if command -v brew &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    info "  Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    ok "$label"
-}
+preflight_check() {
+    local missing=()
 
-# python3 (used for JSON parsing in CLI and hooks)
-check_python3() {
-    local label="python3 installed"
-    if command -v python3 &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    brew install python3
-    ok "$label"
-}
-
-# Node.js (>= 18 required)
-check_node() {
-    local label="Node.js installed (>= 18)"
+    # Node.js >= 18
     if command -v node &>/dev/null; then
         local node_major
         node_major=$(node --version | sed 's/v//' | cut -d. -f1)
         if [ "$node_major" -lt 18 ]; then
-            warn "Node.js $(node --version) is too old (need >= 18). Upgrading..."
-            brew upgrade node
-            ok "$label"
-            return
+            missing+=("Node.js >= 18 (found $(node --version)) — https://nodejs.org")
+        else
+            ok "Node.js $(node --version)"
         fi
-        skip "$label"
-        return
+    else
+        missing+=("Node.js >= 18 — https://nodejs.org")
     fi
-    brew install node
-    ok "$label"
-}
 
-# pnpm (>= 8 required)
-check_pnpm() {
-    local label="pnpm installed (>= 8)"
+    # pnpm >= 8
     if command -v pnpm &>/dev/null; then
         local pnpm_major
         pnpm_major=$(pnpm --version | cut -d. -f1)
         if [ "$pnpm_major" -lt 8 ]; then
-            warn "pnpm v$(pnpm --version) is too old (need >= 8). Upgrading..."
-            brew upgrade pnpm
-            ok "$label"
-            return
+            missing+=("pnpm >= 8 (found $(pnpm --version)) — npm install -g pnpm")
+        else
+            ok "pnpm $(pnpm --version)"
         fi
-        skip "$label"
-        return
-    fi
-    brew install pnpm
-    ok "$label"
-}
-
-# gh CLI
-check_gh() {
-    local label="gh CLI installed"
-    if command -v gh &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    brew install gh
-    ok "$label"
-}
-
-# gh authenticated
-check_gh_auth() {
-    local label="gh authenticated"
-    if gh auth status &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    info "  Authenticating with GitHub..."
-    gh auth login --web --git-protocol ssh
-    ok "$label"
-}
-
-# SSH key
-check_ssh_key() {
-    local label="SSH key exists"
-    if ls ~/.ssh/id_*.pub &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    info "  Generating SSH key..."
-    # Empty passphrase required for non-interactive git operations
-    ssh-keygen -t ed25519 -C "$(git config user.email || echo 'forge@local')" -f ~/.ssh/id_ed25519 -N ""
-    info "  Adding SSH key to GitHub..."
-    gh ssh-key add ~/.ssh/id_ed25519.pub --title "Forge ($(hostname))"
-    ok "$label"
-}
-
-# git config (identity + SSH signing)
-check_git_config() {
-    local label="git config (identity, SSH signing)"
-    if git config --global user.name &>/dev/null \
-        && git config --global user.email &>/dev/null \
-        && git config --global commit.gpgsign &>/dev/null; then
-        skip "$label"
-        return
-    fi
-    # Set identity from GitHub if missing
-    if ! git config --global user.name &>/dev/null || ! git config --global user.email &>/dev/null; then
-        local name email
-        name=$(gh api user -q .name 2>/dev/null || true)
-        email=$(gh api user/emails -q '[.[] | select(.primary==true)] | .[0].email' 2>/dev/null || true)
-        if [ -z "$name" ] || [ -z "$email" ]; then
-            warn "Could not retrieve name/email from GitHub — set manually with:"
-            warn "  git config --global user.name \"Your Name\""
-            warn "  git config --global user.email \"you@example.com\""
-            return
-        fi
-        git config --global user.name "$name"
-        git config --global user.email "$email"
-    fi
-    # SSH commit signing — use whichever key exists
-    local signing_key
-    signing_key=$(ls ~/.ssh/id_ed25519.pub ~/.ssh/id_rsa.pub ~/.ssh/id_ecdsa.pub 2>/dev/null | head -1)
-    if [ -n "$signing_key" ]; then
-        git config --global gpg.format ssh
-        git config --global user.signingkey "$signing_key"
-        git config --global commit.gpgsign true
-        git config --global tag.gpgsign true
     else
-        warn "No SSH public key found — skipping commit signing"
+        missing+=("pnpm >= 8 — npm install -g pnpm")
     fi
-    ok "$label"
-}
 
-# Claude long-lived auth token (non-critical — forge run needs it, not bootstrap)
-check_claude_auth_token() {
-    local label="Claude long-lived auth token"
-    if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-        skip "$label (ANTHROPIC_API_KEY)"
-        return
-    fi
-    if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-        skip "$label (CLAUDE_CODE_OAUTH_TOKEN)"
-        return
-    fi
-    add_warning "No long-lived Claude auth token detected. Run 'claude setup-token' and add CLAUDE_CODE_OAUTH_TOKEN to ~/.zshrc"
-}
-
-# Vercel CLI
-check_vercel() {
-    local label="Vercel CLI installed"
-    # Ensure PNPM_HOME is on PATH so command -v can find globally-installed bins.
-    # On --resume, PNPM_HOME was written to .zshrc by a previous run but isn't
-    # in the current shell's PATH yet.
-    if [ -z "${PNPM_HOME:-}" ]; then
-        local pnpm_home
-        pnpm_home=$(grep -m1 'export PNPM_HOME=' "$HOME/.zshrc" 2>/dev/null | sed 's/export PNPM_HOME="//' | sed 's/"$//')
-        if [ -n "${pnpm_home:-}" ]; then
-            export PNPM_HOME="$pnpm_home"
+    # gh CLI + auth
+    if command -v gh &>/dev/null; then
+        if gh auth status &>/dev/null; then
+            ok "gh CLI (authenticated)"
+        else
+            missing+=("gh CLI not authenticated — run: gh auth login")
         fi
+    else
+        missing+=("gh CLI — https://cli.github.com")
     fi
-    if [ -n "${PNPM_HOME:-}" ]; then
-        case ":$PATH:" in
-            *":$PNPM_HOME:"*) ;;
-            *) export PATH="$PNPM_HOME:$PATH" ;;
-        esac
+
+    # Claude Code + auth
+    if command -v claude &>/dev/null; then
+        ok "Claude Code $(claude --version 2>/dev/null | head -1)"
+    else
+        missing+=("Claude Code — https://claude.ai/download")
     fi
+
+    # Vercel CLI (optional but recommended)
     if command -v vercel &>/dev/null; then
-        skip "$label"
-        return
+        ok "Vercel CLI"
+    else
+        add_warning "Vercel CLI not found — install with: npm install -g vercel"
     fi
-    # Ensure PNPM_HOME is configured for global installs (first run)
-    if [ -z "${PNPM_HOME:-}" ]; then
-        info "  Setting up PNPM_HOME..."
-        pnpm setup
-        local pnpm_home_new
-        pnpm_home_new=$(grep -m1 'export PNPM_HOME=' "$HOME/.zshrc" 2>/dev/null | sed 's/export PNPM_HOME="//' | sed 's/"$//')
-        if [ -n "${pnpm_home_new:-}" ]; then
-            export PNPM_HOME="$pnpm_home_new"
-            export PATH="$PNPM_HOME:$PATH"
-        fi
-    fi
-    pnpm i -g vercel
-    ok "$label"
-}
 
-# Vercel authenticated
-check_vercel_auth() {
-    local label="Vercel authenticated"
-    if vercel whoami &>/dev/null; then
-        skip "$label"
-        return
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo ""
+        fail "Missing prerequisites:"
+        for item in "${missing[@]}"; do
+            echo "  - $item"
+        done
+        echo ""
+        echo "Install the missing tools, then re-run forge init."
+        exit 1
     fi
-    info "  Authenticating with Vercel..."
-    vercel login
-    ok "$label"
+    echo ""
 }
 
 # ============================================================
@@ -1024,18 +883,7 @@ EOF
 # Run all steps
 # ============================================================
 
-check_homebrew
-check_python3
-check_node
-check_pnpm
-check_gh
-check_gh_auth
-check_ssh_key
-check_git_config
-check_vercel
-check_vercel_auth
-
-check_claude_auth_token
+preflight_check
 
 init_git
 scaffold_nextjs
@@ -1074,7 +922,7 @@ print_summary
 echo ""
 echo "  Your Forge project is ready. Run:"
 echo ""
-echo "    forge run"
+echo "    forge smelt"
 echo ""
 echo "  The pipeline orchestrator will start planning your app."
 echo ""
