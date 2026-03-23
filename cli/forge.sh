@@ -215,8 +215,8 @@ case "${1:-}" in
             [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
         fi
 
-        # 5. Update hooks
-        cp "$FORGE_REPO/hooks/settings.json" .claude/settings.json
+        # 5. Update hooks (merge to preserve plugin config)
+        merge_forge_hooks
         echo -e "  ${GREEN}✓${NC} Hooks updated"
 
         # 5b. Ensure Vercel plugin and Playwright MCP are installed

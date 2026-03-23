@@ -282,6 +282,31 @@ run_forge_agent() {
     return $exit_code
 }
 
+# --- Settings merge helper ---
+
+# merge_forge_hooks — merge forge hooks into .claude/settings.json without wiping other keys.
+# Preserves enabledPlugins, mcpServers, and anything else plugins or MCP add.
+merge_forge_hooks() {
+    local target=".claude/settings.json"
+    local source="$FORGE_REPO/hooks/settings.json"
+    mkdir -p .claude
+    if [ -f "$target" ]; then
+        python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    target = json.load(f)
+with open(sys.argv[2]) as f:
+    source = json.load(f)
+target['hooks'] = source.get('hooks', {})
+with open(sys.argv[1], 'w') as f:
+    json.dump(target, f, indent=2)
+    f.write('\n')
+" "$target" "$source"
+    else
+        cp "$source" "$target"
+    fi
+}
+
 # --- Issue query helpers (for new craftsman commands) ---
 
 # find_issue_for_hammer — find the lowest open issue for the Blacksmith.

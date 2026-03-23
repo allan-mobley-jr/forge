@@ -592,31 +592,26 @@ install_skills() {
 
 
 
-# Install hooks
+# Install hooks (merge into existing settings.json to preserve plugin config)
 install_hooks() {
     local label="Hooks configuration"
-    if [ -f .claude/settings.json ]; then
-        skip "$label"
-        return
-    fi
+    local target=".claude/settings.json"
+    local source="$FORGE_REPO/hooks/settings.json"
     mkdir -p .claude
-    cp "$FORGE_REPO/hooks/settings.json" .claude/settings.json
-    # Disable any user-installed plugins at project level
-    if [ -f "$HOME/.claude/settings.json" ]; then
+    if [ -f "$target" ]; then
         python3 -c "
 import json, sys
 with open(sys.argv[1]) as f:
-    user = json.load(f)
+    target = json.load(f)
 with open(sys.argv[2]) as f:
-    proj = json.load(f)
-plugins = user.get('enabledPlugins', {})
-if plugins:
-    proj['enabledPlugins'] = {k: False for k in plugins}
-    with open(sys.argv[2], 'w') as f:
-        json.dump(proj, f, indent=2)
-        f.write('\n')
-    print(f'  Disabled {len(plugins)} user plugin(s) at project level')
-" "$HOME/.claude/settings.json" .claude/settings.json 2>/dev/null || true
+    source = json.load(f)
+target['hooks'] = source.get('hooks', {})
+with open(sys.argv[1], 'w') as f:
+    json.dump(target, f, indent=2)
+    f.write('\n')
+" "$target" "$source"
+    else
+        cp "$source" "$target"
     fi
     ok "$label"
 }
