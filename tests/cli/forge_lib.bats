@@ -37,19 +37,19 @@ load "../helpers/setup"
 
 # --- require_forge_skills ---
 
-@test "require_forge_skills exits when orchestrator skills missing" {
+@test "require_forge_skills exits when agents missing" {
     cd "$TEST_TMPDIR"
     mkdir -p .claude/skills
     run require_forge_skills
     [[ "$status" -eq 1 ]]
-    [[ "$output" == *"forge-smelting-orchestrator"* ]]
+    [[ "$output" == *"smelter"* ]]
 }
 
-@test "require_forge_skills succeeds when all four orchestrators present" {
+@test "require_forge_skills succeeds when all six agents present" {
     cd "$TEST_TMPDIR"
-    for skill in forge-smelting-orchestrator forge-hammering-orchestrator forge-tempering-orchestrator forge-honing-orchestrator; do
-        mkdir -p ".claude/skills/$skill"
-        touch ".claude/skills/$skill/SKILL.md"
+    mkdir -p .claude/skills .claude/agents
+    for agent in smelter refiner blacksmith temperer prover honer; do
+        touch ".claude/agents/${agent}.md"
     done
     run require_forge_skills
     [[ "$status" -eq 0 ]]
@@ -175,8 +175,8 @@ load "../helpers/setup"
 
 # --- FORGE_REQUIRED_LABELS constant ---
 
-@test "FORGE_REQUIRED_LABELS has 37 entries" {
-    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 37 ]]
+@test "FORGE_REQUIRED_LABELS has 10 entries" {
+    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 10 ]]
 }
 
 @test "FORGE_REQUIRED_LABELS entries have pipe-separated format" {

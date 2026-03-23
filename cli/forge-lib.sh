@@ -14,6 +14,9 @@ BOLD="${BOLD:-\033[1m}"
 DIM="${DIM:-\033[2m}"
 NC="${NC:-\033[0m}"
 
+# Global: set by the calling command before invoking run_claude_session
+FORGE_MAX_BUDGET="${FORGE_MAX_BUDGET:-}"
+
 # --- Shared helpers ---
 
 forge_version() {
@@ -31,18 +34,18 @@ require_forge_project() {
 require_forge_skills() {
     require_forge_project
     local missing=()
-    for skill in forge-smelting-orchestrator forge-hammering-orchestrator forge-tempering-orchestrator forge-honing-orchestrator; do
-        if [ ! -f ".claude/skills/${skill}/SKILL.md" ]; then
-            missing+=("$skill")
+    for agent in smelter refiner blacksmith temperer prover honer; do
+        if [ ! -f ".claude/agents/${agent}.md" ]; then
+            missing+=("$agent")
         fi
     done
     if [ ${#missing[@]} -gt 0 ]; then
-        echo -e "${RED}Error:${NC} Required Forge skills missing:"
-        for skill in "${missing[@]}"; do
-            echo "  - ${skill}"
+        echo -e "${RED}Error:${NC} Required Forge agents missing:"
+        for agent in "${missing[@]}"; do
+            echo "  - ${agent}"
         done
         echo ""
-        echo "  Run ${BOLD}forge upgrade${NC} to install missing skills,"
+        echo "  Run ${BOLD}forge upgrade${NC} to install missing agents,"
         echo "  or ${BOLD}forge init${NC} from a project directory to bootstrap."
         exit 1
     fi
@@ -51,55 +54,26 @@ require_forge_skills() {
 # --- Label definitions ---
 # Canonical label definitions (must match bootstrap/setup.sh create_labels)
 FORGE_REQUIRED_LABELS=(
-    # Pipeline lifecycle (7)
-    "smelting|0075ca|Smelting tracking issue"
-    "honing|0075ca|Honing tracking issue"
-    "agent:hammering|c5def5|Hammering pipeline working this issue"
-    "agent:tempering|fbca04|Tempering pipeline reviewing this issue"
-    "agent:done|0e8a16|PR opened, awaiting merge"
-    "agent:needs-human|d93f0b|Blocked on human decision"
+    # Meta labels
     "ai-generated|EEEEEE|Issue or PR filed by agent"
-    # Pass tracking (6)
-    "smelting:pass-1|1d76db|Smelting pass 1: analysis"
-    "smelting:pass-2|1d76db|Smelting pass 2: review"
-    "hammering:pass-1|1d76db|Hammering pass 1: implement"
-    "hammering:pass-2|1d76db|Hammering pass 2: self-review"
-    "honing:pass-1|1d76db|Honing pass 1: triage and audit"
-    "honing:pass-2|1d76db|Honing pass 2: challenge and file"
-    # Smelting stage tracking (8)
-    "smelting:architect|1d76db|Smelting stage: architect"
-    "smelting:designer|1d76db|Smelting stage: designer"
-    "smelting:stacker|1d76db|Smelting stage: stacker"
-    "smelting:assessor|1d76db|Smelting stage: assessor"
-    "smelting:planner|1d76db|Smelting stage: planner"
-    "smelting:advocate|1d76db|Smelting stage: advocate"
-    "smelting:reviewer|1d76db|Smelting stage: reviewer"
-    "smelting:filer|1d76db|Smelting stage: filer"
-    # Hammering stage tracking (6)
-    "hammering:researcher|1d76db|Hammering stage: researcher"
-    "hammering:planner|1d76db|Hammering stage: planner"
-    "hammering:advocate|1d76db|Hammering stage: advocate"
-    "hammering:implementor|1d76db|Hammering stage: implementor"
-    "hammering:tester|1d76db|Hammering stage: tester"
-    "hammering:reviewer|1d76db|Hammering stage: reviewer"
-    # Tempering stage tracking (4)
-    "tempering:reviewer|1d76db|Tempering stage: reviewer"
-    "tempering:advocate|1d76db|Tempering stage: advocate"
-    "tempering:opener|1d76db|Tempering stage: opener"
-    "tempering:reviser|1d76db|Tempering stage: reviser"
-    # Honing stage tracking (6)
-    "honing:triager|1d76db|Honing stage: triager"
-    "honing:auditor|1d76db|Honing stage: auditor"
-    "honing:domain-researcher|1d76db|Honing stage: domain researcher"
-    "honing:planner|1d76db|Honing stage: planner"
-    "honing:advocate|1d76db|Honing stage: advocate"
-    "honing:filer|1d76db|Honing stage: filer"
+    "agent:needs-human|d93f0b|Blocked on human decision"
+    # Status labels — the core issue lifecycle
+    "status:ready|0e8a16|Ready for Blacksmith"
+    "status:hammering|c5def5|Implementation in progress"
+    "status:hammered|1d76db|Implementation complete"
+    "status:tempering|fbca04|Review in progress"
+    "status:tempered|0e8a16|Review passed"
+    "status:rework|d93f0b|Sent back to Blacksmith"
+    "status:proving|1d76db|Validation in progress"
+    "status:proved|0e8a16|PR opened"
 )
 
 # Agent comment headers — used to distinguish agent comments from human responses.
 # "## Agent Question" is posted by escalate(). "## Acknowledged" is posted by apply_timeout_default().
 # "## [Stage:" is posted by pipeline stage agents. "## [Pipeline Reset:" is posted by Tempering.
+# Craftsman tags (**[Temperer]**, **[Prover]**, etc.) are used in rework comments.
 AGENT_HEADER_PATTERN='^\#\# (Agent Question|Acknowledged|\[Stage:|\[Pipeline Reset:)'
+CRAFTSMAN_COMMENT_PATTERN='^\*\*\[(Smelter|Refiner|Blacksmith|Temperer|Prover|Honer)\]\*\*'
 
 # --- Label management ---
 
@@ -129,16 +103,28 @@ check_labels() {
 
 set_stage_label() {
     local issue="$1" label="$2"
-    # Remove any existing pipeline stage labels (smelting:*, hammering:*, tempering:*, honing:*)
-    local existing
-    existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(
-        startswith("smelting:") or startswith("hammering:") or startswith("tempering:") or startswith("honing:")
-    )] | .[]' 2>/dev/null || true)
-    for old_label in $existing; do
-        gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
-    done
-    # Add the new stage label (pre-created by check_labels)
     gh issue edit "$issue" --add-label "$label" 2>/dev/null || true
+}
+
+# transition_status — atomically move an issue from one status label to another.
+# Usage: transition_status <issue> <from-label> <to-label>
+# If from-label is empty, just adds to-label.
+# Returns 1 if the issue's current status doesn't match from-label.
+transition_status() {
+    local issue="$1" from_label="$2" to_label="$3"
+    if [ -n "$from_label" ]; then
+        local current
+        current=$(gh issue view "$issue" --json labels --jq '
+            [.labels[].name | select(startswith("status:"))] | .[0] // empty
+        ' 2>/dev/null || true)
+        if [ "$current" != "$from_label" ]; then
+            echo "[forge] Warning: issue #$issue has status '$current', expected '$from_label'" >&2
+            return 1
+        fi
+        gh issue edit "$issue" --remove-label "$from_label" --add-label "$to_label" 2>/dev/null || true
+    else
+        gh issue edit "$issue" --add-label "$to_label" 2>/dev/null || true
+    fi
 }
 
 escalate() {
@@ -149,14 +135,6 @@ $reason
 
 *Escalated automatically by the Forge pipeline orchestrator.*"
     gh issue edit "$issue" --add-label "agent:needs-human" 2>/dev/null || true
-    # Remove stage and pass labels but preserve pipeline labels (smelting, honing, agent:hammering, agent:tempering)
-    local existing
-    existing=$(gh issue view "$issue" --json labels --jq '[.labels[].name | select(
-        startswith("smelting:") or startswith("hammering:") or startswith("tempering:") or startswith("honing:")
-    )] | .[]' 2>/dev/null || true)
-    for old_label in $existing; do
-        gh issue edit "$issue" --remove-label "$old_label" 2>/dev/null || true
-    done
 }
 
 apply_timeout_default() {
@@ -170,7 +148,201 @@ apply_timeout_default() {
     gh issue edit "$issue" --remove-label "agent:needs-human" 2>/dev/null || true
 }
 
-# --- Determine next action ---
+# --- Auth and session helpers (extracted from forge.sh run block) ---
+
+notify_failure() {
+    osascript -e "display notification \"$1\" with title \"Forge\"" 2>/dev/null || true
+}
+
+check_auth() {
+    local errors=()
+
+    # GitHub CLI
+    if ! command -v gh &>/dev/null; then
+        errors+=("GitHub CLI (gh) not found in PATH. Install with: brew install gh")
+    elif ! gh auth status &>/dev/null; then
+        echo "[forge] GitHub auth invalid. Attempting refresh..."
+        if gh auth refresh &>/dev/null; then
+            echo "[forge] GitHub auth refreshed."
+        else
+            errors+=("GitHub not authenticated. Run: gh auth login")
+        fi
+    fi
+
+    # Claude CLI
+    if ! command -v claude &>/dev/null; then
+        errors+=("Claude CLI not found in PATH. Install from: https://claude.ai/download")
+    else
+        local logged_in
+        logged_in=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('loggedIn',''))" 2>/dev/null || true)
+        if [ -z "$logged_in" ]; then
+            errors+=("Unable to check Claude auth. Run: claude auth status")
+        elif [ "$logged_in" != "True" ]; then
+            errors+=("Claude not authenticated. Run: claude auth login")
+        fi
+    fi
+
+    if [ ${#errors[@]} -gt 0 ]; then
+        echo ""
+        echo -e "[forge] ${RED}Auth check failed:${NC}"
+        for err in "${errors[@]}"; do
+            echo "  - $err"
+        done
+        echo ""
+        echo "Fix the above, then re-run the command."
+        notify_failure "Auth check failed — see terminal for details"
+        exit 1
+    fi
+
+    # Warn if using short-lived OAuth (no long-lived token configured) — once per run
+    if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${_forge_oauth_warned:-}" ]; then
+        _forge_oauth_warned=1
+        echo -e "[forge] ${YELLOW}Warning:${NC} No long-lived auth token detected."
+        echo "  Short-lived OAuth tokens expire after ~8-12h and may fail during headless runs."
+        echo "  Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN in your shell profile."
+        echo "  See: https://docs.anthropic.com/en/docs/claude-code/cli-usage#non-interactive-mode"
+        echo ""
+    fi
+}
+
+check_bypass_permissions() {
+    local bypass_sources=()
+
+    # Check .claude/settings.local.json
+    if [ -f ".claude/settings.local.json" ]; then
+        local local_mode
+        local_mode=$(python3 -c "import json; d=json.load(open('.claude/settings.local.json')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
+        if [ "$local_mode" = "bypassPermissions" ]; then
+            bypass_sources+=(".claude/settings.local.json")
+        fi
+    fi
+
+    # Check managed settings
+    local managed="/Library/Application Support/ClaudeCode/managed-settings.json"
+    if [ -f "$managed" ]; then
+        local managed_mode
+        managed_mode=$(python3 -c "import json; d=json.load(open('$managed')); print(d.get('permissions',{}).get('defaultMode',''))" 2>/dev/null || true)
+        if [ "$managed_mode" = "bypassPermissions" ]; then
+            bypass_sources+=("$managed")
+        fi
+    fi
+
+    if [ ${#bypass_sources[@]} -gt 0 ]; then
+        echo ""
+        echo -e "  ${YELLOW}Warning:${NC} bypassPermissions mode detected in:"
+        for src in "${bypass_sources[@]}"; do
+            echo "    - $src"
+        done
+        echo ""
+        echo "  Forge agents rely on tool restrictions in their frontmatter to stay"
+        echo "  in their lanes. bypassPermissions may weaken these guardrails."
+        echo ""
+        read -r -p "  Continue anyway? [y/N] " response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Aborted."
+            exit 1
+        fi
+    fi
+}
+
+# run_claude_session — invoke a Claude Code session with a skill (legacy).
+# Uses FORGE_MAX_BUDGET global if set.
+run_claude_session() {
+    local skill_invocation="$1"
+    local cmd=(claude -p "$skill_invocation")
+    [ -n "$FORGE_MAX_BUDGET" ] && cmd+=(--max-budget-usd "$FORGE_MAX_BUDGET")
+
+    local exit_code=0
+    "${cmd[@]}" || exit_code=$?
+    return $exit_code
+}
+
+# run_forge_agent — invoke a Claude Code session with a named agent.
+# Usage: run_forge_agent <agent-name> [prompt]
+# Uses FORGE_MAX_BUDGET global if set.
+run_forge_agent() {
+    local agent_name="$1"
+    local prompt="${2:-}"
+    local cmd=(claude --agent "$agent_name")
+    [ -n "$prompt" ] && cmd+=(-p "$prompt")
+    [ -n "$FORGE_MAX_BUDGET" ] && cmd+=(--max-budget-usd "$FORGE_MAX_BUDGET")
+
+    local exit_code=0
+    "${cmd[@]}" || exit_code=$?
+    return $exit_code
+}
+
+# --- Issue query helpers (for new craftsman commands) ---
+
+# find_issue_for_hammer — find the lowest open issue for the Blacksmith.
+# Priority: status:rework first, then status:ready.
+# Prints the issue number or empty string.
+find_issue_for_hammer() {
+    # Check for rework issues first (highest priority)
+    local rework_issue
+    rework_issue=$(gh issue list --state open --label "status:rework" --json number --jq '
+        sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true)
+    if [ -n "$rework_issue" ]; then
+        echo "$rework_issue"
+        return
+    fi
+
+    # Then check for ready issues
+    local ready_issue
+    ready_issue=$(gh issue list --state open --label "status:ready" --json number --jq '
+        sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true)
+    if [ -n "$ready_issue" ]; then
+        echo "$ready_issue"
+        return
+    fi
+}
+
+# find_issue_for_temper — find the lowest open issue with status:hammered.
+find_issue_for_temper() {
+    gh issue list --state open --label "status:hammered" --json number --jq '
+        sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true
+}
+
+# find_issue_for_proof — find the lowest open issue with status:tempered.
+find_issue_for_proof() {
+    gh issue list --state open --label "status:tempered" --json number --jq '
+        sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true
+}
+
+# find_unprocessed_blueprints — find blueprint timestamps without matching refiner ledger entries.
+# Prints timestamps (oldest first), one per line.
+find_unprocessed_blueprints() {
+    local unprocessed=()
+    for bp in blueprints/*.md; do
+        [ -f "$bp" ] || continue
+        local ts
+        ts=$(basename "$bp" .md)
+        # Skip .gitkeep or other non-timestamp files
+        [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{4}$ ]] || continue
+        if [ ! -f "ledger/refiner/${ts}.md" ]; then
+            unprocessed+=("$ts")
+        fi
+    done
+    printf '%s\n' "${unprocessed[@]}" | sort
+}
+
+# count_actionable_issues — count issues in any actionable status.
+# Used by auto-loop to know when to stop.
+count_actionable_issues() {
+    gh issue list --state open --json labels -L 200 --jq '
+        [.[] | select(.labels | map(.name) | any(
+            . == "status:ready" or . == "status:rework" or
+            . == "status:hammered" or . == "status:tempered" or
+            . == "status:hammering" or . == "status:tempering" or . == "status:proving"
+        ))] | length
+    ' 2>/dev/null || echo "0"
+}
+
+# --- Determine next action (legacy — used by forge run) ---
 # Prints one of: smelt, smelt:<N>, temper:<N>, revise:<N>, hammer:<N>, hone, hone:<N>, wait
 
 determine_next_action() {
