@@ -1,4 +1,4 @@
-# ${\color{#d97706}\textsf{⚒ Forge}}$ ${\color{#d97706}\textsf{—}}$ ${\color{#d97706}\textit{You\ bring\ the\ blueprint.\ The\ smith\ does\ the\ rest.}}$
+# ${\color{#d97706}\textsf{⚒ Forge}}$ ${\color{#d97706}\textsf{—}}$ ${\color{#d97706}\textit{You\ bring\ the\ ingot.\ The\ smith\ does\ the\ rest.}}$
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/allan-mobley-jr/forge/main/assets/forge-social-preview.png" alt="Forge — Autonomous Next.js development" width="1280" />
@@ -44,8 +44,8 @@ Open `PROMPT.md` in your editor and describe the app you want to build in plain 
 
 ```bash
 forge init                   # bootstraps the project
-forge smelt                  # produce a blueprint from PROMPT.md
-forge refine                 # create GitHub issues from the blueprint
+forge smelt                  # produce a ingot from PROMPT.md
+forge refine                 # create GitHub issues from the ingot
 forge hammer                 # implement the first issue
 forge temper                 # review the implementation
 forge proof                  # validate and open a PR
@@ -74,12 +74,12 @@ Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent
 
 | Craftsman | Command | What it does |
 |-----------|---------|-------------|
-| **Smelter** | `forge smelt` | Reads PROMPT.md or human feature requests. Produces a blueprint in `blueprints/`. |
-| **Refiner** | `forge refine` | Takes a blueprint and creates sequenced GitHub issues with milestones. |
+| **Smelter** | `forge smelt` | Reads PROMPT.md or human feature requests. Produces a ingot in `ingots/`. |
+| **Refiner** | `forge refine` | Takes a ingot and creates sequenced GitHub issues with milestones. |
 | **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. |
 | **Temperer** | `forge temper` | Independently reviews the Blacksmith's work. Approves or sends back for rework. |
-| **Prover** | `forge proof` | Runs tests, validates acceptance criteria, opens a PR if everything passes. |
-| **Honer** | `forge hone` | Audits the codebase against the blueprint. Produces a new blueprint of improvements. |
+| **Proof-Master** | `forge proof` | Runs tests, validates acceptance criteria, opens a PR if everything passes. |
+| **Honer** | `forge hone` | Audits the codebase against the ingot. Produces a new ingot of improvements. |
 
 Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent makes decisions without asking for human input.
 
@@ -87,10 +87,10 @@ Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-
 
 Each craftsman produces two things:
 
-1. **The artifact** — a blueprint, GitHub issues, code, a review, a PR
+1. **The artifact** — a ingot, GitHub issues, code, a review, a PR
 2. **A ledger entry** — reasoning and decisions recorded in `ledger/<craftsman>/`
 
-Blueprints go in `blueprints/` (timestamped). Ledger entries go in `ledger/` (timestamped for planning phases, per-issue for implementation phases). Both are git-tracked.
+Ingots go in `ingots/` (timestamped). Ledger entries go in `ledger/` (timestamped for planning phases, per-issue for implementation phases). Both are git-tracked.
 
 ### Issue Lifecycle
 
@@ -106,8 +106,8 @@ The Blacksmith always picks up the **lowest numbered open issue**. Only one issu
 
 ### Rework Protocol
 
-When the Temperer or Prover rejects work:
-1. They add `status:rework` and post a tagged comment (`**[Temperer]**` or `**[Prover]**`)
+When the Temperer or Proof-Master rejects work:
+1. They add `status:rework` and post a tagged comment (`**[Temperer]**` or `**[Proof-Master]**`)
 2. The Blacksmith reads the feedback and fixes the issues
 3. The Blacksmith marks addressed comments with a `✅` prefix
 4. After 3 total rework cycles, the issue is escalated to `agent:needs-human`
@@ -136,9 +136,9 @@ gh workflow run deploy-production.yml -f confirm=deploy
 
 | Command | Description |
 |---------|-------------|
-| `forge smelt` | Produce a blueprint from PROMPT.md (interactive) |
+| `forge smelt` | Produce a ingot from PROMPT.md (interactive) |
 | `forge auto-smelt` | Same, autonomous |
-| `forge refine` | Create GitHub issues from a blueprint (interactive) |
+| `forge refine` | Create GitHub issues from a ingot (interactive) |
 | `forge auto-refine` | Same, autonomous |
 | `forge hammer` | Implement the current issue (interactive) |
 | `forge auto-hammer` | Same, autonomous |
@@ -219,12 +219,12 @@ forge/
 │   └── forge-lib.sh                    #   Shared library (labels, helpers, query functions)
 ├── bootstrap/setup.sh                  # Idempotent project setup
 ├── agents/                             # Forge craftsman agents
-│   ├── smelter.md                      #   Smelter: PROMPT.md → blueprint
-│   ├── refiner.md                      #   Refiner: blueprint → GitHub issues
+│   ├── smelter.md                      #   Smelter: PROMPT.md → ingot
+│   ├── refiner.md                      #   Refiner: ingot → GitHub issues
 │   ├── blacksmith.md                   #   Blacksmith: implement one issue
 │   ├── temperer.md                     #   Temperer: independent code review
-│   ├── prover.md                       #   Prover: validate + open PR
-│   └── honer.md                        #   Honer: audit codebase → improvement blueprint
+│   ├── proof-master.md                       #   Proof-Master: validate + open PR
+│   └── honer.md                        #   Honer: audit codebase → improvement ingot
 ├── hooks/settings.json                 # Permissions and hook definitions
 ├── workflows/                          # GitHub Actions templates
 │   ├── ci.yml                          #   Lint + typecheck + test + build + E2E
@@ -244,7 +244,7 @@ forge/
 
 **Ledger for reasoning.** Every craftsman records its decisions in `ledger/`. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
 
-**Blueprints feed the Refiner.** Both the Smelter (greenfield planning) and Honer (maintenance audits) produce blueprints. The Refiner doesn't care who created the blueprint — it just breaks it into issues. This creates a clean improvement cycle.
+**Ingots feed the Refiner.** Both the Smelter (greenfield planning) and Honer (maintenance audits) produce ingots. The Refiner doesn't care who created the ingot — it just breaks it into issues. This creates a clean improvement cycle.
 
 **Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow.
 

@@ -48,7 +48,7 @@ load "../helpers/setup"
 @test "require_forge_skills succeeds when all six agents present" {
     cd "$TEST_TMPDIR"
     mkdir -p .claude/skills .claude/agents
-    for agent in smelter refiner blacksmith temperer prover honer; do
+    for agent in smelter refiner blacksmith temperer proof-master honer; do
         touch ".claude/agents/${agent}.md"
     done
     run require_forge_skills

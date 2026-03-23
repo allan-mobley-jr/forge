@@ -6,12 +6,12 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 
 ```
 agents/                              — Forge craftsman agents (orchestrators)
-  smelter.md                         — Smelter: PROMPT.md → blueprint
-  refiner.md                         — Refiner: blueprint → GitHub issues + milestones
+  smelter.md                         — Smelter: PROMPT.md → ingot
+  refiner.md                         — Refiner: ingot → GitHub issues + milestones
   blacksmith.md                      — Blacksmith: implement one issue
   temperer.md                        — Temperer: independent code review
-  prover.md                          — Prover: validate + open PR
-  honer.md                           — Honer: audit codebase → improvement blueprint
+  proof-master.md                    — Proof-Master: validate + open PR
+  honer.md                           — Honer: audit codebase → improvement ingot
 cli/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
@@ -25,13 +25,13 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 ## Artifact Directories (in target projects)
 
 ```
-blueprints/      — Timestamped blueprints from Smelter and Honer (git-tracked)
+ingots/      — Timestamped ingots from Smelter and Honer (git-tracked)
 ledger/          — Craftsman reasoning records (git-tracked)
   smelter/       — Smelter decision logs (timestamped)
   refiner/       — Refiner decision logs (timestamped)
   blacksmith/    — Blacksmith implementation decisions (per issue)
   temperer/      — Temperer review findings (per issue)
-  prover/        — Prover validation results (per issue)
+  proof-master/  — Proof-Master validation results (per issue)
   honer/         — Honer audit findings (timestamped)
 ```
 

@@ -741,13 +741,13 @@ except:
     smelt|auto-smelt)
         FORGE_COMMAND="$1"; shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge smelt — Produce a blueprint from PROMPT.md or a feature request"
+            echo "forge smelt — Produce a ingot from PROMPT.md or a feature request"
             echo ""
             echo "Usage: forge smelt [--max-budget N]"
             echo "       forge auto-smelt [--max-budget N]"
             echo ""
             echo "The Smelter reads PROMPT.md (or human-filed feature requests) and"
-            echo "produces a comprehensive blueprint in blueprints/."
+            echo "produces a comprehensive ingot in ingots/."
             echo ""
             echo "  smelt        Interactive — may ask clarifying questions"
             echo "  auto-smelt   Autonomous — makes reasonable assumptions"
@@ -770,22 +770,22 @@ except:
         [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
 
         echo "[forge] Starting Smelter ($mode mode)..."
-        if ! run_forge_agent "Smelter" "Run in $mode mode. Read PROMPT.md and produce a blueprint."; then
+        if ! run_forge_agent "Smelter" "Run in $mode mode. Read PROMPT.md and produce a ingot."; then
             echo "[forge] Smelter failed."
             exit 1
         fi
-        echo "[forge] Smelter complete. Run 'forge refine' to create issues from the blueprint."
+        echo "[forge] Smelter complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
     refine|auto-refine)
         FORGE_COMMAND="$1"; shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge refine — Create GitHub issues from a blueprint"
+            echo "forge refine — Create GitHub issues from a ingot"
             echo ""
             echo "Usage: forge refine [--max-budget N]"
             echo "       forge auto-refine [--max-budget N]"
             echo ""
-            echo "The Refiner reads the oldest unprocessed blueprint and creates"
+            echo "The Refiner reads the oldest unprocessed ingot and creates"
             echo "sequenced GitHub issues with milestones."
             exit 0
         fi
@@ -802,19 +802,19 @@ except:
         check_auth
         check_labels
 
-        # Check for unprocessed blueprints
+        # Check for unprocessed ingots
         next_bp=""
-        next_bp=$(find_unprocessed_blueprints | head -1)
+        next_bp=$(find_unprocessed_ingots | head -1)
         if [ -z "$next_bp" ]; then
-            echo "[forge] No unprocessed blueprints. Run 'forge smelt' first."
+            echo "[forge] No unprocessed ingots. Run 'forge smelt' first."
             exit 0
         fi
 
         mode="interactive"
         [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
 
-        echo "[forge] Starting Refiner ($mode mode) on blueprint $next_bp..."
-        if ! run_forge_agent "Refiner" "Run in $mode mode. Process blueprint blueprints/${next_bp}.md"; then
+        echo "[forge] Starting Refiner ($mode mode) on ingot $next_bp..."
+        if ! run_forge_agent "Refiner" "Run in $mode mode. Process ingot ingots/${next_bp}.md"; then
             echo "[forge] Refiner failed."
             exit 1
         fi
@@ -928,7 +928,7 @@ except:
             echo "Usage: forge proof [--max-budget N]"
             echo "       forge auto-proof [--max-budget N]"
             echo ""
-            echo "The Prover runs the quality suite, validates acceptance criteria,"
+            echo "The Proof-Master runs the quality suite, validates acceptance criteria,"
             echo "and opens a PR if everything passes."
             exit 0
         fi
@@ -954,36 +954,36 @@ except:
         mode="interactive"
         [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
 
-        echo "[forge] Starting Prover ($mode mode) on issue #$issue..."
+        echo "[forge] Starting Proof-Master ($mode mode) on issue #$issue..."
         transition_status "$issue" "status:tempered" "status:proving"
-        if ! run_forge_agent "Prover" "Run in $mode mode. Validate and open PR for issue #$issue."; then
-            echo "[forge] Prover failed on issue #$issue."
+        if ! run_forge_agent "Proof-Master" "Run in $mode mode. Validate and open PR for issue #$issue."; then
+            echo "[forge] Proof-Master failed on issue #$issue."
             exit 1
         fi
-        # Check verdict — if a [Prover] rework comment was posted, it failed
+        # Check verdict — if a [Proof-Master] rework comment was posted, it failed
         has_rework=""
         has_rework=$(gh issue view "$issue" --json comments --jq '
-            [.comments[].body | select(test("^\\*\\*\\[Prover\\]\\*\\*"))] | length
+            [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
         ' 2>/dev/null || echo "0")
         if [ "$has_rework" -gt 0 ]; then
             transition_status "$issue" "status:proving" "status:rework"
-            echo "[forge] Prover sent issue #$issue back for rework."
+            echo "[forge] Proof-Master sent issue #$issue back for rework."
         else
             transition_status "$issue" "status:proving" "status:proved"
-            echo "[forge] Prover complete. PR opened for issue #$issue."
+            echo "[forge] Proof-Master complete. PR opened for issue #$issue."
         fi
         ;;
 
     hone|auto-hone)
         FORGE_COMMAND="$1"; shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge hone — Audit the codebase and produce an improvement blueprint"
+            echo "forge hone — Audit the codebase and produce an improvement ingot"
             echo ""
             echo "Usage: forge hone [--max-budget N]"
             echo "       forge auto-hone [--max-budget N]"
             echo ""
-            echo "The Honer audits the app against the blueprint, triages human"
-            echo "issues, and produces a new blueprint for the Refiner."
+            echo "The Honer audits the app against the ingot, triages human"
+            echo "issues, and produces a new ingot for the Refiner."
             exit 0
         fi
 
@@ -1003,11 +1003,11 @@ except:
         [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
 
         echo "[forge] Starting Honer ($mode mode)..."
-        if ! run_forge_agent "Honer" "Run in $mode mode. Audit the codebase and produce an improvement blueprint."; then
+        if ! run_forge_agent "Honer" "Run in $mode mode. Audit the codebase and produce an improvement ingot."; then
             echo "[forge] Honer failed."
             exit 1
         fi
-        echo "[forge] Honer complete. Run 'forge refine' to create issues from the blueprint."
+        echo "[forge] Honer complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
     auto-loop)
@@ -1065,10 +1065,10 @@ except:
                 if [ -n "$issue" ]; then
                     echo "[forge] Proofing issue #$issue..."
                     transition_status "$issue" "status:tempered" "status:proving"
-                    run_forge_agent "Prover" "Run in auto mode. Validate and open PR for issue #$issue." || true
+                    run_forge_agent "Proof-Master" "Run in auto mode. Validate and open PR for issue #$issue." || true
                     has_rework=""
                     has_rework=$(gh issue view "$issue" --json comments --jq '
-                        [.comments[].body | select(test("^\\*\\*\\[Prover\\]\\*\\*"))] | length
+                        [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
                     ' 2>/dev/null || echo "0")
                     if [ "$has_rework" -gt 0 ]; then
                         transition_status "$issue" "status:proving" "status:rework"
@@ -1113,12 +1113,12 @@ except:
             # Proof the same issue
             echo "[forge] Proofing issue #$issue..."
             transition_status "$issue" "status:tempered" "status:proving"
-            run_forge_agent "Prover" "Run in auto mode. Validate and open PR for issue #$issue." || {
-                echo "[forge] Prover failed on issue #$issue. Stopping."
+            run_forge_agent "Proof-Master" "Run in auto mode. Validate and open PR for issue #$issue." || {
+                echo "[forge] Proof-Master failed on issue #$issue. Stopping."
                 break
             }
             has_rework=$(gh issue view "$issue" --json comments --jq '
-                [.comments[].body | select(test("^\\*\\*\\[Prover\\]\\*\\*"))] | length
+                [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
             ' 2>/dev/null || echo "0")
             if [ "$has_rework" -gt 0 ]; then
                 transition_status "$issue" "status:proving" "status:rework"
@@ -1183,8 +1183,8 @@ except:
         echo "Usage: forge <command>"
         echo ""
         echo "Pipeline commands:"
-        echo "  smelt            Produce a blueprint from PROMPT.md"
-        echo "  refine           Create GitHub issues from a blueprint"
+        echo "  smelt            Produce a ingot from PROMPT.md"
+        echo "  refine           Create GitHub issues from a ingot"
         echo "  hammer           Implement the current issue"
         echo "  temper           Review the current issue's implementation"
         echo "  proof            Validate and open a PR"

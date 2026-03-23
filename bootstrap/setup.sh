@@ -621,17 +621,17 @@ if plugins:
     ok "$label"
 }
 
-# Create artifact directories (blueprints + ledger)
+# Create artifact directories (ingots + ledger)
 create_artifact_dirs() {
-    local label="Artifact directories (blueprints, ledger)"
-    if [ -d "blueprints" ] && [ -d "ledger" ]; then
+    local label="Artifact directories (ingots, ledger)"
+    if [ -d "ingots" ] && [ -d "ledger" ]; then
         skip "$label"
         return
     fi
-    mkdir -p blueprints
-    mkdir -p ledger/smelter ledger/refiner ledger/blacksmith ledger/temperer ledger/prover ledger/honer
+    mkdir -p ingots
+    mkdir -p ledger/smelter ledger/refiner ledger/blacksmith ledger/temperer ledger/proof-master ledger/honer
     # Add .gitkeep files so empty dirs are tracked
-    for dir in blueprints ledger/smelter ledger/refiner ledger/blacksmith ledger/temperer ledger/prover ledger/honer; do
+    for dir in ingots ledger/smelter ledger/refiner ledger/blacksmith ledger/temperer ledger/proof-master ledger/honer; do
         touch "$dir/.gitkeep"
     done
     ok "$label"

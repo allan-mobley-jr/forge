@@ -34,7 +34,7 @@ require_forge_project() {
 require_forge_skills() {
     require_forge_project
     local missing=()
-    for agent in smelter refiner blacksmith temperer prover honer; do
+    for agent in smelter refiner blacksmith temperer proof-master honer; do
         if [ ! -f ".claude/agents/${agent}.md" ]; then
             missing+=("$agent")
         fi
@@ -71,9 +71,9 @@ FORGE_REQUIRED_LABELS=(
 # Agent comment headers — used to distinguish agent comments from human responses.
 # "## Agent Question" is posted by escalate(). "## Acknowledged" is posted by apply_timeout_default().
 # "## [Stage:" is posted by pipeline stage agents. "## [Pipeline Reset:" is posted by Tempering.
-# Craftsman tags (**[Temperer]**, **[Prover]**, etc.) are used in rework comments.
+# Craftsman tags (**[Temperer]**, **[Proof-Master]**, etc.) are used in rework comments.
 AGENT_HEADER_PATTERN='^\#\# (Agent Question|Acknowledged|\[Stage:|\[Pipeline Reset:)'
-CRAFTSMAN_COMMENT_PATTERN='^\*\*\[(Smelter|Refiner|Blacksmith|Temperer|Prover|Honer)\]\*\*'
+CRAFTSMAN_COMMENT_PATTERN='^\*\*\[(Smelter|Refiner|Blacksmith|Temperer|Proof-Master|Honer)\]\*\*'
 
 # --- Label management ---
 
@@ -323,11 +323,11 @@ find_issue_for_proof() {
     ' 2>/dev/null || true
 }
 
-# find_unprocessed_blueprints — find blueprint timestamps without matching refiner ledger entries.
+# find_unprocessed_ingots — find ingot timestamps without matching refiner ledger entries.
 # Prints timestamps (oldest first), one per line.
-find_unprocessed_blueprints() {
+find_unprocessed_ingots() {
     local unprocessed=()
-    for bp in blueprints/*.md; do
+    for bp in ingots/*.md; do
         [ -f "$bp" ] || continue
         local ts
         ts=$(basename "$bp" .md)
