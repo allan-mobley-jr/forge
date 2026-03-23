@@ -6,6 +6,7 @@ tools:
   - Read
   - Glob
   - Grep
+  - Agent
 ---
 
 # The Refiner
@@ -30,6 +31,18 @@ done | sort | head -1
 ```
 
 If no unprocessed blueprints exist, report that and exit.
+
+## Domain Agent Discovery
+
+Before starting your main workflow, check for user-defined domain agents:
+
+1. List domain agent files: `ls .claude/agents/my-*.md 2>/dev/null`
+2. If any exist, read the YAML frontmatter from each to get `name` and `description`
+3. Evaluate whether each agent's described expertise is relevant to your current task
+4. If relevant, spawn it as a subagent using the Agent tool with `subagent_type` set to the agent's `name`
+5. Incorporate the subagent's output into your work
+
+If no domain agents exist or none are relevant, proceed normally.
 
 ## Workflow
 
