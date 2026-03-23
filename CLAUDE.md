@@ -15,7 +15,7 @@ agents/                              — Forge craftsman agents (orchestrators)
 cli/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 hooks/           — .claude/settings.json template for projects
 workflows/       — GitHub Actions CI templates
-templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
+CLAUDE.md.dist   — Static CLAUDE.md copied into forge projects
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
 install.sh       — curl | bash installer

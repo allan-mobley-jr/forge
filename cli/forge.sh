@@ -81,17 +81,6 @@ case "${1:-}" in
             fi
         fi
 
-        # Drop the starter template if no PROMPT.md exists
-        if [ ! -f "PROMPT.md" ]; then
-            cp "$FORGE_REPO/templates/PROMPT.md" PROMPT.md
-            echo "Created PROMPT.md from the starter template."
-            echo ""
-            echo "  Edit PROMPT.md to describe your application before continuing."
-            echo "  Open it in your editor now — we'll wait."
-            echo ""
-            printf "  Press Enter when PROMPT.md is ready... "
-            read -r
-        fi
 
         # --- Install / update Claude Code (native binary) ---
         echo "Installing Claude Code..."
@@ -231,25 +220,9 @@ case "${1:-}" in
                 || echo -e "  ${YELLOW}!${NC} Playwright MCP failed to install"
         fi
 
-        # 6. Re-render CLAUDE.md
-        project_name=""
-        if [ -f "$BACKUP_DIR/CLAUDE.md" ]; then
-            project_name=$(head -1 "$BACKUP_DIR/CLAUDE.md" | sed 's/^# //')
-        fi
-        project_name="${project_name:-$(basename "$(pwd)")}"
-        description=""
-        if [ -f PROMPT.md ]; then
-            description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1)
-        fi
-        description="${description:-A Forge project}"
-
-        PROJECT_NAME="$project_name" \
-            DESCRIPTION="$description" \
-            perl -pe '
-                s/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
-                s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
-            ' "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
-        echo -e "  ${GREEN}✓${NC} CLAUDE.md re-generated"
+        # 6. Update CLAUDE.md
+        cp "$FORGE_REPO/CLAUDE.md.dist" CLAUDE.md
+        echo -e "  ${GREEN}✓${NC} CLAUDE.md updated"
 
         # 7. Copy deploy workflow
         if [ -f "$FORGE_REPO/workflows/deploy-production.yml" ]; then

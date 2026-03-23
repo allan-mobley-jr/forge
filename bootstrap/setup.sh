@@ -89,7 +89,7 @@ if [ ! -f "$PROJECT_DIR/PROMPT.md" ]; then
     fail "No PROMPT.md found in $PROJECT_DIR"
     echo ""
     echo "Create a PROMPT.md describing your application, then run this again."
-    echo "See: https://github.com/allan-mobley-jr/forge/blob/main/templates/PROMPT.md"
+    echo "See: https://github.com/allan-mobley-jr/forge#quick-start"
     exit 1
 fi
 
@@ -673,27 +673,14 @@ install_ci_workflows() {
     ok "$label"
 }
 
-# Generate CLAUDE.md (requires perl)
-generate_claude_md() {
-    local label="CLAUDE.md generated"
+# Install CLAUDE.md
+install_claude_md() {
+    local label="CLAUDE.md installed"
     if [ -f CLAUDE.md ]; then
         skip "$label"
         return
     fi
-    if ! command -v perl &>/dev/null; then
-        add_warning "perl not found — CLAUDE.md generation skipped. Install perl and run forge init --resume."
-        return
-    fi
-    local project_name description
-    project_name=$(basename "$PROJECT_DIR")
-    description=$(head -5 PROMPT.md | grep -v '^#' | grep -v '^$' | head -1 || echo "A Forge project")
-
-    PROJECT_NAME="$project_name" \
-        DESCRIPTION="$description" \
-        perl -pe '
-            s/\{\{project_name\}\}/$ENV{PROJECT_NAME}/g;
-            s/\{\{description\}\}/$ENV{DESCRIPTION}/g;
-        ' "$FORGE_REPO/templates/CLAUDE.md.hbs" > CLAUDE.md
+    cp "$FORGE_REPO/CLAUDE.md.dist" CLAUDE.md
     ok "$label"
 }
 
@@ -1067,7 +1054,7 @@ install_vercel_plugin
 install_playwright_mcp
 create_artifact_dirs
 install_ci_workflows
-generate_claude_md
+install_claude_md
 commit_config
 # Non-critical steps — failures are captured as warnings, not fatal
 setup_branch_protection

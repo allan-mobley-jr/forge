@@ -230,10 +230,7 @@ forge/
 │   ├── ci.yml                          #   Lint + typecheck + test + build + E2E
 │   └── deploy-production.yml           #   PR-based main → production promotion
 ├── tests/                              # CLI tests (bats framework)
-└── templates/
-    ├── CLAUDE.md.hbs                   # Project CLAUDE.md template
-    ├── PROMPT.md                       # Example starter prompt
-    └── issue-body.md                   # Issue body template
+└── CLAUDE.md.dist                      # Static CLAUDE.md copied into forge projects
 ```
 
 ## Design Decisions
