@@ -89,7 +89,49 @@ mkdir -p "$FORGE_BIN"
 
 ln -sf "$FORGE_REPO/bin/forge.sh" "$FORGE_BIN/forge"
 
-# --- Step 4: Add to PATH ---
+# --- Step 4: Install Forge plugin + dependencies ---
+
+if command -v claude &>/dev/null; then
+    echo -e "${BLUE}Setting up Forge plugin...${NC}"
+
+    # Add the Forge repo as a marketplace (idempotent)
+    if ! claude plugin marketplace list 2>/dev/null | grep -q "forge"; then
+        claude plugin marketplace add "$FORGE_REPO" 2>/dev/null \
+            && echo -e "  ${GREEN}[x]${NC} Forge marketplace registered" \
+            || echo -e "  ${YELLOW}[!]${NC} Marketplace registration failed. Run manually: claude plugin marketplace add $FORGE_REPO"
+    fi
+
+    # Install the Forge plugin at user scope
+    if ! claude plugin list 2>/dev/null | grep -q "forge@forge"; then
+        claude plugin install forge@forge 2>/dev/null \
+            && echo -e "  ${GREEN}[x]${NC} Forge plugin installed" \
+            || echo -e "  ${YELLOW}[!]${NC} Plugin install failed. Run manually: claude plugin install forge@forge"
+    fi
+
+    # Install Vercel plugin (user scope)
+    if ! claude plugin list 2>/dev/null | grep -q "vercel"; then
+        claude plugin install vercel@claude-plugins-official 2>/dev/null \
+            && echo -e "  ${GREEN}[x]${NC} Vercel plugin installed" \
+            || echo -e "  ${YELLOW}[!]${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
+    fi
+
+    # Install Playwright MCP server
+    if ! claude mcp list 2>/dev/null | grep -q "playwright"; then
+        claude mcp add playwright -- npx @playwright/mcp@latest 2>/dev/null \
+            && echo -e "  ${GREEN}[x]${NC} Playwright MCP installed" \
+            || echo -e "  ${YELLOW}[!]${NC} Playwright MCP failed. Run manually: claude mcp add playwright -- npx @playwright/mcp@latest"
+    fi
+else
+    echo -e "${YELLOW}Note:${NC} Claude Code not found — install it, then run:"
+    echo "  claude plugin marketplace add $FORGE_REPO"
+    echo "  claude plugin install forge@forge"
+    echo "  claude plugin install vercel@claude-plugins-official"
+    echo "  claude mcp add playwright -- npx @playwright/mcp@latest"
+fi
+
+echo ""
+
+# --- Step 5: Add to PATH ---
 
 SHELL_RC=""
 if [ -n "${ZSH_VERSION:-}" ] || [ "$(basename "${SHELL:-}")" = "zsh" ]; then
