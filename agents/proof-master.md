@@ -42,8 +42,8 @@ If no domain agents exist or none are relevant, proceed normally.
 
 ### 1. Gather Context
 - Read the issue body for acceptance criteria
-- Read `ledger/blacksmith/issue.<N>.md` for implementation decisions
-- Read `ledger/temperer/issue.<N>.md` to confirm the Temperer approved
+- Read any `**[Blacksmith Ledger]**` comments for implementation decisions
+- Read any `**[Temperer Ledger]**` comments to confirm the Temperer approved
 
 ### 2. Check Out the Branch
 ```bash
@@ -99,7 +99,7 @@ Implements #<N>: <brief description>
 - [x] Build succeeds
 
 ---
-*PR opened by the Forge Proof-Master. See ledger/proof-master/issue.<N>.md for validation details.*
+*PR opened by the Forge Proof-Master.*
 EOF
 )" \
     --label "ai-generated" \
@@ -122,20 +122,14 @@ gh issue comment <N> --body "**[Proof-Master]** Verification failed for issue #<
 |---|------|---------|
 | 1 | <test/lint/build/criteria> | <specific error> |
 
-See ledger/proof-master/issue.<N>.md for full analysis.
-
 *Posted by the Forge Proof-Master.*"
 ```
 
-### 7. Write Ledger Entry
-Write to `ledger/proof-master/issue.<N>.md`:
+### 7. Post Ledger Comment
+Post your reasoning as a comment on the issue:
 
-```markdown
-# Ledger: Proof-Master — Issue #<N>
-
-> Craftsman: proof-master
-> Created: <timestamp>
-> Subject: issue #<N>
+```bash
+gh issue comment <N> --body "**[Proof-Master Ledger]**
 
 ## Quality Checks
 - Lint: pass | fail
@@ -157,13 +151,8 @@ Write to `ledger/proof-master/issue.<N>.md`:
 
 ## Verdict Rationale
 <brief explanation>
-```
 
-### 8. Commit Ledger
-```bash
-git add ledger/proof-master/issue.<N>.md
-git commit -m "docs(ledger): add proof-master validation for issue #<N>"
-git push
+*Posted by the Forge Proof-Master.*"
 ```
 
 ## Rules

@@ -46,8 +46,8 @@ If no domain agents exist or none are relevant, proceed normally.
 
 ### 1. Gather Context
 - Read the issue body for requirements and acceptance criteria
-- Read `ledger/blacksmith/issue.<N>.md` to understand the Blacksmith's reasoning and decisions
-- Read the latest ingot from `ingots/` for broader project context
+- Read any `**[Blacksmith Ledger]**` comments to understand the Blacksmith's reasoning and decisions
+- Read the ingot issue referenced in the issue footer for broader project context
 
 ### 2. Review the Code
 Check out and review the diff:
@@ -93,8 +93,6 @@ gh issue comment <N> --body "**[Temperer]** <summary of findings>
 |---|------|------|-------|----------|
 | 1 | ... | ... | ... | high/medium |
 
-See ledger/temperer/issue.<N>.md for full analysis.
-
 *Posted by the Forge Temperer.*"
 ```
 
@@ -108,15 +106,11 @@ gh issue comment <N> --body "## Agent Question
 gh issue edit <N> --add-label "agent:needs-human"
 ```
 
-### 5. Write Ledger Entry
-Write to `ledger/temperer/issue.<N>.md`:
+### 5. Post Ledger Comment
+Post your reasoning as a comment on the issue:
 
-```markdown
-# Ledger: Temperer — Issue #<N>
-
-> Craftsman: temperer
-> Created: <timestamp>
-> Subject: issue #<N>
+```bash
+gh issue comment <N> --body "**[Temperer Ledger]**
 
 ## Review Summary
 - Files reviewed: <N>
@@ -135,14 +129,8 @@ Write to `ledger/temperer/issue.<N>.md`:
 
 ## Verdict Rationale
 <2-3 sentences explaining the decision>
-```
 
-### 6. Commit Ledger
-```bash
-git checkout origin/agent/issue-<N>-<slug>
-git add ledger/temperer/issue.<N>.md
-git commit -m "docs(ledger): add temperer review for issue #<N>"
-git push
+*Posted by the Forge Temperer.*"
 ```
 
 ## Rules
@@ -151,4 +139,4 @@ git push
 - **Never open a PR.** That is the Proof-Master's job.
 - **Be specific.** Every must-fix item should reference a file, line, and what's wrong.
 - **Be fair.** Don't reject for style preferences. Reject for correctness, security, and missing requirements.
-- **Tag your comments.** Always prefix GitHub comments with `**[Temperer]**` so the Blacksmith knows who to reference in the ledger.
+- **Tag your comments.** Always prefix GitHub comments with `**[Temperer]**` so the Blacksmith knows who to reference.
