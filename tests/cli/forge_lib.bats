@@ -21,36 +21,78 @@ load "../helpers/setup"
 
 # --- require_forge_project ---
 
-@test "require_forge_project exits 1 when .claude/skills missing" {
+@test "require_forge_project exits 1 when not registered" {
     cd "$TEST_TMPDIR"
     run require_forge_project
     [[ "$status" -eq 1 ]]
     [[ "$output" == *"Not a Forge project"* ]]
 }
 
-@test "require_forge_project succeeds when .claude/skills exists" {
+@test "require_forge_project succeeds when registered in config.json" {
     cd "$TEST_TMPDIR"
-    mkdir -p .claude/skills
+    mkdir -p "$HOME/.forge"
+    cat > "$HOME/.forge/config.json" <<EOF
+{
+  "projects": {
+    "test": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z"
+    }
+  }
+}
+EOF
     run require_forge_project
     [[ "$status" -eq 0 ]]
 }
 
 # --- require_forge_skills ---
 
-@test "require_forge_skills exits when agents missing" {
+@test "require_forge_skills exits when plugin not installed" {
     cd "$TEST_TMPDIR"
-    mkdir -p .claude/skills
+    mkdir -p "$HOME/.forge"
+    cat > "$HOME/.forge/config.json" <<EOF
+{
+  "projects": {
+    "test": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z"
+    }
+  }
+}
+EOF
+    # Mock claude to return empty plugin list
+    cat > "$MOCK_BIN/claude" <<'MOCK'
+#!/usr/bin/env bash
+echo ""
+MOCK
+    chmod +x "$MOCK_BIN/claude"
     run require_forge_skills
     [[ "$status" -eq 1 ]]
-    [[ "$output" == *"smelter"* ]]
+    [[ "$output" == *"Forge plugin not installed"* ]]
 }
 
-@test "require_forge_skills succeeds when all six agents present" {
+@test "require_forge_skills succeeds when plugin installed" {
     cd "$TEST_TMPDIR"
-    mkdir -p .claude/skills .claude/agents
-    for agent in smelter refiner blacksmith temperer proof-master honer; do
-        touch ".claude/agents/${agent}.md"
-    done
+    mkdir -p "$HOME/.forge"
+    cat > "$HOME/.forge/config.json" <<EOF
+{
+  "projects": {
+    "test": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z"
+    }
+  }
+}
+EOF
+    # Mock claude to report forge plugin installed
+    cat > "$MOCK_BIN/claude" <<'MOCK'
+#!/usr/bin/env bash
+echo "forge@forge (user)"
+MOCK
+    chmod +x "$MOCK_BIN/claude"
     run require_forge_skills
     [[ "$status" -eq 0 ]]
 }
@@ -143,8 +185,8 @@ load "../helpers/setup"
 
 # --- FORGE_REQUIRED_LABELS constant ---
 
-@test "FORGE_REQUIRED_LABELS has 10 entries" {
-    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 10 ]]
+@test "FORGE_REQUIRED_LABELS has 11 entries" {
+    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 11 ]]
 }
 
 @test "FORGE_REQUIRED_LABELS entries have pipe-separated format" {
