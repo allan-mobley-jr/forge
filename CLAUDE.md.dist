@@ -3,7 +3,7 @@
 ## Agent Rules
 
 - You have a specific role. Follow your agent definition exclusively.
-- Never modify `.claude/agents/`, `.claude/settings.json`, `CLAUDE.md`, `AGENTS.md`, or `.github/workflows/`.
+- Never modify `CLAUDE.md`, `AGENTS.md`, `.claude/`, or `.github/workflows/`.
 - Every commit must be exactly one logical change. No "and" in commit messages.
 - The `production` branch is off-limits. Do not push to it or target PRs at it.
 
@@ -21,8 +21,11 @@ These Vercel plugin agents are available as subagents when their expertise appli
 - **deployment-expert** — Build failures, function runtime, env vars, DNS, CI/CD, rollbacks
 - **performance-optimizer** — Core Web Vitals, caching, image/font optimization, bundle size
 
-## Project Artifacts
+## Artifacts
 
-- `ingots/` — planning documents from Smelter and Honer (timestamped)
-- `ledger/` — craftsman reasoning records (per-issue or timestamped)
+All planning artifacts are stored as GitHub issues and comments — not files on disk.
+
+- **Ingots** — planning documents from Smelter and Honer, stored as GitHub issues labeled `type:ingot`
+- **Ledger entries** — craftsman reasoning records, stored as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
+- **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`, addressed by prepending `✅`
 - `AGENTS.md` — Next.js framework docs index

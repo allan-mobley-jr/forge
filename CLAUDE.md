@@ -5,49 +5,46 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 ## Repository Structure
 
 ```
-agents/                              — Forge craftsman agents (orchestrators)
-  smelter.md                         — Smelter: PROMPT.md → ingot
-  refiner.md                         — Refiner: ingot → GitHub issues + milestones
-  blacksmith.md                      — Blacksmith: implement one issue
-  temperer.md                        — Temperer: independent code review
-  proof-master.md                    — Proof-Master: validate + open PR
-  honer.md                           — Honer: audit codebase → improvement ingot
+.claude-plugin/  — Plugin manifest and marketplace listing
+agents/          — Forge craftsman agents (orchestrators)
+  smelter.md       — Smelter: PROMPT.md → ingot issue
+  refiner.md       — Refiner: ingot issue → GitHub implementation issues
+  blacksmith.md    — Blacksmith: implement one issue
+  temperer.md      — Temperer: independent code review
+  proof-master.md  — Proof-Master: validate + open PR
+  honer.md         — Honer: audit codebase → improvement ingot issue
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
-hooks/           — .claude/settings.json template for projects
+hooks/           — Plugin hooks (hooks.json + standalone scripts)
 workflows/       — GitHub Actions CI templates
-CLAUDE.md.dist   — Static CLAUDE.md copied into forge projects
+CLAUDE.md.dist   — Context injected into sessions via SessionStart hook
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
 install.sh       — curl | bash installer
 research/        — ad-hoc research notes and scratchpad (not committed)
 ```
 
-## Artifact Directories (in target projects)
+## Artifacts (in target projects)
 
-```
-ingots/      — Timestamped ingots from Smelter and Honer (git-tracked)
-ledger/          — Craftsman reasoning records (git-tracked)
-  smelter/       — Smelter decision logs (timestamped)
-  refiner/       — Refiner decision logs (timestamped)
-  blacksmith/    — Blacksmith implementation decisions (per issue)
-  temperer/      — Temperer review findings (per issue)
-  proof-master/  — Proof-Master validation results (per issue)
-  honer/         — Honer audit findings (timestamped)
-```
+All planning artifacts are stored as GitHub issues and comments — not files on disk:
+
+- **Ingots** — GitHub issues labeled `type:ingot`, created by Smelter and Honer
+- **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
+- **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`
 
 ## Conventions
 
 - Agents use YAML frontmatter with `name`, `description`, `tools`
-- Agents are invoked via `claude --agent <name>` from the CLI
+- Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
+- Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
-- GitHub labels and the ledger track pipeline state
-- Shell scripts target macOS (zsh) with Homebrew assumed
+- GitHub labels and issue comments track pipeline state
 
 ## Labels
 
 Target projects use these labels:
 
 - **Meta:** `ai-generated`, `agent:needs-human`
+- **Artifact:** `type:ingot`
 - **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:proving`, `status:proved`
 
 When creating issues or PRs for **this repo**, apply relevant labels:
