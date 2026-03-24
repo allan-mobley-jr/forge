@@ -57,10 +57,9 @@ case "${1:-}" in
             echo ""
             echo "Creates a new Forge project in the current directory:"
             echo "  1. Checks prerequisites (Node.js, pnpm, gh, claude)"
-            echo "  2. Scaffolds a Next.js app"
-            echo "  3. Creates a GitHub repo with branch protection and CI"
-            echo "  4. Links a Vercel project for preview deploys"
-            echo "  5. Installs Forge agents, hooks, plugins, and CLAUDE.md"
+            echo "  2. Verifies Forge plugin is installed"
+            echo "  3. Creates a GitHub repo with branch protection and labels"
+            echo "  4. Sets up production branch"
             echo ""
             echo "Options:"
             echo "  --resume    Resume from where a previous bootstrap stopped"
@@ -120,50 +119,37 @@ case "${1:-}" in
         else
             echo -e "${GREEN}Forge updated to $(forge_version).${NC}"
         fi
+
+        # Refresh the plugin cache so agents/hooks match the updated CLI
+        echo -e "${BLUE}Refreshing Forge plugin...${NC}"
+        # Nuke stale cache and reinstall from the freshly-pulled repo
+        for cache_dir in "$HOME/.claude/plugins/cache"/*/forge/*/; do
+            [ -d "$cache_dir" ] && rm -rf "$cache_dir"
+        done
+        claude plugin install forge@forge 2>/dev/null \
+            && echo -e "${GREEN}Plugin refreshed.${NC}" \
+            || echo -e "${YELLOW}Plugin refresh failed. Run manually: claude plugin install forge@forge${NC}"
         ;;
     upgrade)
         if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge upgrade — Update project artifacts"
+            echo "forge upgrade — Update project-level Forge configuration"
             echo ""
             echo "Usage: forge upgrade"
             echo ""
-            echo "Updates agents, hooks, and CLAUDE.md in the current Forge project"
-            echo "to match the installed Forge version. Creates a backup first."
-            echo ""
-            echo "Backs up to .forge-backup-YYYY-MM-DD-HHMMSS/"
+            echo "Checks labels, generates AGENTS.md, and copies deploy workflow."
+            echo "Agents and hooks are managed by the Forge plugin (use 'forge update')."
             exit 0
         fi
 
         require_forge_project
 
-        echo "Upgrading Forge artifacts..."
+        echo "Upgrading Forge project..."
         echo ""
 
-        # 2. Create backup
-        BACKUP_DIR=".forge-backup-$(date +%Y-%m-%d-%H%M%S)"
-        mkdir -p "$BACKUP_DIR"
-        [ -d .claude/agents ] && cp -r .claude/agents/ "$BACKUP_DIR/agents"
-        [ -f .claude/settings.json ] && cp .claude/settings.json "$BACKUP_DIR/settings.json"
-        [ -f CLAUDE.md ] && cp CLAUDE.md "$BACKUP_DIR/CLAUDE.md"
-        echo -e "  Backed up to ${BOLD}${BACKUP_DIR}/${NC}"
+        # Ensure labels are up-to-date
+        check_labels
 
-        # 3. Add backup and session patterns to .gitignore
-        for pattern in '.forge-backup-*' '.forge-temp/'; do
-            if ! grep -Fq "$pattern" .gitignore 2>/dev/null; then
-                echo "$pattern" >> .gitignore
-            fi
-        done
-
-        # 4. Update forge agents (preserve user domain agents: my-*.md)
-        mkdir -p .claude/agents
-        for f in .claude/agents/*.md; do
-            [ -f "$f" ] || continue
-            case "$(basename "$f")" in my-*) ;; *) rm -f "$f" ;; esac
-        done
-        cp "$FORGE_REPO/agents/"*.md .claude/agents/
-        echo -e "  ${GREEN}✓${NC} Agents updated"
-
-        # 4b. Generate AGENTS.md if missing (try @latest, fall back to @canary)
+        # Generate AGENTS.md if missing (try @latest, fall back to @canary)
         if [ ! -f AGENTS.md ]; then
             pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 \
               || pnpm dlx @next/codemod@canary agents-md --output AGENTS.md >/dev/null 2>&1 \
@@ -171,27 +157,7 @@ case "${1:-}" in
             [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
         fi
 
-        # 5. Update hooks (merge to preserve plugin config)
-        merge_forge_hooks
-        echo -e "  ${GREEN}✓${NC} Hooks updated"
-
-        # 5b. Ensure Vercel plugin and Playwright MCP are installed
-        if ! claude plugin list 2>/dev/null | grep -q "vercel"; then
-            claude plugin install vercel@claude-plugins-official --scope project 2>/dev/null \
-                && echo -e "  ${GREEN}✓${NC} Vercel plugin installed" \
-                || echo -e "  ${YELLOW}!${NC} Vercel plugin failed to install"
-        fi
-        if ! claude mcp list 2>/dev/null | grep -q "playwright"; then
-            claude mcp add --scope project playwright -- npx @playwright/mcp@latest 2>/dev/null \
-                && echo -e "  ${GREEN}✓${NC} Playwright MCP installed" \
-                || echo -e "  ${YELLOW}!${NC} Playwright MCP failed to install"
-        fi
-
-        # 6. Update CLAUDE.md
-        cp "$FORGE_REPO/CLAUDE.md.dist" CLAUDE.md
-        echo -e "  ${GREEN}✓${NC} CLAUDE.md updated"
-
-        # 7. Copy deploy workflow
+        # Copy deploy workflow
         if [ -f "$FORGE_REPO/workflows/deploy-production.yml" ]; then
             mkdir -p .github/workflows
             cp "$FORGE_REPO/workflows/deploy-production.yml" .github/workflows/deploy-production.yml
@@ -199,8 +165,8 @@ case "${1:-}" in
         fi
 
         echo ""
-        echo "  Review changes:  git diff"
-        echo "  Restore backup:  cp -r ${BACKUP_DIR}/ ."
+        echo "  Done. Agents and hooks are managed by the Forge plugin."
+        echo "  Run 'forge update' to update the plugin itself."
         echo ""
         ;;
     doctor)
@@ -270,62 +236,31 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} Claude Code not installed"
         fi
 
-        if command -v jq &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} jq $(jq --version 2>/dev/null)"
-        else
-            echo -e "  ${YELLOW}⚠${NC} jq not installed (used by skills; install with: brew install jq)"
-        fi
 
-        # 3. Check artifact freshness
+        # 3. Check Forge plugin
         echo ""
-        echo "Artifacts:"
+        echo "Plugin:"
 
-        artifacts_outdated=false
-
-        forge_agents_ok=true
-        if [ -d "$FORGE_REPO/agents" ]; then
-            for agent_file in "$FORGE_REPO/agents"/*.md; do
-                [ -f "$agent_file" ] || continue
-                agent="$(basename "$agent_file")"
-                if [ -f ".claude/agents/$agent" ]; then
-                    if ! diff -q ".claude/agents/$agent" "$agent_file" &>/dev/null; then
-                        forge_agents_ok=false
-                        break
-                    fi
-                else
-                    forge_agents_ok=false
-                    break
-                fi
-            done
+        if claude plugin list 2>/dev/null | grep -q "forge"; then
+            echo -e "  ${GREEN}✓${NC} Forge plugin installed"
         else
-            forge_agents_ok=false
-        fi
-        if $forge_agents_ok; then
-            echo -e "  ${GREEN}✓${NC} Agents up-to-date"
-        else
-            echo -e "  ${YELLOW}⚠${NC} Agents outdated"
-            artifacts_outdated=true
+            echo -e "  ${RED}✗${NC} Forge plugin not installed — run: claude plugin install forge@forge"
         fi
 
-        if command -v jq &>/dev/null; then
-            hooks_match=$(jq -S '{permissions, hooks}' .claude/settings.json 2>/dev/null | \
-                diff -q - <(jq -S '{permissions, hooks}' "$FORGE_REPO/hooks/settings.json" 2>/dev/null) &>/dev/null && echo y || echo n)
+        if claude plugin list 2>/dev/null | grep -q "vercel"; then
+            echo -e "  ${GREEN}✓${NC} Vercel plugin installed"
         else
-            hooks_match=$(diff -q .claude/settings.json "$FORGE_REPO/hooks/settings.json" &>/dev/null && echo y || echo n)
+            echo -e "  ${YELLOW}⚠${NC} Vercel plugin not installed"
         fi
-        if [ "$hooks_match" = "y" ]; then
-            echo -e "  ${GREEN}✓${NC} Hooks up-to-date"
+
+        if claude mcp list 2>/dev/null | grep -q "playwright"; then
+            echo -e "  ${GREEN}✓${NC} Playwright MCP installed"
         else
-            echo -e "  ${YELLOW}⚠${NC} Hooks outdated"
-            artifacts_outdated=true
+            echo -e "  ${YELLOW}⚠${NC} Playwright MCP not installed"
         fi
 
         if [ -f .github/workflows/ci.yml ]; then
-            if diff -q .github/workflows/ci.yml "$FORGE_REPO/workflows/ci.yml" &>/dev/null; then
-                echo -e "  ${GREEN}✓${NC} CI workflow up-to-date"
-            else
-                echo -e "  ${DIM}-${NC} CI workflow differs (not managed by upgrade)"
-            fi
+            echo -e "  ${GREEN}✓${NC} CI workflow present"
         else
             echo -e "  ${DIM}-${NC} CI workflow not found"
         fi
@@ -352,11 +287,6 @@ case "${1:-}" in
             fi
         fi
 
-        if command -v perl &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} perl available"
-        else
-            echo -e "  ${RED}✗${NC} perl not found (needed for CLAUDE.md generation)"
-        fi
 
         # 5. Check connectivity
         echo ""
@@ -425,11 +355,7 @@ case "${1:-}" in
         fi
 
         echo ""
-        if [ "$artifacts_outdated" = true ]; then
-            echo "  Run 'forge upgrade' to update outdated artifacts."
-        else
-            echo "  All managed artifacts are up-to-date."
-        fi
+        echo "  Run 'forge update' to update Forge and its plugin."
         echo ""
         ;;
     # ==========================================================================
@@ -445,7 +371,7 @@ case "${1:-}" in
             echo "       forge auto-smelt [--max-budget N]"
             echo ""
             echo "The Smelter reads PROMPT.md (or human-filed feature requests) and"
-            echo "produces a comprehensive ingot in ingots/."
+            echo "creates a comprehensive ingot as a GitHub issue."
             echo ""
             echo "  smelt        Interactive — may ask clarifying questions"
             echo "  auto-smelt   Autonomous — makes reasonable assumptions"
@@ -500,19 +426,19 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        # Check for unprocessed ingots
-        next_bp=""
-        next_bp=$(find_unprocessed_ingots | head -1)
-        if [ -z "$next_bp" ]; then
-            echo "[forge] No unprocessed ingots. Run 'forge smelt' first."
+        # Check for open ingot issues
+        next_ingot=""
+        next_ingot=$(find_unprocessed_ingots | head -1)
+        if [ -z "$next_ingot" ]; then
+            echo "[forge] No open ingot issues. Run 'forge smelt' first."
             exit 0
         fi
 
         mode="interactive"
         [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
 
-        echo "[forge] Starting Refiner ($mode mode) on ingot $next_bp..."
-        if ! run_forge_agent "Refiner" "Run in $mode mode. Process ingot ingots/${next_bp}.md"; then
+        echo "[forge] Starting Refiner ($mode mode) on ingot issue #$next_ingot..."
+        if ! run_forge_agent "Refiner" "Run in $mode mode. Process ingot issue #${next_ingot}."; then
             echo "[forge] Refiner failed."
             exit 1
         fi
@@ -854,6 +780,10 @@ case "${1:-}" in
             exit 0
         fi
 
+        # Remove Forge plugin and marketplace
+        claude plugin uninstall forge 2>/dev/null || true
+        claude plugin marketplace remove forge 2>/dev/null || true
+
         # Remove PATH from shell configs
         for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
             if [ -f "$rc" ]; then
@@ -892,7 +822,7 @@ case "${1:-}" in
         echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
         echo ""
         echo "Setup commands:"
-        echo "  init             Bootstrap a new Forge project (requires PROMPT.md)"
+        echo "  init             Bootstrap a new Forge project"
         echo "  init --resume    Resume a failed or interrupted bootstrap"
         echo "  version          Show installed version and check for updates"
         echo "  update           Update Forge to the latest version"
@@ -904,10 +834,10 @@ case "${1:-}" in
         echo ""
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"
-        echo "  2. Write a PROMPT.md describing your app"
-        echo "  3. forge init"
+        echo "  2. forge init"
+        echo "  3. Write a PROMPT.md describing your app"
         echo "  4. forge smelt"
         echo "  5. forge refine"
-        echo "  6. forge hammer && forge temper && forge proof"
+        echo "  6. forge auto-run"
         ;;
 esac
