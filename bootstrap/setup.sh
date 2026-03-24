@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Forge Bootstrap — minimal project setup
-# Installs forge files, creates GitHub repo, sets up protection and labels.
-# App scaffolding, Vercel, and CI are handled by agents after smelting.
+# Creates git repo, GitHub repo, branch protection, labels, and production branch.
+# All app scaffolding and configuration is handled by agents after smelting.
 
 # --- Configuration ---
 
@@ -166,6 +166,20 @@ preflight_check() {
     echo ""
 }
 
+# Verify the Forge plugin is installed
+verify_forge_plugin() {
+    local label="Forge plugin"
+    if claude plugin list 2>/dev/null | grep -q "forge"; then
+        ok "$label"
+    else
+        fail "Forge plugin not installed."
+        echo ""
+        echo "  Run: forge install"
+        echo "  Or manually: claude plugin marketplace add $FORGE_REPO && claude plugin install forge@forge"
+        exit 1
+    fi
+}
+
 # ============================================================
 # Phase 2: Project Setup
 # ============================================================
@@ -184,96 +198,6 @@ init_git() {
     ok "$label"
 }
 
-# Install agents
-install_agents() {
-    local label="Forge agents installed"
-    if [ -f .claude/agents/smelter.md ]; then
-        skip "$label"
-        return
-    fi
-    mkdir -p .claude/agents
-    cp "$FORGE_REPO/agents/"*.md .claude/agents/
-    ok "$label"
-}
-
-# Install hooks (merge into existing settings.json to preserve plugin config)
-install_hooks() {
-    local label="Hooks configuration"
-    local target=".claude/settings.json"
-    local source="$FORGE_REPO/hooks/settings.json"
-    mkdir -p .claude
-    if [ -f "$target" ]; then
-        python3 -c "
-import json, sys
-with open(sys.argv[1]) as f:
-    target = json.load(f)
-with open(sys.argv[2]) as f:
-    source = json.load(f)
-target['hooks'] = source.get('hooks', {})
-with open(sys.argv[1], 'w') as f:
-    json.dump(target, f, indent=2)
-    f.write('\n')
-" "$target" "$source"
-    else
-        cp "$source" "$target"
-    fi
-    ok "$label"
-}
-
-# Install Vercel plugin (non-critical)
-install_vercel_plugin() {
-    local label="Vercel plugin"
-    if claude plugin list 2>/dev/null | grep -q "vercel"; then
-        skip "$label"
-        return
-    fi
-    if claude plugin install vercel@claude-plugins-official --scope project 2>/dev/null; then
-        ok "$label"
-    else
-        add_warning "Vercel plugin failed to install. Run manually: claude plugin install vercel@claude-plugins-official --scope project"
-    fi
-}
-
-# Install Playwright MCP server (non-critical)
-install_playwright_mcp() {
-    local label="Playwright MCP server"
-    if claude mcp list 2>/dev/null | grep -q "playwright"; then
-        skip "$label"
-        return
-    fi
-    if claude mcp add --scope project playwright -- npx @playwright/mcp@latest 2>/dev/null; then
-        ok "$label"
-    else
-        add_warning "Playwright MCP failed to install. Run manually: claude mcp add --scope project playwright -- npx @playwright/mcp@latest"
-    fi
-}
-
-# Create artifact directories (ingots + ledger)
-create_artifact_dirs() {
-    local label="Artifact directories (ingots, ledger)"
-    if [ -d "ingots" ] && [ -d "ledger" ]; then
-        skip "$label"
-        return
-    fi
-    mkdir -p ingots
-    mkdir -p ledger/smelter ledger/refiner ledger/blacksmith ledger/temperer ledger/proof-master ledger/honer
-    for dir in ingots ledger/smelter ledger/refiner ledger/blacksmith ledger/temperer ledger/proof-master ledger/honer; do
-        touch "$dir/.gitkeep"
-    done
-    ok "$label"
-}
-
-# Install CLAUDE.md
-install_claude_md() {
-    local label="CLAUDE.md installed"
-    if [ -f CLAUDE.md ]; then
-        skip "$label"
-        return
-    fi
-    cp "$FORGE_REPO/CLAUDE.md.dist" CLAUDE.md
-    ok "$label"
-}
-
 # Initial commit
 initial_commit() {
     local label="Initial commit"
@@ -281,9 +205,8 @@ initial_commit() {
         skip "$label"
         return
     fi
-    # Ensure forge temp files are gitignored
     echo '.forge-temp/' > .gitignore
-    git add .
+    git add .gitignore
     git commit -m "chore: initialize forge project"
     ok "$label"
 }
@@ -450,6 +373,7 @@ create_labels() {
 
     gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"     --force 2>/dev/null || failed=1
     gh label create "agent:needs-human"  --color "d93f0b" --description "Blocked on human decision"      --force 2>/dev/null || failed=1
+    gh label create "type:ingot"         --color "5319E7" --description "Ingot from Smelter or Honer"    --force 2>/dev/null || failed=1
     gh label create "status:ready"       --color "0e8a16" --description "Ready for Blacksmith"           --force 2>/dev/null || failed=1
     gh label create "status:hammering"   --color "c5def5" --description "Implementation in progress"     --force 2>/dev/null || failed=1
     gh label create "status:hammered"    --color "1d76db" --description "Implementation complete"        --force 2>/dev/null || failed=1
@@ -517,14 +441,9 @@ EOF
 # ============================================================
 
 preflight_check
+verify_forge_plugin
 
 init_git
-install_agents
-install_hooks
-install_vercel_plugin
-install_playwright_mcp
-create_artifact_dirs
-install_claude_md
 initial_commit
 create_github_repo
 push_to_github
