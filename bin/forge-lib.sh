@@ -24,29 +24,35 @@ forge_version() {
 }
 
 require_forge_project() {
-    if [ ! -d ".claude/skills" ]; then
+    local project_path
+    project_path=$(pwd)
+    if [ ! -f "$HOME/.forge/config.json" ]; then
         echo -e "${RED}Error:${NC} Not a Forge project."
-        echo "  Run this command from inside a Forge project directory."
+        echo "  Run ${BOLD}forge init${NC} to bootstrap a new project."
+        exit 1
+    fi
+    local registered
+    registered=$(python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    cfg = json.load(f)
+for name, proj in cfg.get('projects', {}).items():
+    if proj.get('path') == sys.argv[2]:
+        print('yes')
+        break
+" "$HOME/.forge/config.json" "$project_path" 2>/dev/null || true)
+    if [ "$registered" != "yes" ]; then
+        echo -e "${RED}Error:${NC} Not a Forge project."
+        echo "  Run ${BOLD}forge init${NC} to bootstrap a new project."
         exit 1
     fi
 }
 
 require_forge_skills() {
     require_forge_project
-    local missing=()
-    for agent in smelter refiner blacksmith temperer proof-master honer; do
-        if [ ! -f ".claude/agents/${agent}.md" ]; then
-            missing+=("$agent")
-        fi
-    done
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo -e "${RED}Error:${NC} Required Forge agents missing:"
-        for agent in "${missing[@]}"; do
-            echo "  - ${agent}"
-        done
-        echo ""
-        echo "  Run ${BOLD}forge upgrade${NC} to install missing agents,"
-        echo "  or ${BOLD}forge init${NC} from a project directory to bootstrap."
+    if ! claude plugin list 2>/dev/null | grep -q "forge"; then
+        echo -e "${RED}Error:${NC} Forge plugin not installed."
+        echo "  Run: claude plugin install forge@forge"
         exit 1
     fi
 }
@@ -57,6 +63,8 @@ FORGE_REQUIRED_LABELS=(
     # Meta labels
     "ai-generated|EEEEEE|Issue or PR filed by agent"
     "agent:needs-human|d93f0b|Blocked on human decision"
+    # Artifact labels
+    "type:ingot|5319E7|Ingot from Smelter or Honer"
     # Status labels — the core issue lifecycle
     "status:ready|0e8a16|Ready for Blacksmith"
     "status:hammering|c5def5|Implementation in progress"
@@ -202,15 +210,17 @@ check_auth() {
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
+    local agent_name_lower
+    agent_name_lower=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
 
-    # Extract tools from agent frontmatter
-    local agent_file=".claude/agents/$(echo "$agent_name" | tr '[:upper:]' '[:lower:]').md"
+    # Extract tools from agent frontmatter (from the forge repo, not the project)
+    local agent_file="$FORGE_REPO/agents/${agent_name_lower}.md"
     local tools=""
     if [ -f "$agent_file" ]; then
         tools=$(sed -n '/^tools:/,/^---/{ /^  - /s/^  - //p }' "$agent_file" | tr '\n' ',' | sed 's/,$//')
     fi
 
-    local cmd=(claude --agent "$agent_name")
+    local cmd=(claude --agent "forge:${agent_name_lower}")
     [ -n "$prompt" ] && cmd+=(-p "$prompt")
     [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     [ -n "$FORGE_MAX_BUDGET" ] && cmd+=(--max-budget-usd "$FORGE_MAX_BUDGET")
@@ -218,31 +228,6 @@ run_forge_agent() {
     local exit_code=0
     "${cmd[@]}" || exit_code=$?
     return $exit_code
-}
-
-# --- Settings merge ---
-
-# merge_forge_hooks — merge forge hooks into .claude/settings.json without wiping other keys.
-# Preserves enabledPlugins, mcpServers, and anything else plugins or MCP add.
-merge_forge_hooks() {
-    local target=".claude/settings.json"
-    local source="$FORGE_REPO/hooks/settings.json"
-    mkdir -p .claude
-    if [ -f "$target" ]; then
-        python3 -c "
-import json, sys
-with open(sys.argv[1]) as f:
-    target = json.load(f)
-with open(sys.argv[2]) as f:
-    source = json.load(f)
-target['hooks'] = source.get('hooks', {})
-with open(sys.argv[1], 'w') as f:
-    json.dump(target, f, indent=2)
-    f.write('\n')
-" "$target" "$source"
-    else
-        cp "$source" "$target"
-    fi
 }
 
 # --- Issue query helpers ---
@@ -283,20 +268,11 @@ find_issue_for_proof() {
     ' 2>/dev/null || true
 }
 
-# find_unprocessed_ingots — find ingot timestamps without matching refiner ledger entries.
-# Prints timestamps (oldest first), one per line.
+# find_unprocessed_ingots — find open ingot issues (oldest first).
 find_unprocessed_ingots() {
-    local unprocessed=()
-    for bp in ingots/*.md; do
-        [ -f "$bp" ] || continue
-        local ts
-        ts=$(basename "$bp" .md)
-        [[ "$ts" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{4}$ ]] || continue
-        if [ ! -f "ledger/refiner/${ts}.md" ]; then
-            unprocessed+=("$ts")
-        fi
-    done
-    printf '%s\n' "${unprocessed[@]}" | sort
+    gh issue list --state open --label "type:ingot" --json number --jq '
+        sort_by(.number) | .[].number
+    ' 2>/dev/null || true
 }
 
 # count_actionable_issues — count issues in any actionable status.
