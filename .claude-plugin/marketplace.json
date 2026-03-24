@@ -1,0 +1,17 @@
+{
+  "name": "forge",
+  "description": "Forge autonomous development pipeline",
+  "owner": {
+    "name": "Allan Mobley Jr."
+  },
+  "plugins": [
+    {
+      "name": "forge",
+      "source": "./",
+      "description": "Autonomous Next.js development pipeline with craftsman agents",
+      "author": {
+        "name": "Allan Mobley Jr."
+      }
+    }
+  ]
+}
