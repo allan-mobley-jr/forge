@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "forge",
-      "source": "./",
+      "source": "./plugin",
       "description": "Autonomous Next.js development pipeline with craftsman agents",
       "author": {
         "name": "Allan Mobley Jr."

@@ -5,18 +5,20 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 ## Repository Structure
 
 ```
-.claude-plugin/  — Plugin manifest and marketplace listing
-agents/          — Forge craftsman agents (orchestrators)
-  smelter.md       — Smelter: PROMPT.md → ingot issue
-  refiner.md       — Refiner: ingot issue → GitHub implementation issues
-  blacksmith.md    — Blacksmith: implement one issue
-  temperer.md      — Temperer: independent code review
-  proof-master.md  — Proof-Master: validate + open PR
-  honer.md         — Honer: audit codebase → improvement ingot issue
+.claude-plugin/  — Marketplace listing (marketplace.json)
+plugin/          — Claude Code plugin (only this gets cached)
+  .claude-plugin/  — Plugin manifest (plugin.json)
+  agents/          — Forge craftsman agents (orchestrators)
+    smelter.md       — Smelter: PROMPT.md → ingot issue
+    refiner.md       — Refiner: ingot issue → GitHub implementation issues
+    blacksmith.md    — Blacksmith: implement one issue
+    temperer.md      — Temperer: independent code review
+    proof-master.md  — Proof-Master: validate + open PR
+    honer.md         — Honer: audit codebase → improvement ingot issue
+  hooks/           — Plugin hooks (hooks.json + standalone scripts)
+  CLAUDE.md.dist   — Context injected into sessions via SessionStart hook
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
-hooks/           — Plugin hooks (hooks.json + standalone scripts)
 workflows/       — GitHub Actions CI templates
-CLAUDE.md.dist   — Context injected into sessions via SessionStart hook
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
 install.sh       — curl | bash installer
