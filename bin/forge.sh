@@ -271,16 +271,13 @@ case "${1:-}" in
     smelt|auto-smelt)
         FORGE_COMMAND="$1"; shift
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge smelt — Produce an ingot from PROMPT.md or a feature request"
+            echo "forge smelt — Produce an ingot"
             echo ""
             echo "Usage: forge smelt"
             echo "       forge auto-smelt"
             echo ""
-            echo "The Smelter reads PROMPT.md (or human-filed feature requests) and"
-            echo "creates a comprehensive ingot as a GitHub issue."
-            echo ""
-            echo "  smelt        Interactive — may ask clarifying questions"
-            echo "  auto-smelt   Autonomous — makes reasonable assumptions"
+            echo "  smelt        Interactive — describe what you want, confer with the Smelter"
+            echo "  auto-smelt   Autonomous — picks up the oldest human-filed type:feature issue"
             exit 0
         fi
 
@@ -288,13 +285,18 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        mode="interactive"
-        [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
-
-        echo "[forge] Starting Smelter ($mode mode)..."
-        if ! run_forge_agent "Smelter" "Run in $mode mode. Read PROMPT.md and produce an ingot."; then
-            echo "[forge] Smelter failed."
-            exit 1
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            echo "[forge] Starting Smelter (auto mode)..."
+            if ! run_forge_agent "Smelter" "Find the oldest open issue with type:feature label (without ai-generated label) and produce an ingot from it."; then
+                echo "[forge] Smelter failed."
+                exit 1
+            fi
+        else
+            echo "[forge] Starting Smelter..."
+            if ! run_forge_agent "Smelter"; then
+                echo "[forge] Smelter failed."
+                exit 1
+            fi
         fi
         echo "[forge] Smelter complete. Run 'forge refine' to create issues from the ingot."
         ;;
@@ -324,13 +326,18 @@ case "${1:-}" in
             exit 0
         fi
 
-        mode="interactive"
-        [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
-
-        echo "[forge] Starting Refiner ($mode mode) on ingot issue #$next_ingot..."
-        if ! run_forge_agent "Refiner" "Run in $mode mode. Process ingot issue #${next_ingot}."; then
-            echo "[forge] Refiner failed."
-            exit 1
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            echo "[forge] Starting Refiner (auto mode) on ingot issue #$next_ingot..."
+            if ! run_forge_agent "Refiner" "Process ingot issue #${next_ingot}."; then
+                echo "[forge] Refiner failed."
+                exit 1
+            fi
+        else
+            echo "[forge] Starting Refiner on ingot issue #$next_ingot..."
+            if ! run_forge_agent "Refiner"; then
+                echo "[forge] Refiner failed."
+                exit 1
+            fi
         fi
         echo "[forge] Refiner complete. Run 'forge hammer' to start implementing."
         ;;
@@ -358,14 +365,19 @@ case "${1:-}" in
             exit 0
         fi
 
-        mode="interactive"
-        [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
-
-        echo "[forge] Starting Blacksmith ($mode mode) on issue #$issue..."
         transition_status "$issue" "" "status:hammering"
-        if ! run_forge_agent "Blacksmith" "Run in $mode mode. Implement issue #$issue."; then
-            echo "[forge] Blacksmith failed on issue #$issue."
-            exit 1
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            echo "[forge] Starting Blacksmith (auto mode) on issue #$issue..."
+            if ! run_forge_agent "Blacksmith" "Implement issue #$issue."; then
+                echo "[forge] Blacksmith failed on issue #$issue."
+                exit 1
+            fi
+        else
+            echo "[forge] Starting Blacksmith on issue #$issue..."
+            if ! run_forge_agent "Blacksmith"; then
+                echo "[forge] Blacksmith failed on issue #$issue."
+                exit 1
+            fi
         fi
         transition_status "$issue" "status:hammering" "status:hammered"
         echo "[forge] Blacksmith complete. Run 'forge temper' to review."
@@ -394,14 +406,19 @@ case "${1:-}" in
             exit 0
         fi
 
-        mode="interactive"
-        [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
-
-        echo "[forge] Starting Temperer ($mode mode) on issue #$issue..."
         transition_status "$issue" "status:hammered" "status:tempering"
-        if ! run_forge_agent "Temperer" "Run in $mode mode. Review issue #$issue."; then
-            echo "[forge] Temperer failed on issue #$issue."
-            exit 1
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            echo "[forge] Starting Temperer (auto mode) on issue #$issue..."
+            if ! run_forge_agent "Temperer" "Review issue #$issue."; then
+                echo "[forge] Temperer failed on issue #$issue."
+                exit 1
+            fi
+        else
+            echo "[forge] Starting Temperer on issue #$issue..."
+            if ! run_forge_agent "Temperer"; then
+                echo "[forge] Temperer failed on issue #$issue."
+                exit 1
+            fi
         fi
         # The Temperer decides the verdict — check what label it set
         # If it posted a [Temperer] rework comment, set status:rework; otherwise status:tempered
@@ -441,14 +458,19 @@ case "${1:-}" in
             exit 0
         fi
 
-        mode="interactive"
-        [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
-
-        echo "[forge] Starting Proof-Master ($mode mode) on issue #$issue..."
         transition_status "$issue" "status:tempered" "status:proving"
-        if ! run_forge_agent "Proof-Master" "Run in $mode mode. Validate and open PR for issue #$issue."; then
-            echo "[forge] Proof-Master failed on issue #$issue."
-            exit 1
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            echo "[forge] Starting Proof-Master (auto mode) on issue #$issue..."
+            if ! run_forge_agent "Proof-Master" "Validate and open PR for issue #$issue."; then
+                echo "[forge] Proof-Master failed on issue #$issue."
+                exit 1
+            fi
+        else
+            echo "[forge] Starting Proof-Master on issue #$issue..."
+            if ! run_forge_agent "Proof-Master"; then
+                echo "[forge] Proof-Master failed on issue #$issue."
+                exit 1
+            fi
         fi
         # Check verdict — if a [Proof-Master] rework comment was posted, it failed
         has_rework=""
@@ -481,13 +503,18 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        mode="interactive"
-        [[ "$FORGE_COMMAND" == auto-* ]] && mode="auto"
-
-        echo "[forge] Starting Honer ($mode mode)..."
-        if ! run_forge_agent "Honer" "Run in $mode mode. Audit the codebase and produce an improvement ingot."; then
-            echo "[forge] Honer failed."
-            exit 1
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            echo "[forge] Starting Honer (auto mode)..."
+            if ! run_forge_agent "Honer" "Audit the codebase and produce an improvement ingot."; then
+                echo "[forge] Honer failed."
+                exit 1
+            fi
+        else
+            echo "[forge] Starting Honer..."
+            if ! run_forge_agent "Honer"; then
+                echo "[forge] Honer failed."
+                exit 1
+            fi
         fi
         echo "[forge] Honer complete. Run 'forge refine' to create issues from the ingot."
         ;;
@@ -710,7 +737,7 @@ case "${1:-}" in
         echo "Usage: forge <command>"
         echo ""
         echo "Pipeline commands:"
-        echo "  smelt            Produce an ingot from PROMPT.md"
+        echo "  smelt            Produce an ingot"
         echo "  refine           Create GitHub issues from an ingot"
         echo "  hammer           Implement the current issue"
         echo "  temper           Review the current issue's implementation"
