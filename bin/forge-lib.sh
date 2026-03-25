@@ -225,8 +225,9 @@ find_issue_for_proof() {
 }
 
 # find_unprocessed_ingots — find open ingot issues (oldest first).
+# Requires both type:ingot and ai-generated labels.
 find_unprocessed_ingots() {
-    gh issue list --state open --label "type:ingot" --json number --jq '
+    gh issue list --state open --label "type:ingot" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[].number
     ' 2>/dev/null || true
 }

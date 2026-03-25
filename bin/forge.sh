@@ -322,18 +322,18 @@ case "${1:-}" in
         next_ingot=""
         next_ingot=$(find_unprocessed_ingots | head -1)
         if [ -z "$next_ingot" ]; then
-            echo "[forge] No open ingot issues. Run 'forge smelt' first."
+            echo "[forge] No open ingot issues. Run this command after the Smelter has produced a type:ingot issue."
             exit 0
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Refiner (auto mode) on ingot issue #$next_ingot..."
-            if ! run_forge_agent "Refiner" "Process ingot issue #${next_ingot}."; then
+            echo "[forge] Starting Refiner (auto mode)..."
+            if ! run_forge_agent "Refiner" "Process the oldest open ingot issue."; then
                 echo "[forge] Refiner failed."
                 exit 1
             fi
         else
-            echo "[forge] Starting Refiner on ingot issue #$next_ingot..."
+            echo "[forge] Starting Refiner..."
             if ! run_forge_agent "Refiner"; then
                 echo "[forge] Refiner failed."
                 exit 1
