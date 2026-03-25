@@ -273,8 +273,8 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge smelt — Produce an ingot from PROMPT.md or a feature request"
             echo ""
-            echo "Usage: forge smelt [--max-budget N]"
-            echo "       forge auto-smelt [--max-budget N]"
+            echo "Usage: forge smelt"
+            echo "       forge auto-smelt"
             echo ""
             echo "The Smelter reads PROMPT.md (or human-filed feature requests) and"
             echo "creates a comprehensive ingot as a GitHub issue."
@@ -285,14 +285,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 
@@ -312,8 +304,8 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge refine — Create GitHub issues from an ingot"
             echo ""
-            echo "Usage: forge refine [--max-budget N]"
-            echo "       forge auto-refine [--max-budget N]"
+            echo "Usage: forge refine"
+            echo "       forge auto-refine"
             echo ""
             echo "The Refiner reads the oldest unprocessed ingot and creates"
             echo "sequenced GitHub issues with milestones."
@@ -321,14 +313,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 
@@ -356,8 +340,8 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge hammer — Implement the current issue"
             echo ""
-            echo "Usage: forge hammer [--max-budget N]"
-            echo "       forge auto-hammer [--max-budget N]"
+            echo "Usage: forge hammer"
+            echo "       forge auto-hammer"
             echo ""
             echo "The Blacksmith picks up the lowest open issue (status:ready or"
             echo "status:rework) and implements it on a feature branch."
@@ -365,14 +349,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 
@@ -400,8 +376,8 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge temper — Review the current issue's implementation"
             echo ""
-            echo "Usage: forge temper [--max-budget N]"
-            echo "       forge auto-temper [--max-budget N]"
+            echo "Usage: forge temper"
+            echo "       forge auto-temper"
             echo ""
             echo "The Temperer independently reviews the Blacksmith's work and"
             echo "either approves (status:tempered) or sends back (status:rework)."
@@ -409,14 +385,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 
@@ -455,8 +423,8 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge proof — Validate and open a PR for the current issue"
             echo ""
-            echo "Usage: forge proof [--max-budget N]"
-            echo "       forge auto-proof [--max-budget N]"
+            echo "Usage: forge proof"
+            echo "       forge auto-proof"
             echo ""
             echo "The Proof-Master runs the quality suite, validates acceptance criteria,"
             echo "and opens a PR if everything passes."
@@ -464,14 +432,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 
@@ -509,8 +469,8 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge hone — Audit the codebase and produce an improvement ingot"
             echo ""
-            echo "Usage: forge hone [--max-budget N]"
-            echo "       forge auto-hone [--max-budget N]"
+            echo "Usage: forge hone"
+            echo "       forge auto-hone"
             echo ""
             echo "The Honer audits the app against the ingot, triages human"
             echo "issues, and produces a new ingot for the Refiner."
@@ -518,14 +478,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 
@@ -545,7 +497,7 @@ case "${1:-}" in
         if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
             echo "forge auto-run — Autonomously process the issue queue"
             echo ""
-            echo "Usage: forge auto-run [--max-budget N]"
+            echo "Usage: forge auto-run"
             echo ""
             echo "Chains auto-hammer → auto-temper → auto-proof for each issue,"
             echo "processing one issue at a time through the full pipeline."
@@ -554,14 +506,6 @@ case "${1:-}" in
         fi
 
         require_forge_project
-        FORGE_MAX_BUDGET=""
-        while [[ $# -gt 0 ]]; do
-            case "$1" in
-                --max-budget) FORGE_MAX_BUDGET="$2"; shift 2 ;;
-                *) echo "Unknown flag: $1"; exit 1 ;;
-            esac
-        done
-
         check_auth
         check_labels
 

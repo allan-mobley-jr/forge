@@ -14,9 +14,6 @@ BOLD="${BOLD:-\033[1m}"
 DIM="${DIM:-\033[2m}"
 NC="${NC:-\033[0m}"
 
-# Global: set by the calling command before invoking run_forge_agent
-FORGE_MAX_BUDGET="${FORGE_MAX_BUDGET:-}"
-
 # --- Shared helpers ---
 
 forge_version() {
@@ -167,7 +164,6 @@ check_auth() {
 # run_forge_agent — invoke a Claude Code session with a named agent.
 # Usage: run_forge_agent <agent-name> [prompt]
 # Extracts tools from agent frontmatter and passes --allowedTools for auto-approval.
-# Uses FORGE_MAX_BUDGET global if set.
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
@@ -184,7 +180,6 @@ run_forge_agent() {
     local cmd=(claude --agent "forge:${agent_name_lower}")
     [ -n "$prompt" ] && cmd+=(-p "$prompt")
     [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
-    [ -n "$FORGE_MAX_BUDGET" ] && cmd+=(--max-budget-usd "$FORGE_MAX_BUDGET")
 
     local exit_code=0
     "${cmd[@]}" || exit_code=$?
