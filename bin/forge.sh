@@ -106,8 +106,8 @@ case "${1:-}" in
         echo -e "${BLUE}Updating Forge...${NC}"
         git -C "$FORGE_REPO" fetch --quiet --tags
         local_head=$(git -C "$FORGE_REPO" rev-parse HEAD)
-        # Prefer latest tag (release), fall back to origin/main
-        latest_tag=$(git -C "$FORGE_REPO" describe --tags --abbrev=0 2>/dev/null || true)
+        # Prefer highest semver tag (not just nearest to HEAD), fall back to origin/main
+        latest_tag=$(git -C "$FORGE_REPO" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1)
         if [ -n "$latest_tag" ]; then
             git -C "$FORGE_REPO" checkout "$latest_tag" --quiet 2>/dev/null || true
         else
@@ -118,17 +118,24 @@ case "${1:-}" in
             echo -e "${GREEN}Already up-to-date ($(forge_version)).${NC}"
         else
             echo -e "${GREEN}Forge updated to $(forge_version).${NC}"
-        fi
 
-        # Refresh the plugin cache so agents/hooks match the updated CLI
-        echo -e "${BLUE}Refreshing Forge plugin...${NC}"
-        # Nuke stale cache and reinstall from the freshly-pulled repo
-        for cache_dir in "$HOME/.claude/plugins/cache"/*/forge/*/; do
-            [ -d "$cache_dir" ] && rm -rf "$cache_dir"
-        done
-        claude plugin install forge@forge 2>/dev/null \
-            && echo -e "${GREEN}Plugin refreshed.${NC}" \
-            || echo -e "${YELLOW}Plugin refresh failed. Run manually: claude plugin install forge@forge${NC}"
+            # Refresh plugin caches and reinstall
+            echo -e "${BLUE}Refreshing plugins...${NC}"
+            for plugin in forge vercel playwright; do
+                for cache_dir in "$HOME/.claude/plugins/cache"/*/"$plugin"/*/; do
+                    [ -d "$cache_dir" ] && rm -rf "$cache_dir"
+                done
+            done
+            claude plugin install forge@forge 2>/dev/null \
+                && echo -e "  ${GREEN}✓${NC} Forge plugin refreshed" \
+                || echo -e "  ${YELLOW}!${NC} Forge plugin failed. Run manually: claude plugin install forge@forge"
+            claude plugin install vercel@claude-plugins-official 2>/dev/null \
+                && echo -e "  ${GREEN}✓${NC} Vercel plugin refreshed" \
+                || echo -e "  ${YELLOW}!${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
+            claude plugin install playwright@claude-plugins-official 2>/dev/null \
+                && echo -e "  ${GREEN}✓${NC} Playwright plugin refreshed" \
+                || echo -e "  ${YELLOW}!${NC} Playwright plugin failed. Run manually: claude plugin install playwright@claude-plugins-official"
+        fi
         ;;
     upgrade)
         if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
