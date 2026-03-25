@@ -286,8 +286,16 @@ case "${1:-}" in
         check_labels
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Smelter (auto mode)..."
-            if ! run_forge_agent "Smelter" "Find the oldest open issue with type:feature label (without ai-generated label) and produce an ingot from it."; then
+            # Short-circuit: no human-filed feature issues to smelt
+            feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
+                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+            if [ -z "$feature_issue" ]; then
+                echo "[forge] No human-filed type:feature issues found."
+                exit 0
+            fi
+            echo "[forge] Starting Smelter (auto mode) on issue #$feature_issue..."
+            if ! run_forge_agent "Smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
                 echo "[forge] Smelter failed."
                 exit 1
             fi
