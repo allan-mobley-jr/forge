@@ -49,6 +49,7 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
 - GitHub labels and issue comments track pipeline state
+- Forge targets Next.js + Tailwind CSS + TypeScript on Vercel — this is intentional scope, not a limitation to fix
 
 ## Labels
 
