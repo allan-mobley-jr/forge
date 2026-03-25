@@ -19,6 +19,12 @@ Next.js + Tailwind CSS + TypeScript, deployed on Vercel.
 
 Use Server Components by default. Only add `'use client'` when interactivity is needed.
 
+## Research Agent Counts
+
+When instructions say "adjust agent count to complexity":
+- **2 agents**: Single-file changes, simple bug fixes, UI tweaks
+- **3 agents**: Multi-file changes, new features, API integrations, anything touching auth or data
+
 ## Expert Agents
 
 These Vercel plugin agents are available as subagents when their expertise applies:
