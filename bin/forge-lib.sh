@@ -105,10 +105,6 @@ check_labels() {
 
 # --- Auth helpers ---
 
-notify_failure() {
-    osascript -e "display notification \"$1\" with title \"Forge\"" 2>/dev/null || true
-}
-
 check_auth() {
     local errors=()
 
@@ -132,7 +128,6 @@ check_auth() {
         done
         echo ""
         echo "Fix the above, then re-run the command."
-        notify_failure "Auth check failed — see terminal for details"
         exit 1
     fi
 
