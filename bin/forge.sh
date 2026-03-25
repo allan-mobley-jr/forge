@@ -416,9 +416,9 @@ case "${1:-}" in
 
         transition_status "$issue" "status:hammered" "status:tempering"
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Temperer (auto mode) on issue #$issue..."
-            if ! run_forge_agent "Temperer" "Review issue #$issue."; then
-                echo "[forge] Temperer failed on issue #$issue."
+            echo "[forge] Starting Auto-Temperer on issue #$issue..."
+            if ! run_forge_agent "auto-temperer" "Review the next hammered issue."; then
+                echo "[forge] Auto-Temperer failed on issue #$issue."
                 exit 1
             fi
         else
@@ -468,9 +468,9 @@ case "${1:-}" in
 
         transition_status "$issue" "status:tempered" "status:proving"
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Proof-Master (auto mode) on issue #$issue..."
-            if ! run_forge_agent "Proof-Master" "Validate and open PR for issue #$issue."; then
-                echo "[forge] Proof-Master failed on issue #$issue."
+            echo "[forge] Starting Auto-Proof-Master on issue #$issue..."
+            if ! run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue."; then
+                echo "[forge] Auto-Proof-Master failed on issue #$issue."
                 exit 1
             fi
         else
@@ -557,7 +557,7 @@ case "${1:-}" in
                 if [ -n "$issue" ]; then
                     echo "[forge] Tempering issue #$issue..."
                     transition_status "$issue" "status:hammered" "status:tempering"
-                    run_forge_agent "Temperer" "Run in auto mode. Review issue #$issue." || true
+                    run_forge_agent "auto-temperer" "Review the next hammered issue." || true
                     has_rework=""
                     has_rework=$(gh issue view "$issue" --json comments --jq '
                         [.comments[].body | select(test("^\\*\\*\\[Temperer\\]\\*\\*"))] | length
@@ -574,7 +574,7 @@ case "${1:-}" in
                 if [ -n "$issue" ]; then
                     echo "[forge] Proofing issue #$issue..."
                     transition_status "$issue" "status:tempered" "status:proving"
-                    run_forge_agent "Proof-Master" "Run in auto mode. Validate and open PR for issue #$issue." || true
+                    run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || true
                     has_rework=""
                     has_rework=$(gh issue view "$issue" --json comments --jq '
                         [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
@@ -595,8 +595,8 @@ case "${1:-}" in
             # Hammer the issue
             echo "[forge] Hammering issue #$issue..."
             transition_status "$issue" "" "status:hammering"
-            run_forge_agent "Blacksmith" "Run in auto mode. Implement issue #$issue." || {
-                echo "[forge] Blacksmith failed on issue #$issue. Stopping."
+            run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
+                echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
                 break
             }
             transition_status "$issue" "status:hammering" "status:hammered"
@@ -604,8 +604,8 @@ case "${1:-}" in
             # Temper the same issue
             echo "[forge] Tempering issue #$issue..."
             transition_status "$issue" "status:hammered" "status:tempering"
-            run_forge_agent "Temperer" "Run in auto mode. Review issue #$issue." || {
-                echo "[forge] Temperer failed on issue #$issue. Stopping."
+            run_forge_agent "auto-temperer" "Review the next hammered issue." || {
+                echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
                 break
             }
             has_rework=""
@@ -622,8 +622,8 @@ case "${1:-}" in
             # Proof the same issue
             echo "[forge] Proofing issue #$issue..."
             transition_status "$issue" "status:tempered" "status:proving"
-            run_forge_agent "Proof-Master" "Run in auto mode. Validate and open PR for issue #$issue." || {
-                echo "[forge] Proof-Master failed on issue #$issue. Stopping."
+            run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
+                echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
                 break
             }
             has_rework=$(gh issue view "$issue" --json comments --jq '
