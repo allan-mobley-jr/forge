@@ -37,20 +37,17 @@ curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.
 
 # Start a new project
 mkdir my-app && cd my-app
-touch PROMPT.md
+forge init
 ```
 
 > **Note:** The installer also sets up the **Vercel plugin** and **Playwright MCP** for Claude Code. The Vercel plugin requires OAuth authentication — it will prompt on first use. Playwright runs locally and needs no auth.
 
-Open `PROMPT.md` in your editor and describe the app you want to build in plain English. Then bootstrap and start building:
+Then start building:
 
 ```bash
-forge init                   # bootstraps the project
-forge smelt                  # produce a ingot from PROMPT.md
+forge smelt                  # describe your app to the Smelter
 forge refine                 # create GitHub issues from the ingot
-forge hammer                 # implement the first issue
-forge temper                 # review the implementation
-forge proof                  # validate and open a PR
+forge auto-run               # autonomously implement, review, and PR each issue
 ```
 
 ## How It Works
@@ -58,13 +55,10 @@ forge proof                  # validate and open a PR
 Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent — handle a specific phase of the development lifecycle. You invoke them one at a time, or let them run autonomously.
 
 ```
-    You write PROMPT.md
-           │
-           ▼
-   ┌───────────────┐       ┌──────────┐  ┌────────┐  ┌────────┐
-   │  forge init   │──────▶│  GitHub  │  │ Vercel │  │   CI   │
-   │  (bootstrap)  │       │   repo   │  │ project│  │pipeline│
-   └───────────────┘       └──────────┘  └────────┘  └────────┘
+   ┌───────────────┐       ┌──────────┐
+   │  forge init   │──────▶│  GitHub  │
+   │  (bootstrap)  │       │   repo   │
+   └───────────────┘       └──────────┘
 
    forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
                         ↑                                                    │
@@ -76,27 +70,45 @@ Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent
 
 | Craftsman | Command | What it does |
 |-----------|---------|-------------|
-| **Smelter** | `forge smelt` | Reads PROMPT.md or human feature requests. Produces a ingot in `ingots/`. |
-| **Refiner** | `forge refine` | Takes a ingot and creates sequenced GitHub issues with milestones. |
+| **Smelter** | `forge smelt` | Works with you to produce a comprehensive ingot (GitHub issue). |
+| **Refiner** | `forge refine` | Takes an ingot and creates sequenced GitHub issues with milestones. |
 | **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. |
 | **Temperer** | `forge temper` | Independently reviews the Blacksmith's work. Approves or sends back for rework. |
 | **Proof-Master** | `forge proof` | Runs tests, validates acceptance criteria, opens a PR if everything passes. |
-| **Honer** | `forge hone` | Audits the codebase against the ingot. Produces a new ingot of improvements. |
+| **Honer** | `forge hone` | Triages bugs or audits the codebase. Produces a new ingot of improvements. |
 
-Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent makes decisions without asking for human input.
+Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent runs headless via `-p` without human interaction.
+
+### Interactive vs Auto
+
+Every agent exists in two variants:
+
+- **Interactive** (`forge smelt`): launches a Claude Code session where you confer with the agent — describe what you want, answer questions, approve the plan before it acts.
+- **Auto** (`forge auto-smelt`): runs headless with `-p`. The agent makes decisions autonomously and documents assumptions.
+
+### Agent Architecture
+
+Every Forge agent follows the same pattern:
+
+1. **Research** — parallel Explore agents investigate the codebase, context, and domain
+2. **Plan** — a mandatory Plan agent designs the approach (agents never plan themselves)
+3. **Confer** (interactive) or **Decide** (auto) — user approves or agent decides autonomously
+4. **Execute** — the agent-specific work
+5. **Record** — reasoning posted as a ledger comment on the GitHub issue
+
+Agents also check for user-defined domain agents at `~/.claude/agents/` and spawn them as subagents when relevant.
 
 ### Artifacts
 
-Each craftsman produces two things:
+All planning artifacts are stored as GitHub issues and comments — not files on disk:
 
-1. **The artifact** — a ingot, GitHub issues, code, a review, a PR
-2. **A ledger entry** — reasoning and decisions recorded in `ledger/<craftsman>/`
-
-Ingots go in `ingots/` (timestamped). Ledger entries go in `ledger/` (timestamped for planning phases, per-issue for implementation phases). Both are git-tracked.
+- **Ingots** — comprehensive plans stored as GitHub issues labeled `type:ingot`
+- **Ledger entries** — reasoning records stored as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
+- **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`, addressed by prepending `✅`
 
 ### Issue Lifecycle
 
-Issues flow through status labels:
+Issues flow through status labels. Agents own all label transitions.
 
 ```
 status:ready → status:hammering → status:hammered → status:tempering → status:tempered → status:proving → status:proved
@@ -104,33 +116,41 @@ status:ready → status:hammering → status:hammered → status:tempering → s
                      └──────────── status:rework ◀──────────┘────────────────────┘
 ```
 
-The Blacksmith always picks up the **lowest numbered open issue**. Only one issue is active at a time.
+The Blacksmith always picks up the **lowest numbered open issue** with `ai-generated` + `status:ready` (or `status:rework`). Only one issue is active at a time.
 
 ### Rework Protocol
 
 When the Temperer or Proof-Master rejects work:
-1. They add `status:rework` and post a tagged comment (`**[Temperer]**` or `**[Proof-Master]**`)
+1. They set `status:rework` and post a tagged comment (`**[Temperer]**` or `**[Proof-Master]**`)
 2. The Blacksmith reads the feedback and fixes the issues
 3. The Blacksmith marks addressed comments with a `✅` prefix
 4. After 3 total rework cycles, the issue is escalated to `agent:needs-human`
 
 ### Bootstrap (`forge init`)
 
-Create a directory, write a `PROMPT.md` describing your app, and run `forge init`. The bootstrap runs idempotent steps:
+Create a directory and run `forge init`. The bootstrap runs idempotent steps:
 
-- Tool checks: Homebrew, Python 3, Node, pnpm, GitHub CLI, Vercel CLI, Claude Code
-- Project setup: Next.js scaffold, GitHub repo, Vercel project, CI pipeline
-- Forge setup: Agents, hooks, labels, CLAUDE.md, branch protection
+- Tool checks: Node.js >= 24, pnpm >= 9, gh CLI, Vercel CLI, python3
+- Forge plugin verification
+- Git init, GitHub repo, branch protection, production branch
+- Label taxonomy (24 labels)
+- Project registration in `~/.forge/config.json`
 
 Every step checks whether it already ran. Resume with `forge init --resume`.
 
-### Merge & Deploy
+### Git Workflow
 
-PRs are auto-merged after CI passes. Every merge to `main` triggers a Vercel staging deployment. Production is promoted manually:
+- All commits happen on issue branches — never directly on `main` or `production`
+- Only issue branches merge to `main` via PR
+- The `production` branch is off-limits to agents — human-only deploys via `forge deploy`
+
+### Deploy
 
 ```bash
-gh workflow run deploy-production.yml -f confirm=deploy
+forge deploy                 # fast-forwards production to main
 ```
+
+Vercel watches the `production` branch and deploys automatically. The human controls *when*, Vercel handles *how*.
 
 ## Commands
 
@@ -138,9 +158,9 @@ gh workflow run deploy-production.yml -f confirm=deploy
 
 | Command | Description |
 |---------|-------------|
-| `forge smelt` | Produce a ingot from PROMPT.md (interactive) |
-| `forge auto-smelt` | Same, autonomous |
-| `forge refine` | Create GitHub issues from a ingot (interactive) |
+| `forge smelt` | Produce an ingot (interactive) |
+| `forge auto-smelt` | Picks up oldest human-filed `type:feature` issue |
+| `forge refine` | Create GitHub issues from an ingot (interactive) |
 | `forge auto-refine` | Same, autonomous |
 | `forge hammer` | Implement the current issue (interactive) |
 | `forge auto-hammer` | Same, autonomous |
@@ -148,45 +168,40 @@ gh workflow run deploy-production.yml -f confirm=deploy
 | `forge auto-temper` | Same, autonomous |
 | `forge proof` | Validate and open a PR (interactive) |
 | `forge auto-proof` | Same, autonomous |
-| `forge hone` | Audit the codebase for improvements (interactive) |
-| `forge auto-hone` | Same, autonomous |
-| `forge auto-run` | Chain hammer → temper → proof per issue autonomously |
+| `forge hone` | Triage bugs or audit the codebase (interactive) |
+| `forge auto-hone` | Triages oldest bug first, then audits |
+| `forge auto-run` | Process the issue queue autonomously |
 
-All pipeline commands accept `--max-budget N` (USD per stage, API key only).
+### Operations
+
+| Command | Description |
+|---------|-------------|
+| `forge deploy` | Fast-forward production to main (human only) |
 
 ### Setup commands
 
 | Command | Description |
 |---------|-------------|
-| `forge init` | Bootstrap a new project (requires `PROMPT.md`) |
+| `forge init` | Bootstrap a new project |
 | `forge init --resume` | Resume a failed or interrupted bootstrap |
+| `forge version` | Show installed version and check for updates |
 | `forge update` | Update Forge to the latest version |
-| `forge upgrade` | Update Forge artifacts in the current project |
-| `forge doctor` | Check tool versions, auth, and project health |
+| `forge doctor` | Check tool versions and project health |
+| `forge help` | List all commands |
+| `forge help <command>` | Show help for a specific command |
 | `forge uninstall` | Remove Forge from your system (keeps projects) |
-| `forge --version` | Show installed version |
-
-### Authentication
-
-**API key users:**
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-**Subscription users (Pro/Max):**
-```bash
-claude setup-token
-echo 'export CLAUDE_CODE_OAUTH_TOKEN="<token>"' >> ~/.zshrc
-```
 
 ## Label System
 
 Target projects use these labels:
 
+### Pipeline labels
+
 | Label | Meaning |
 |-------|---------|
 | `ai-generated` | Issue or PR filed by an agent |
 | `agent:needs-human` | Blocked — check comments for the question |
+| `type:ingot` | Ingot from Smelter or Honer |
 | `status:ready` | Ready for the Blacksmith to implement |
 | `status:hammering` | Implementation in progress |
 | `status:hammered` | Implementation complete, awaiting review |
@@ -196,20 +211,40 @@ Target projects use these labels:
 | `status:proving` | Validation in progress |
 | `status:proved` | PR opened |
 
+### Descriptive labels
+
+| Label | Meaning |
+|-------|---------|
+| `type:bug` | Something is broken |
+| `type:feature` | New functionality |
+| `type:chore` | Maintenance or infrastructure |
+| `type:refactor` | Code improvement without behavior change |
+| `priority:high` | Needs immediate attention |
+| `priority:medium` | Should be addressed soon |
+| `priority:low` | Nice to have |
+| `scope:ui` | Frontend or visual changes |
+| `scope:api` | Backend or API changes |
+| `scope:data` | Database or data model changes |
+| `scope:auth` | Authentication or authorization |
+| `scope:infra` | CI, deploy, or config changes |
+
 ### Filing Issues for the Agent
 
-Create an issue on GitHub — the Refiner or Blacksmith will pick it up. Human-filed issues (without `ai-generated`) can be triaged by the Smelter (feature requests) or Honer (bugs).
+Create an issue on GitHub with the appropriate labels:
+- **Feature requests:** add `type:feature` — the Smelter will pick it up in auto mode
+- **Bug reports:** add `type:bug` — the Honer will triage it in auto mode
+
+Human-filed issues (without `ai-generated`) are what trigger the auto-smelter and auto-honer.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
-| Hangs after "Installing Claude Code..." | Run `claude` in another terminal to complete login, then `forge init --resume`. |
 | "This directory is already a git repository" | Run `forge init --resume`. |
 | SSH key or GitHub auth failures | `gh auth login --web --git-protocol ssh` |
 | Agent gets stuck | Check for `agent:needs-human` label. Answer the question in the comments. |
 | PR quality checks keep failing | After 3 rework cycles, the issue is escalated to `agent:needs-human`. |
-| "Not a Forge project" error | Run from the project root (where `PROMPT.md` lives). |
+| "Not a Forge project" error | Run from the project root where `forge init` was run. |
 
 ## Repository Structure
 
@@ -220,30 +255,26 @@ forge/
 │   ├── forge.sh                        #   Main executable
 │   └── forge-lib.sh                    #   Shared library (labels, helpers, query functions)
 ├── bootstrap/setup.sh                  # Idempotent project setup
-├── agents/                             # Forge craftsman agents
-│   ├── smelter.md                      #   Smelter: PROMPT.md → ingot
-│   ├── refiner.md                      #   Refiner: ingot → GitHub issues
-│   ├── blacksmith.md                   #   Blacksmith: implement one issue
-│   ├── temperer.md                     #   Temperer: independent code review
-│   ├── proof-master.md                       #   Proof-Master: validate + open PR
-│   └── honer.md                        #   Honer: audit codebase → improvement ingot
-├── hooks/settings.json                 # Permissions and hook definitions
-├── workflows/                          # GitHub Actions templates
-│   ├── ci.yml                          #   Lint + typecheck + test + build + E2E
-│   └── deploy-production.yml           #   PR-based main → production promotion
+├── plugin/                             # Claude Code plugin
+│   ├── .claude-plugin/plugin.json      #   Plugin manifest
+│   ├── system-prompt.md                #   Context injected into agent sessions
+│   ├── agents/                         #   Forge craftsman agents (interactive + auto)
+│   └── hooks/                          #   Plugin hooks
 ├── tests/                              # CLI tests (bats framework)
-└── CLAUDE.md.dist                      # Static CLAUDE.md copied into forge projects
+└── .claude-plugin/marketplace.json     # Marketplace listing
 ```
 
 ## Design Decisions
 
-**GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and the ledger. Clone the repo on a new Mac, run a forge command, and it picks up where it left off.
+**GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and comments. Clone the repo on a new Mac, run a forge command, and it picks up where it left off.
 
-**Agents, not skills.** Each craftsman is a Claude Code agent loaded via `claude --agent`. The CLI handles dispatch and label transitions; the agent handles the work. Sub-agents for specialized tasks within each craftsman are planned.
+**Agents own their state.** Each agent sets its own status labels — the CLI is a thin dispatcher that finds issues and launches agents. If an agent crashes mid-run, the in-progress label (`status:hammering`, etc.) persists and `forge auto-run` picks it back up.
 
-**Ledger for reasoning.** Every craftsman records its decisions in `ledger/`. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
+**Agents, not skills.** Each craftsman is a Claude Code agent loaded via `claude --agent`. The CLI handles dispatch; the agent handles the work, including research (parallel Explore agents), planning (mandatory Plan agent), and label transitions.
 
-**Ingots feed the Refiner.** Both the Smelter (greenfield planning) and Honer (maintenance audits) produce ingots. The Refiner doesn't care who created the ingot — it just breaks it into issues. This creates a clean improvement cycle.
+**Ledger for reasoning.** Every craftsman records its decisions as tagged comments on GitHub issues. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
+
+**Ingots feed the Refiner.** Both the Smelter (greenfield planning) and Honer (maintenance/bugs) produce ingots. The Refiner doesn't care who created the ingot — it just breaks it into issues. This creates a clean improvement cycle.
 
 **Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow.
 
