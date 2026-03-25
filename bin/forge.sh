@@ -137,38 +137,6 @@ case "${1:-}" in
                 || echo -e "  ${YELLOW}!${NC} Playwright plugin failed. Run manually: claude plugin install playwright@claude-plugins-official"
         fi
         ;;
-    upgrade)
-        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge upgrade — Update project-level Forge configuration"
-            echo ""
-            echo "Usage: forge upgrade"
-            echo ""
-            echo "Checks labels, generates AGENTS.md, and copies deploy workflow."
-            echo "Agents and hooks are managed by the Forge plugin (use 'forge update')."
-            exit 0
-        fi
-
-        require_forge_project
-
-        echo "Upgrading Forge project..."
-        echo ""
-
-        # Ensure labels are up-to-date
-        check_labels
-
-        # Generate AGENTS.md if missing (try @latest, fall back to @canary)
-        if [ ! -f AGENTS.md ]; then
-            pnpm dlx @next/codemod@latest agents-md --output AGENTS.md >/dev/null 2>&1 \
-              || pnpm dlx @next/codemod@canary agents-md --output AGENTS.md >/dev/null 2>&1 \
-              || true
-            [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
-        fi
-
-        echo ""
-        echo "  Done. Agents and hooks are managed by the Forge plugin."
-        echo "  Run 'forge update' to update the plugin itself."
-        echo ""
-        ;;
     doctor)
         if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
             echo "forge doctor — Health check"
@@ -878,7 +846,6 @@ case "${1:-}" in
         echo "  init --resume    Resume a failed or interrupted bootstrap"
         echo "  version          Show installed version and check for updates"
         echo "  update           Update Forge to the latest version"
-        echo "  upgrade          Update Forge artifacts in the current project"
         echo "  doctor           Check tool versions and project health"
         echo "  uninstall        Remove Forge from your system"
         echo ""
