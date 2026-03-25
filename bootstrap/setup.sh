@@ -106,30 +106,30 @@ info "--- Checking prerequisites ---"
 preflight_check() {
     local missing=()
 
-    # Node.js >= 18
+    # Node.js >= 24 (LTS)
     if command -v node &>/dev/null; then
         local node_major
         node_major=$(node --version | sed 's/v//' | cut -d. -f1)
-        if [ "$node_major" -lt 18 ]; then
-            missing+=("Node.js >= 18 (found $(node --version)) — https://nodejs.org")
+        if [ "$node_major" -lt 24 ]; then
+            missing+=("Node.js >= 24 LTS (found $(node --version)) — https://nodejs.org")
         else
             ok "Node.js $(node --version)"
         fi
     else
-        missing+=("Node.js >= 18 — https://nodejs.org")
+        missing+=("Node.js >= 24 LTS — https://nodejs.org")
     fi
 
-    # pnpm >= 8
+    # pnpm >= 9
     if command -v pnpm &>/dev/null; then
         local pnpm_major
         pnpm_major=$(pnpm --version | cut -d. -f1)
-        if [ "$pnpm_major" -lt 8 ]; then
-            missing+=("pnpm >= 8 (found $(pnpm --version)) — npm install -g pnpm")
+        if [ "$pnpm_major" -lt 9 ]; then
+            missing+=("pnpm >= 9 (found $(pnpm --version)) — npm install -g pnpm")
         else
             ok "pnpm $(pnpm --version)"
         fi
     else
-        missing+=("pnpm >= 8 — npm install -g pnpm")
+        missing+=("pnpm >= 9 — npm install -g pnpm")
     fi
 
     # gh CLI + auth

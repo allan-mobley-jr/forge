@@ -215,30 +215,7 @@ case "${1:-}" in
             echo -e "  ${YELLOW}⚠${NC} Playwright MCP not installed"
         fi
 
-        # 4. Check version requirements
-        echo ""
-        echo "Versions:"
-
-        if command -v node &>/dev/null; then
-            node_major=$(node --version | sed 's/v//' | cut -d. -f1)
-            if [ "$node_major" -ge 18 ]; then
-                echo -e "  ${GREEN}✓${NC} Node.js >= 18"
-            else
-                echo -e "  ${RED}✗${NC} Node.js $(node --version) — need >= 18"
-            fi
-        fi
-
-        if command -v pnpm &>/dev/null; then
-            pnpm_major=$(pnpm --version | cut -d. -f1)
-            if [ "$pnpm_major" -ge 8 ]; then
-                echo -e "  ${GREEN}✓${NC} pnpm >= 8"
-            else
-                echo -e "  ${RED}✗${NC} pnpm $(pnpm --version) — need >= 8"
-            fi
-        fi
-
-
-        # 5. Check connectivity
+        # 4. Check connectivity
         echo ""
         echo "Connectivity:"
 
