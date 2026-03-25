@@ -375,9 +375,9 @@ case "${1:-}" in
 
         transition_status "$issue" "" "status:hammering"
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Blacksmith (auto mode) on issue #$issue..."
-            if ! run_forge_agent "Blacksmith" "Implement issue #$issue."; then
-                echo "[forge] Blacksmith failed on issue #$issue."
+            echo "[forge] Starting Auto-Blacksmith on issue #$issue..."
+            if ! run_forge_agent "auto-blacksmith" "Implement the next ready issue."; then
+                echo "[forge] Auto-Blacksmith failed on issue #$issue."
                 exit 1
             fi
         else
