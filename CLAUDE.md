@@ -8,17 +8,22 @@ Autonomous Next.js development system for macOS. See `README.md` for the full sp
 .claude-plugin/  — Marketplace listing (marketplace.json)
 plugin/          — Claude Code plugin (only this gets cached)
   .claude-plugin/  — Plugin manifest (plugin.json)
-  agents/          — Forge craftsman agents (orchestrators)
-    smelter.md       — Smelter: PROMPT.md → ingot issue
-    refiner.md       — Refiner: ingot issue → GitHub implementation issues
-    blacksmith.md    — Blacksmith: implement one issue
-    temperer.md      — Temperer: independent code review
-    proof-master.md  — Proof-Master: validate + open PR
-    honer.md         — Honer: audit codebase → improvement ingot issue
+  agents/          — Forge craftsman agents (interactive + auto pairs)
+    smelter.md       — Smelter: interactive ingot creation
+    auto-smelter.md  — Auto-Smelter: ingot from type:feature issue
+    refiner.md       — Refiner: interactive ingot → issues
+    auto-refiner.md  — Auto-Refiner: ingot → issues headless
+    blacksmith.md    — Blacksmith: interactive implementation
+    auto-blacksmith.md — Auto-Blacksmith: headless implementation
+    temperer.md      — Temperer: interactive code review
+    auto-temperer.md — Auto-Temperer: headless code review
+    proof-master.md  — Proof-Master: interactive validation + PR
+    auto-proof-master.md — Auto-Proof-Master: headless validation + PR
+    honer.md         — Honer: interactive bug triage / audit
+    auto-honer.md    — Auto-Honer: headless bug triage / audit
   hooks/           — Plugin hooks (hooks.json + standalone scripts)
-  system-prompt.md — Context injected into sessions via SessionStart hook
+  system-prompt.md — Context injected into agent sessions via SessionStart hook
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
-workflows/       — GitHub Actions CI templates
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
 install.sh       — curl | bash installer
@@ -36,18 +41,25 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 ## Conventions
 
 - Agents use YAML frontmatter with `name`, `description`, `tools`
+- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`)
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
+- Agents own their label transitions — the CLI only reads state
+- Every agent follows: research (Explore agents) → plan (Plan agent) → confer/decide → execute → record
+- Domain agents at `~/.claude/agents/` are considered during research
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
 - GitHub labels and issue comments track pipeline state
 
 ## Labels
 
-Target projects use these labels:
+Target projects use these labels (24 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`, `agent:needs-human`
 - **Artifact:** `type:ingot`
 - **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:proving`, `status:proved`
+- **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
+- **Priority:** `priority:high`, `priority:medium`, `priority:low`
+- **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`
 
 When creating issues or PRs for **this repo**, apply relevant labels:
 
@@ -64,7 +76,7 @@ forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
-`forge auto-run` chains hammer → temper → proof per issue through the queue.
+`forge auto-run` processes the issue queue: dispatches based on the oldest issue's status label.
 
 ## Git Workflow
 
