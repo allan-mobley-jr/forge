@@ -685,7 +685,7 @@ case "${1:-}" in
         echo "  temper           Review the current issue's implementation"
         echo "  proof            Validate and open a PR"
         echo "  hone             Audit the codebase for improvements"
-        echo "  auto-run        Autonomously process the issue queue"
+        echo "  auto-run         Autonomously process the issue queue"
         echo ""
         echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
         echo ""
@@ -705,9 +705,8 @@ case "${1:-}" in
         echo "Quick start:"
         echo "  1. mkdir my-app && cd my-app"
         echo "  2. forge init"
-        echo "  3. Write a PROMPT.md describing your app"
-        echo "  4. forge smelt"
-        echo "  5. forge refine"
-        echo "  6. forge auto-run"
+        echo "  3. forge smelt"
+        echo "  4. forge refine"
+        echo "  5. forge auto-run"
         ;;
 esac

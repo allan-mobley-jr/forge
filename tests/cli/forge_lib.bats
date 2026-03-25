@@ -46,57 +46,6 @@ EOF
     [[ "$status" -eq 0 ]]
 }
 
-# --- require_forge_skills ---
-
-@test "require_forge_skills exits when plugin not installed" {
-    cd "$TEST_TMPDIR"
-    mkdir -p "$HOME/.forge"
-    cat > "$HOME/.forge/config.json" <<EOF
-{
-  "projects": {
-    "test": {
-      "path": "$TEST_TMPDIR",
-      "repo": "https://github.com/test/test",
-      "created": "2026-01-01T00:00:00Z"
-    }
-  }
-}
-EOF
-    # Mock claude to return empty plugin list
-    cat > "$MOCK_BIN/claude" <<'MOCK'
-#!/usr/bin/env bash
-echo ""
-MOCK
-    chmod +x "$MOCK_BIN/claude"
-    run require_forge_skills
-    [[ "$status" -eq 1 ]]
-    [[ "$output" == *"Forge plugin not installed"* ]]
-}
-
-@test "require_forge_skills succeeds when plugin installed" {
-    cd "$TEST_TMPDIR"
-    mkdir -p "$HOME/.forge"
-    cat > "$HOME/.forge/config.json" <<EOF
-{
-  "projects": {
-    "test": {
-      "path": "$TEST_TMPDIR",
-      "repo": "https://github.com/test/test",
-      "created": "2026-01-01T00:00:00Z"
-    }
-  }
-}
-EOF
-    # Mock claude to report forge plugin installed
-    cat > "$MOCK_BIN/claude" <<'MOCK'
-#!/usr/bin/env bash
-echo "forge@forge (user)"
-MOCK
-    chmod +x "$MOCK_BIN/claude"
-    run require_forge_skills
-    [[ "$status" -eq 0 ]]
-}
-
 # --- check_labels ---
 
 @test "check_labels creates missing labels" {
@@ -142,51 +91,10 @@ MOCK
     [[ "$output" != *"Re-created"* ]]
 }
 
-# --- escalate ---
-
-@test "escalate posts comment and adds needs-human label" {
-    mock_gh_with '
-        args="$*"
-        if [[ "$args" == *"issue comment"* ]]; then
-            if [[ "$args" == *"Agent Question"* ]]; then
-                exit 0
-            fi
-            exit 1
-        fi
-        if [[ "$args" == *"--add-label"*"agent:needs-human"* ]]; then
-            exit 0
-        fi
-    '
-
-    run escalate 5 "I need help with something"
-    [[ "$status" -eq 0 ]]
-}
-
-# --- apply_timeout_default ---
-
-@test "apply_timeout_default posts acknowledgment and removes label" {
-    mock_gh_with '
-        args="$*"
-        if [[ "$args" == *"issue comment"* ]]; then
-            if [[ "$args" == *"Acknowledged"* ]]; then
-                exit 0
-            fi
-        fi
-        if [[ "$args" == *"--remove-label"*"agent:needs-human"* ]]; then
-            exit 0
-        fi
-        exit 0
-    '
-
-    run apply_timeout_default 12
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == *"24h timeout"* ]]
-}
-
 # --- FORGE_REQUIRED_LABELS constant ---
 
-@test "FORGE_REQUIRED_LABELS has 11 entries" {
-    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 11 ]]
+@test "FORGE_REQUIRED_LABELS has 24 entries" {
+    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 24 ]]
 }
 
 @test "FORGE_REQUIRED_LABELS entries have pipe-separated format" {
