@@ -355,13 +355,8 @@ create_production_branch() {
         skip "$label"
         return
     fi
-    if ! git branch production main 2>/dev/null; then
-        add_warning "Failed to create local production branch."
-        return
-    fi
-    if ! git push -u origin production 2>/dev/null; then
-        git branch -d production 2>/dev/null || true
-        add_warning "Failed to push production branch."
+    if ! git push origin main:refs/heads/production 2>/dev/null; then
+        add_warning "Failed to create remote production branch."
         return
     fi
     ok "$label"
