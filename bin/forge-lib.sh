@@ -163,6 +163,11 @@ run_forge_agent() {
 }
 
 # --- Issue query helpers ---
+# Note: these queries use `2>/dev/null || true` deliberately. The || true
+# masks gh failures (auth, network) but check_auth() already validates
+# before every command. Removing || true alone doesn't help because
+# 2>/dev/null still hides the error message. Removing both makes gh's
+# stderr progress output noisy. Accepted trade-off.
 
 # find_issue_for_hammer — find the lowest open issue for the Blacksmith.
 # Priority: agent:needs-human first (interactive recovery), then status:rework, then status:ready.
