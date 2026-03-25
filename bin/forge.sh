@@ -215,12 +215,6 @@ case "${1:-}" in
             echo -e "  ${YELLOW}⚠${NC} Playwright MCP not installed"
         fi
 
-        if ls .github/workflows/*.yml &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} CI workflows present"
-        else
-            echo -e "  ${DIM}-${NC} No CI workflows found"
-        fi
-
         # 4. Check version requirements
         echo ""
         echo "Versions:"
