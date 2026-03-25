@@ -178,19 +178,6 @@ check_auth() {
         fi
     fi
 
-    # Claude CLI
-    if ! command -v claude &>/dev/null; then
-        errors+=("Claude CLI not found in PATH. Install from: https://claude.ai/download")
-    else
-        local logged_in
-        logged_in=$(claude auth status --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('loggedIn',''))" 2>/dev/null || true)
-        if [ -z "$logged_in" ]; then
-            errors+=("Unable to check Claude auth. Run: claude auth status")
-        elif [ "$logged_in" != "True" ]; then
-            errors+=("Claude not authenticated. Run: claude auth login")
-        fi
-    fi
-
     if [ ${#errors[@]} -gt 0 ]; then
         echo ""
         echo -e "[forge] ${RED}Auth check failed:${NC}"
@@ -203,15 +190,6 @@ check_auth() {
         exit 1
     fi
 
-    # Warn if using short-lived OAuth (no long-lived token configured) — once per run
-    if [ -z "${ANTHROPIC_API_KEY:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && [ -z "${_forge_oauth_warned:-}" ]; then
-        _forge_oauth_warned=1
-        echo -e "[forge] ${YELLOW}Warning:${NC} No long-lived auth token detected."
-        echo "  Short-lived OAuth tokens expire after ~8-12h and may fail during headless runs."
-        echo "  Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN in your shell profile."
-        echo "  See: https://docs.anthropic.com/en/docs/claude-code/cli-usage#non-interactive-mode"
-        echo ""
-    fi
 }
 
 # --- Agent invocation ---

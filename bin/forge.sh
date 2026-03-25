@@ -192,12 +192,6 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} python3 not installed (required; install with: brew install python3)"
         fi
 
-        if command -v claude &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} Claude Code $(claude --version 2>/dev/null | head -1)"
-        else
-            echo -e "  ${RED}✗${NC} Claude Code not installed"
-        fi
-
 
         # 3. Check Forge plugin
         echo ""
@@ -266,15 +260,6 @@ case "${1:-}" in
             else
                 echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
             fi
-        fi
-
-        if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
-            echo -e "  ${GREEN}✓${NC} Claude auth: API key"
-        elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
-            echo -e "  ${GREEN}✓${NC} Claude auth: long-lived token (setup-token)"
-        else
-            echo -e "  ${YELLOW}⚠${NC} Claude auth: short-lived OAuth — may expire during long sessions"
-            echo "    Run 'claude setup-token' and set CLAUDE_CODE_OAUTH_TOKEN in your shell profile"
         fi
 
         # 6. Check labels
