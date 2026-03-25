@@ -109,7 +109,9 @@ gh issue comment <N> --body "**[Temperer]** <summary of findings>
 ### 6c. On ESCALATE
 
 ```bash
-gh issue comment <N> --body "## Agent Question
+gh issue comment <N> --body "**[Temperer]** Escalating to human review.
+
+## Agent Question
 
 <describe the ambiguity or design problem>
 
