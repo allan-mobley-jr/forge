@@ -520,40 +520,49 @@ case "${1:-}" in
         echo "[forge] Starting auto-run..."
 
         while true; do
-            # Find next actionable issue by label state
-            issue=$(find_issue_for_hammer)
-            if [ -n "$issue" ]; then
-                echo "[forge] Hammering issue #$issue..."
-                run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
-                    echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
-                    break
-                }
-                continue
+            # Find the oldest open issue with ai-generated + any status:* label
+            # Find oldest open ai-generated issue with an actionable status label
+            issue_data=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
+                [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
+                 | select(.status and .status != "status:proved")]
+                | sort_by(.number) | .[0] // empty
+            ' 2>/dev/null || true)
+
+            if [ -z "$issue_data" ] || [ "$issue_data" = "null" ]; then
+                echo "[forge] No actionable issues. Auto-loop complete."
+                break
             fi
 
-            issue=$(find_issue_for_temper)
-            if [ -n "$issue" ]; then
-                echo "[forge] Tempering issue #$issue..."
-                run_forge_agent "auto-temperer" "Review the next hammered issue." || {
-                    echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
-                    break
-                }
-                continue
-            fi
+            issue=$(echo "$issue_data" | python3 -c "import json,sys; print(json.load(sys.stdin)['number'])")
+            status=$(echo "$issue_data" | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])")
 
-            issue=$(find_issue_for_proof)
-            if [ -n "$issue" ]; then
-                echo "[forge] Proofing issue #$issue..."
-                run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
-                    echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+            case "$status" in
+                status:ready|status:rework|status:hammering)
+                    echo "[forge] Hammering issue #$issue ($status)..."
+                    run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
+                        echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
+                        break
+                    }
+                    ;;
+                status:hammered|status:tempering)
+                    echo "[forge] Tempering issue #$issue ($status)..."
+                    run_forge_agent "auto-temperer" "Review the next hammered issue." || {
+                        echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
+                        break
+                    }
+                    ;;
+                status:tempered|status:proving)
+                    echo "[forge] Proofing issue #$issue ($status)..."
+                    run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
+                        echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                        break
+                    }
+                    ;;
+                *)
+                    echo "[forge] Issue #$issue has unknown status '$status'. Skipping."
                     break
-                }
-                continue
-            fi
-
-            # Nothing actionable
-            echo "[forge] No actionable issues. Auto-loop complete."
-            break
+                    ;;
+            esac
         done
         ;;
 
