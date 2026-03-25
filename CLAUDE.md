@@ -16,7 +16,7 @@ plugin/          — Claude Code plugin (only this gets cached)
     proof-master.md  — Proof-Master: validate + open PR
     honer.md         — Honer: audit codebase → improvement ingot issue
   hooks/           — Plugin hooks (hooks.json + standalone scripts)
-  CLAUDE.md.dist   — Context injected into sessions via SessionStart hook
+  system-prompt.md — Context injected into sessions via SessionStart hook
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 workflows/       — GitHub Actions CI templates
 bootstrap/       — setup.sh idempotent project bootstrap

@@ -1,11 +1,17 @@
 # Forge Project
 
+## Git Workflow
+
+- **All commits happen on issue branches.** Never commit directly to `main` or `production`.
+- **Only issue branches merge to `main`.** Every merge is a PR tied to a GitHub issue.
+- **The `production` branch is off-limits.** Do not push to it, merge to it, or target PRs at it. Production deploys are handled by a separate workflow.
+- **No force-pushing.** Branch protection is enforced.
+
 ## Agent Rules
 
 - You have a specific role. Follow your agent definition exclusively.
 - Never modify `CLAUDE.md`, `AGENTS.md`, `.claude/`, or `.github/workflows/`.
 - Every commit must be exactly one logical change. No "and" in commit messages.
-- The `production` branch is off-limits. Do not push to it or target PRs at it.
 
 ## Stack
 

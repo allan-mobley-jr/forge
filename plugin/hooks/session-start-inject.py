@@ -5,7 +5,7 @@ import os
 import sys
 
 plugin_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-claude_md_path = os.path.join(plugin_root, "CLAUDE.md.dist")
+claude_md_path = os.path.join(plugin_root, "system-prompt.md")
 
 if not os.path.exists(claude_md_path):
     sys.exit(0)
