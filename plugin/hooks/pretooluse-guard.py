@@ -20,7 +20,7 @@ blocked_exact = {".env", ".env.local", ".env.production", ".env.development"}
 blocked_dirs = [".git/", "node_modules/", ".vercel/"]
 
 # Filenames — always blocked
-blocked_names = {"CLAUDE.md", "AGENTS.md"}
+blocked_names = {"CLAUDE.md"}
 
 # Path prefixes — always blocked
 blocked_prefixes = [".claude/skills/", ".claude/agents/"]

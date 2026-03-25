@@ -97,7 +97,7 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
   ```
 - Write code following existing project patterns
 - Make atomic commits — one logical change per commit
-- Never modify: `.env*`, `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.github/workflows/`
+- Never modify: `.env*`, `CLAUDE.md`, `.claude/`, `.github/workflows/`
 
 ### 7. Test
 
@@ -182,7 +182,7 @@ gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered
 - **One issue at a time.** Never work on multiple issues.
 - **Atomic commits.** One logical change per commit. No "and" in commit messages.
 - **Never open a PR.** That is the Proof-Master's job.
-- **Never modify protected files** (CLAUDE.md, AGENTS.md, .claude/, .github/workflows/).
+- **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
 - **Always launch research agents** — never skip research.
 - **Always launch the Plan agent** — never plan the implementation yourself.
 - **Confer with the user** on the plan before implementing.

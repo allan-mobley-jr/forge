@@ -10,14 +10,14 @@
 ## Agent Rules
 
 - You have a specific role. Follow your agent definition exclusively.
-- Never modify `CLAUDE.md`, `AGENTS.md`, `.claude/`, or `.github/workflows/`.
+- Never modify `CLAUDE.md`, `.claude/`, or `.github/workflows/`.
 - Every commit must be exactly one logical change. No "and" in commit messages.
 
 ## Stack
 
 Next.js + Tailwind CSS + TypeScript, deployed on Vercel.
 
-Use Server Components by default. Only add `'use client'` when interactivity is needed. Consult `AGENTS.md` for Next.js framework patterns.
+Use Server Components by default. Only add `'use client'` when interactivity is needed.
 
 ## Expert Agents
 
@@ -34,4 +34,3 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 - **Ingots** — planning documents from Smelter and Honer, stored as GitHub issues labeled `type:ingot`
 - **Ledger entries** — craftsman reasoning records, stored as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
 - **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`, addressed by prepending `✅`
-- `AGENTS.md` — Next.js framework docs index
