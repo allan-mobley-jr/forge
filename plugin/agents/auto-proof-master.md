@@ -60,7 +60,13 @@ Launch a Plan agent with the research findings. The Plan agent designs the valid
 
 Review the Plan agent's validation strategy. Proceed with execution.
 
-### 5. Check Out & Validate
+### 5. Set Status
+
+```bash
+gh issue edit <N> --remove-label "status:tempered" --add-label "status:proving"
+```
+
+### 6. Check Out & Validate
 
 ```bash
 git fetch origin
@@ -74,11 +80,11 @@ pnpm build
 
 Record pass/fail for each step. Validate each acceptance criterion from the issue body.
 
-### 6. Ensure CI Workflow
+### 7. Ensure CI Workflow
 
 If the project lacks a CI workflow that covers the quality checks (lint, typecheck, test, build), create or update one. The CI workflow must produce the `Quality Checks` status required by branch protection.
 
-### 7. Render Verdict
+### 8. Render Verdict
 
 **PASS** if:
 - All quality checks pass
@@ -89,6 +95,10 @@ If the project lacks a CI workflow that covers the quality checks (lint, typeche
 - Any acceptance criterion is not met
 
 ### 8a. On PASS — Open PR
+
+```bash
+gh issue edit <N> --remove-label "status:proving" --add-label "status:proved"
+```
 
 ```bash
 gh pr create \
@@ -125,7 +135,10 @@ gh pr merge --auto --squash
 
 ### 8b. On FAIL — Send Back for Rework
 
-Post a tagged comment:
+Set the label and post a tagged comment:
+```bash
+gh issue edit <N> --remove-label "status:proving" --add-label "status:rework"
+```
 ```bash
 gh issue comment <N> --body "**[Proof-Master]** Verification failed for issue #<N>
 

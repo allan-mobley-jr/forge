@@ -103,27 +103,6 @@ check_labels() {
     fi
 }
 
-# transition_status — atomically move an issue from one status label to another.
-# Usage: transition_status <issue> <from-label> <to-label>
-# If from-label is empty, just adds to-label.
-# Returns 1 if the issue's current status doesn't match from-label.
-transition_status() {
-    local issue="$1" from_label="$2" to_label="$3"
-    if [ -n "$from_label" ]; then
-        local current
-        current=$(gh issue view "$issue" --json labels --jq '
-            [.labels[].name | select(startswith("status:"))] | .[0] // empty
-        ' 2>/dev/null || true)
-        if [ "$current" != "$from_label" ]; then
-            echo "[forge] Warning: issue #$issue has status '$current', expected '$from_label'" >&2
-            return 1
-        fi
-        gh issue edit "$issue" --remove-label "$from_label" --add-label "$to_label" 2>/dev/null || true
-    else
-        gh issue edit "$issue" --add-label "$to_label" 2>/dev/null || true
-    fi
-}
-
 # --- Auth helpers ---
 
 notify_failure() {

@@ -36,7 +36,13 @@ Find the feature branch:
 git branch -r | grep "agent/issue-<N>"
 ```
 
-### 2. Research
+### 2. Set Status
+
+```bash
+gh issue edit <N> --remove-label "status:hammered" --add-label "status:tempering"
+```
+
+### 3. Research
 
 Launch 2-3 Explore agents in parallel.
 
@@ -53,17 +59,17 @@ When the implementation involves domain-specific logic or external integrations,
 
 After all agents return, synthesize findings.
 
-### 3. Plan
+### 4. Plan
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT RENDER YOUR VERDICT WITHOUT IT.**
 
 Launch a Plan agent with the research findings. The Plan agent evaluates the implementation against the requirements and produces a structured assessment: what passes, what fails, severity of each issue, and a recommended verdict. You must launch this agent regardless of how confident you are — rendering a verdict without the Plan agent is a protocol violation.
 
-### 4. Decide
+### 5. Decide
 
 Review the Plan agent's assessment. Render your verdict autonomously. Document rationale in the ledger.
 
-### 5. Render Verdict
+### 6. Render Verdict
 
 **APPROVE** if:
 - All acceptance criteria are met
@@ -79,11 +85,16 @@ Review the Plan agent's assessment. Render your verdict autonomously. Document r
 
 ### 6a. On APPROVE
 
-Report the approval.
+```bash
+gh issue edit <N> --remove-label "status:tempering" --add-label "status:tempered"
+```
 
 ### 6b. On REWORK
 
-Post a tagged comment:
+Set the label and post a tagged comment:
+```bash
+gh issue edit <N> --remove-label "status:tempering" --add-label "status:rework"
+```
 ```bash
 gh issue comment <N> --body "**[Temperer]** <summary of findings>
 

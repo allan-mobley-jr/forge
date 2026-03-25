@@ -373,7 +373,6 @@ case "${1:-}" in
             exit 0
         fi
 
-        transition_status "$issue" "" "status:hammering"
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             echo "[forge] Starting Auto-Blacksmith on issue #$issue..."
             if ! run_forge_agent "auto-blacksmith" "Implement the next ready issue."; then
@@ -387,8 +386,7 @@ case "${1:-}" in
                 exit 1
             fi
         fi
-        transition_status "$issue" "status:hammering" "status:hammered"
-        echo "[forge] Blacksmith complete. Run 'forge temper' to review."
+        echo "[forge] Blacksmith complete."
         ;;
 
     temper|auto-temper)
@@ -414,7 +412,6 @@ case "${1:-}" in
             exit 0
         fi
 
-        transition_status "$issue" "status:hammered" "status:tempering"
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             echo "[forge] Starting Auto-Temperer on issue #$issue..."
             if ! run_forge_agent "auto-temperer" "Review the next hammered issue."; then
@@ -428,19 +425,7 @@ case "${1:-}" in
                 exit 1
             fi
         fi
-        # The Temperer decides the verdict — check what label it set
-        # If it posted a [Temperer] rework comment, set status:rework; otherwise status:tempered
-        has_rework=""
-        has_rework=$(gh issue view "$issue" --json comments --jq '
-            [.comments[].body | select(test("^\\*\\*\\[Temperer\\]\\*\\*"))] | length
-        ' 2>/dev/null || echo "0")
-        if [ "$has_rework" -gt 0 ]; then
-            transition_status "$issue" "status:tempering" "status:rework"
-            echo "[forge] Temperer sent issue #$issue back for rework."
-        else
-            transition_status "$issue" "status:tempering" "status:tempered"
-            echo "[forge] Temperer approved. Run 'forge proof' to validate."
-        fi
+        echo "[forge] Temperer complete."
         ;;
 
     proof|auto-proof)
@@ -466,7 +451,6 @@ case "${1:-}" in
             exit 0
         fi
 
-        transition_status "$issue" "status:tempered" "status:proving"
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             echo "[forge] Starting Auto-Proof-Master on issue #$issue..."
             if ! run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue."; then
@@ -480,18 +464,7 @@ case "${1:-}" in
                 exit 1
             fi
         fi
-        # Check verdict — if a [Proof-Master] rework comment was posted, it failed
-        has_rework=""
-        has_rework=$(gh issue view "$issue" --json comments --jq '
-            [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
-        ' 2>/dev/null || echo "0")
-        if [ "$has_rework" -gt 0 ]; then
-            transition_status "$issue" "status:proving" "status:rework"
-            echo "[forge] Proof-Master sent issue #$issue back for rework."
-        else
-            transition_status "$issue" "status:proving" "status:proved"
-            echo "[forge] Proof-Master complete. PR opened for issue #$issue."
-        fi
+        echo "[forge] Proof-Master complete."
         ;;
 
     hone|auto-hone)
@@ -547,95 +520,40 @@ case "${1:-}" in
         echo "[forge] Starting auto-run..."
 
         while true; do
-            # Find next issue to work on
-            issue=""
+            # Find next actionable issue by label state
             issue=$(find_issue_for_hammer)
-
-            # If nothing to hammer, check temper/proof queues
-            if [ -z "$issue" ]; then
-                issue=$(find_issue_for_temper)
-                if [ -n "$issue" ]; then
-                    echo "[forge] Tempering issue #$issue..."
-                    transition_status "$issue" "status:hammered" "status:tempering"
-                    run_forge_agent "auto-temperer" "Review the next hammered issue." || true
-                    has_rework=""
-                    has_rework=$(gh issue view "$issue" --json comments --jq '
-                        [.comments[].body | select(test("^\\*\\*\\[Temperer\\]\\*\\*"))] | length
-                    ' 2>/dev/null || echo "0")
-                    if [ "$has_rework" -gt 0 ]; then
-                        transition_status "$issue" "status:tempering" "status:rework"
-                    else
-                        transition_status "$issue" "status:tempering" "status:tempered"
-                    fi
-                    continue
-                fi
-
-                issue=$(find_issue_for_proof)
-                if [ -n "$issue" ]; then
-                    echo "[forge] Proofing issue #$issue..."
-                    transition_status "$issue" "status:tempered" "status:proving"
-                    run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || true
-                    has_rework=""
-                    has_rework=$(gh issue view "$issue" --json comments --jq '
-                        [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
-                    ' 2>/dev/null || echo "0")
-                    if [ "$has_rework" -gt 0 ]; then
-                        transition_status "$issue" "status:proving" "status:rework"
-                    else
-                        transition_status "$issue" "status:proving" "status:proved"
-                    fi
-                    continue
-                fi
-
-                # Nothing actionable
-                echo "[forge] No actionable issues. Auto-loop complete."
-                break
-            fi
-
-            # Hammer the issue
-            echo "[forge] Hammering issue #$issue..."
-            transition_status "$issue" "" "status:hammering"
-            run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
-                echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
-                break
-            }
-            transition_status "$issue" "status:hammering" "status:hammered"
-
-            # Temper the same issue
-            echo "[forge] Tempering issue #$issue..."
-            transition_status "$issue" "status:hammered" "status:tempering"
-            run_forge_agent "auto-temperer" "Review the next hammered issue." || {
-                echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
-                break
-            }
-            has_rework=""
-            has_rework=$(gh issue view "$issue" --json comments --jq '
-                [.comments[].body | select(test("^\\*\\*\\[Temperer\\]\\*\\*"))] | length
-            ' 2>/dev/null || echo "0")
-            if [ "$has_rework" -gt 0 ]; then
-                transition_status "$issue" "status:tempering" "status:rework"
-                echo "[forge] Issue #$issue sent back for rework. Continuing loop..."
+            if [ -n "$issue" ]; then
+                echo "[forge] Hammering issue #$issue..."
+                run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
+                    echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
+                    break
+                }
                 continue
             fi
-            transition_status "$issue" "status:tempering" "status:tempered"
 
-            # Proof the same issue
-            echo "[forge] Proofing issue #$issue..."
-            transition_status "$issue" "status:tempered" "status:proving"
-            run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
-                echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
-                break
-            }
-            has_rework=$(gh issue view "$issue" --json comments --jq '
-                [.comments[].body | select(test("^\\*\\*\\[Proof-Master\\]\\*\\*"))] | length
-            ' 2>/dev/null || echo "0")
-            if [ "$has_rework" -gt 0 ]; then
-                transition_status "$issue" "status:proving" "status:rework"
-                echo "[forge] Issue #$issue sent back for rework. Continuing loop..."
-            else
-                transition_status "$issue" "status:proving" "status:proved"
-                echo "[forge] Issue #$issue complete. PR opened."
+            issue=$(find_issue_for_temper)
+            if [ -n "$issue" ]; then
+                echo "[forge] Tempering issue #$issue..."
+                run_forge_agent "auto-temperer" "Review the next hammered issue." || {
+                    echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
+                    break
+                }
+                continue
             fi
+
+            issue=$(find_issue_for_proof)
+            if [ -n "$issue" ]; then
+                echo "[forge] Proofing issue #$issue..."
+                run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
+                    echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                    break
+                }
+                continue
+            fi
+
+            # Nothing actionable
+            echo "[forge] No actionable issues. Auto-loop complete."
+            break
         done
         ;;
 

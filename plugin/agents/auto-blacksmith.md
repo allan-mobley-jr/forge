@@ -74,7 +74,16 @@ Launch a Plan agent with the research findings and issue requirements. The Plan 
 
 Review the Plan agent's output. Make decisions autonomously and document them in the ledger.
 
-### 5. Implement
+### 5. Set Status
+
+Before starting implementation, transition the issue label:
+```bash
+gh issue edit <N> --remove-label "status:ready" --add-label "status:hammering" 2>/dev/null
+# or if rework:
+gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 2>/dev/null
+```
+
+### 6. Implement
 
 - Create a feature branch if one doesn't exist:
   ```bash
@@ -84,7 +93,7 @@ Review the Plan agent's output. Make decisions autonomously and document them in
 - Make atomic commits — one logical change per commit
 - Never modify: `.env*`, `CLAUDE.md`, `AGENTS.md`, `.claude/`, `.github/workflows/`
 
-### 6. Test
+### 7. Test
 
 - Write tests for the new functionality
 - Run the quality suite:
@@ -96,13 +105,13 @@ Review the Plan agent's output. Make decisions autonomously and document them in
   ```
 - Fix any failures before proceeding
 
-### 7. Self-Review
+### 8. Self-Review
 
 - Review your own diff: `git diff main...HEAD`
 - Check for: missing error handling, accessibility, security issues, unused code
 - Fix any issues found
 
-### 8. Address Rework Comments (if status:rework)
+### 9. Address Rework Comments (if status:rework)
 
 Mark each addressed rework comment with `✅`:
 ```bash
@@ -110,7 +119,7 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test(
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
-### 9. Post Ledger Comment
+### 10. Post Ledger Comment
 
 **First pass:**
 ```bash
@@ -155,10 +164,11 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 *Posted by the Forge Auto-Blacksmith.*"
 ```
 
-### 10. Push
+### 11. Push & Update Status
 
 ```bash
 git push -u origin agent/issue-<N>-<slug>
+gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
 ```
 
 ## Rules
