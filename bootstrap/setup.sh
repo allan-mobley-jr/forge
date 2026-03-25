@@ -279,6 +279,10 @@ rules = [
         'require_last_push_approval': False,
         'required_review_thread_resolution': True
     }},
+    {'type': 'required_status_checks', 'parameters': {
+        'strict_required_status_checks_policy': False,
+        'required_status_checks': [{'context': 'Quality Checks'}]
+    }},
     {'type': 'non_fast_forward'},
     {'type': 'deletion'}
 ]
