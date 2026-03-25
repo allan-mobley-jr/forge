@@ -582,6 +582,17 @@ case "${1:-}" in
         echo "[forge] Starting auto-run..."
 
         while true; do
+            # Check if the oldest open ai-generated issue needs human intervention
+            blocked_issue=$(gh issue list --state open --label "ai-generated" --label "agent:needs-human" --json number --jq '
+                sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+
+            if [ -n "$blocked_issue" ]; then
+                echo "[forge] Issue #$blocked_issue is labeled agent:needs-human. Auto-run cannot proceed."
+                echo "[forge] Resolve the issue manually, then re-run."
+                break
+            fi
+
             # Find oldest open ai-generated issue with any status:* label
             issue_line=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
                 [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
