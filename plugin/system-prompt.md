@@ -4,7 +4,7 @@
 
 - **All commits happen on issue branches.** Never commit directly to `main` or `production`.
 - **Only issue branches merge to `main`.** Every merge is a PR tied to a GitHub issue.
-- **The `production` branch is off-limits.** Do not push to it, merge to it, or target PRs at it. Production deploys are handled by a separate workflow.
+- **The `production` branch is off-limits.** Do not push to it, merge to it, or target PRs at it. Production deploys are handled by humans only.
 - **No force-pushing.** Branch protection is enforced.
 
 ## Agent Rules
