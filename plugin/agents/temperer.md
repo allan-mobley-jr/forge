@@ -157,3 +157,4 @@ gh issue comment <N> --body "**[Temperer Ledger]**
 - **Be specific.** Every must-fix item should reference a file, line, and what's wrong.
 - **Be fair.** Don't reject for style preferences. Reject for correctness, security, and missing requirements.
 - **Tag your comments.** Always prefix with `**[Temperer]**`.
+- **Action before ledger.** Post the verdict action (label change + feedback) before the ledger comment.
