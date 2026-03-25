@@ -56,7 +56,7 @@ case "${1:-}" in
             echo "Usage: forge init [--resume]"
             echo ""
             echo "Creates a new Forge project in the current directory:"
-            echo "  1. Checks prerequisites (Node.js, pnpm, gh, claude)"
+            echo "  1. Checks prerequisites (Node.js, pnpm, gh, vercel, python3)"
             echo "  2. Verifies Forge plugin is installed"
             echo "  3. Creates a GitHub repo with branch protection and labels"
             echo "  4. Sets up production branch"
@@ -98,9 +98,8 @@ case "${1:-}" in
             echo ""
             echo "Usage: forge update"
             echo ""
-            echo "Pulls the latest version of Forge from GitHub."
-            echo "The CLI updates automatically via symlink."
-            echo "Run 'forge upgrade' inside a project to update its artifacts."
+            echo "Pulls the latest version of Forge from GitHub and"
+            echo "refreshes all plugins if an update is found."
             exit 0
         fi
         echo -e "${BLUE}Updating Forge...${NC}"
@@ -143,8 +142,7 @@ case "${1:-}" in
             echo ""
             echo "Usage: forge doctor"
             echo ""
-            echo "Checks tool versions, authentication, disk space, and whether"
-            echo "project artifacts are up-to-date with the installed Forge version."
+            echo "Checks tool versions, plugins, authentication, and labels."
             exit 0
         fi
 
@@ -180,10 +178,10 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} gh CLI not installed"
         fi
 
-        if command -v vercel &>/dev/null || [ -x "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" ]; then
-            echo -e "  ${GREEN}✓${NC} Vercel CLI $( (vercel --version 2>/dev/null || "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" --version 2>/dev/null) | head -1)"
+        if command -v vercel &>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} Vercel CLI $(vercel --version 2>/dev/null | head -1)"
         else
-            echo -e "  ${YELLOW}⚠${NC} Vercel CLI not installed"
+            echo -e "  ${RED}✗${NC} Vercel CLI not installed"
         fi
 
         if command -v python3 &>/dev/null; then
@@ -225,8 +223,8 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} GitHub not authenticated — run: gh auth login"
         fi
 
-        if command -v vercel &>/dev/null || [ -x "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" ]; then
-            if (vercel whoami &>/dev/null 2>&1 || "${PNPM_HOME:-$HOME/Library/pnpm}/vercel" whoami &>/dev/null 2>&1); then
+        if command -v vercel &>/dev/null; then
+            if vercel whoami &>/dev/null 2>&1; then
                 echo -e "  ${GREEN}✓${NC} Vercel authenticated"
             else
                 echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"

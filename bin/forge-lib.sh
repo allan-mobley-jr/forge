@@ -48,15 +48,6 @@ for name, proj in cfg.get('projects', {}).items():
     fi
 }
 
-require_forge_skills() {
-    require_forge_project
-    if ! claude plugin list 2>/dev/null | grep -q "forge"; then
-        echo -e "${RED}Error:${NC} Forge plugin not installed."
-        echo "  Run: claude plugin install forge@forge"
-        exit 1
-    fi
-}
-
 # --- Label definitions ---
 # Single source of truth — used by check_labels, forge doctor, and bootstrap/setup.sh
 FORGE_REQUIRED_LABELS=(
@@ -134,27 +125,6 @@ transition_status() {
     else
         gh issue edit "$issue" --add-label "$to_label" 2>/dev/null || true
     fi
-}
-
-escalate() {
-    local issue="$1" reason="$2"
-    gh issue comment "$issue" --body "## Agent Question
-
-$reason
-
-*Escalated automatically by the Forge pipeline orchestrator.*"
-    gh issue edit "$issue" --add-label "agent:needs-human" 2>/dev/null || true
-}
-
-apply_timeout_default() {
-    local issue="$1"
-    echo "[forge] 24h timeout on issue #$issue. Applying default option..."
-    gh issue comment "$issue" --body "## Acknowledged
-
-24-hour timeout reached. Applying the default option specified in the escalation comment above.
-
-*Applied automatically by the Forge pipeline orchestrator.*" 2>/dev/null || true
-    gh issue edit "$issue" --remove-label "agent:needs-human" 2>/dev/null || true
 }
 
 # --- Auth helpers ---
@@ -266,14 +236,3 @@ find_unprocessed_ingots() {
     ' 2>/dev/null || true
 }
 
-# count_actionable_issues — count issues in any actionable status.
-# Used by auto-run to know when to stop.
-count_actionable_issues() {
-    gh issue list --state open --json labels -L 200 --jq '
-        [.[] | select(.labels | map(.name) | any(
-            . == "status:ready" or . == "status:rework" or
-            . == "status:hammered" or . == "status:tempered" or
-            . == "status:hammering" or . == "status:tempering" or . == "status:proving"
-        ))] | length
-    ' 2>/dev/null || echo "0"
-}
