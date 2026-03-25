@@ -192,7 +192,7 @@ run_forge_agent() {
 # Priority: status:rework first, then status:ready.
 find_issue_for_hammer() {
     local rework_issue
-    rework_issue=$(gh issue list --state open --label "status:rework" --json number --jq '
+    rework_issue=$(gh issue list --state open --label "status:rework" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true)
     if [ -n "$rework_issue" ]; then
@@ -201,7 +201,7 @@ find_issue_for_hammer() {
     fi
 
     local ready_issue
-    ready_issue=$(gh issue list --state open --label "status:ready" --json number --jq '
+    ready_issue=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true)
     if [ -n "$ready_issue" ]; then
@@ -212,14 +212,14 @@ find_issue_for_hammer() {
 
 # find_issue_for_temper — find the lowest open issue with status:hammered.
 find_issue_for_temper() {
-    gh issue list --state open --label "status:hammered" --json number --jq '
+    gh issue list --state open --label "status:hammered" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true
 }
 
 # find_issue_for_proof — find the lowest open issue with status:tempered.
 find_issue_for_proof() {
-    gh issue list --state open --label "status:tempered" --json number --jq '
+    gh issue list --state open --label "status:tempered" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true
 }
