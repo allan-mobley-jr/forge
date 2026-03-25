@@ -521,10 +521,10 @@ case "${1:-}" in
 
         while true; do
             # Find the oldest open issue with ai-generated + any status:* label
-            # Find oldest open ai-generated issue with an actionable status label
+            # Find oldest open ai-generated issue with any status:* label
             issue_data=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
                 [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
-                 | select(.status and .status != "status:proved")]
+                 | select(.status)]
                 | sort_by(.number) | .[0] // empty
             ' 2>/dev/null || true)
 
@@ -554,6 +554,13 @@ case "${1:-}" in
                 status:tempered|status:proving)
                     echo "[forge] Proofing issue #$issue ($status)..."
                     run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
+                        echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                        break
+                    }
+                    ;;
+                status:proved)
+                    echo "[forge] Issue #$issue proved but still open. Checking PR status..."
+                    run_forge_agent "auto-proof-master" "Issue has status:proved but is still open. Check the PR status and resolve." || {
                         echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
                         break
                     }
