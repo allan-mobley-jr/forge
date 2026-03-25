@@ -143,18 +143,11 @@ preflight_check() {
         missing+=("gh CLI — https://cli.github.com")
     fi
 
-    # Claude Code
-    if command -v claude &>/dev/null; then
-        ok "Claude Code $(claude --version 2>/dev/null | head -1)"
-    else
-        missing+=("Claude Code — https://claude.ai/download")
-    fi
-
-    # Vercel CLI (optional but recommended)
+    # Vercel CLI
     if command -v vercel &>/dev/null; then
         ok "Vercel CLI"
     else
-        add_warning "Vercel CLI not found — install with: npm install -g vercel"
+        missing+=("Vercel CLI — npm install -g vercel")
     fi
 
     if [ ${#missing[@]} -gt 0 ]; then
