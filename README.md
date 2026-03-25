@@ -40,6 +40,8 @@ mkdir my-app && cd my-app
 touch PROMPT.md
 ```
 
+> **Note:** The installer also sets up the **Vercel plugin** and **Playwright MCP** for Claude Code. The Vercel plugin requires OAuth authentication — it will prompt on first use. Playwright runs locally and needs no auth.
+
 Open `PROMPT.md` in your editor and describe the app you want to build in plain English. Then bootstrap and start building:
 
 ```bash
