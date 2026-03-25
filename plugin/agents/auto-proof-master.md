@@ -70,7 +70,9 @@ gh issue edit <N> --remove-label "status:tempered" --add-label "status:proving"
 
 ```bash
 git fetch origin
-git checkout origin/agent/issue-<N>-<slug>
+# Find the issue's linked branch
+gh issue develop <N> --list
+git checkout origin/<branch>
 pnpm install --frozen-lockfile
 pnpm lint
 pnpm tsc --noEmit
@@ -125,7 +127,7 @@ EOF
 )" \
     --label "ai-generated" \
     --base main \
-    --head agent/issue-<N>-<slug>
+    --head <branch>
 ```
 
 Enable auto-merge if available:

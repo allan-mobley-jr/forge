@@ -50,7 +50,7 @@ Launch 2-3 Explore agents in parallel.
 Launch an Explore agent to read the issue body, acceptance criteria, the ingot issue referenced in the footer, and any `**[Blacksmith Ledger]**` comments to understand what was intended and what decisions were made.
 
 **Agent 2 — Code review:**
-Launch an Explore agent to review the diff (`git diff main...origin/agent/issue-<N>-<slug>`), examining correctness, code quality, security, error handling, accessibility, and testing coverage.
+Find the issue's linked branch (`gh issue develop <N> --list`), then launch an Explore agent to review the diff (`git diff main...origin/<branch>`), examining correctness, code quality, security, error handling, accessibility, and testing coverage.
 
 **Agent 3 — Domain validation (conditional):**
 When the implementation involves domain-specific logic or external integrations, launch an Explore agent that uses web search to validate the approach against current best practices.

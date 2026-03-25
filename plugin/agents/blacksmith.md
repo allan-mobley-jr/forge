@@ -128,10 +128,11 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
 
 ### 7. Implement
 
-- Create a feature branch if one doesn't exist:
+- Create a linked feature branch if one doesn't exist:
   ```bash
-  git checkout -b agent/issue-<N>-<slug>
+  gh issue develop <N> --checkout
   ```
+  If a branch already exists: `gh issue develop <N> --list` to find it, then check it out.
 - Write code following existing project patterns
 - Make atomic commits — one logical change per commit
 - Never modify: `.env*`, `CLAUDE.md`, `.claude/`, `.github/workflows/`
@@ -210,7 +211,7 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 ### 12. Push & Update Status
 
 ```bash
-git push -u origin agent/issue-<N>-<slug>
+git push -u origin HEAD
 gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
 ```
 
