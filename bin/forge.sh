@@ -583,19 +583,24 @@ case "${1:-}" in
 
         while true; do
             # Find oldest open ai-generated issue with any status:* label
-            issue_data=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
+            issue_line=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
                 [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
                  | select(.status)]
-                | sort_by(.number) | .[0] // empty
+                | sort_by(.number) | .[0] | "\(.number)\t\(.status)" // empty
             ' 2>/dev/null || true)
 
-            if [ -z "$issue_data" ] || [ "$issue_data" = "null" ]; then
+            if [ -z "$issue_line" ]; then
                 echo "[forge] No actionable issues. Auto-loop complete."
                 break
             fi
 
-            issue=$(echo "$issue_data" | python3 -c "import json,sys; print(json.load(sys.stdin)['number'])")
-            status=$(echo "$issue_data" | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])")
+            issue=$(printf '%s' "$issue_line" | cut -f1)
+            status=$(printf '%s' "$issue_line" | cut -f2)
+
+            if [ -z "$issue" ] || [ -z "$status" ]; then
+                echo "[forge] Failed to parse issue data. Stopping."
+                break
+            fi
 
             case "$status" in
                 status:ready|status:rework|status:hammering)
