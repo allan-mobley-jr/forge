@@ -294,8 +294,8 @@ case "${1:-}" in
                 echo "[forge] No human-filed type:feature issues found."
                 exit 0
             fi
-            echo "[forge] Starting Smelter (auto mode) on issue #$feature_issue..."
-            if ! run_forge_agent "Smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
+            echo "[forge] Starting Auto-Smelter on issue #$feature_issue..."
+            if ! run_forge_agent "auto-smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
                 echo "[forge] Smelter failed."
                 exit 1
             fi
@@ -335,9 +335,9 @@ case "${1:-}" in
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Refiner (auto mode)..."
-            if ! run_forge_agent "Refiner" "Process the oldest open ingot issue."; then
-                echo "[forge] Refiner failed."
+            echo "[forge] Starting Auto-Refiner..."
+            if ! run_forge_agent "auto-refiner" "Process the oldest open ingot issue."; then
+                echo "[forge] Auto-Refiner failed."
                 exit 1
             fi
         else
