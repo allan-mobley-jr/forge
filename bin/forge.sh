@@ -512,9 +512,9 @@ case "${1:-}" in
         check_labels
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Honer (auto mode)..."
-            if ! run_forge_agent "Honer" "Audit the codebase and produce an improvement ingot."; then
-                echo "[forge] Honer failed."
+            echo "[forge] Starting Auto-Honer..."
+            if ! run_forge_agent "auto-honer" "Triage bugs or audit the codebase and produce an improvement ingot."; then
+                echo "[forge] Auto-Honer failed."
                 exit 1
             fi
         else
