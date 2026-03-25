@@ -47,7 +47,23 @@ Read the issue: `gh issue view <N> --json title,body,labels,comments`
 If the issue has `status:rework`:
 1. Read all comments tagged `**[Temperer]**` or `**[Proof-Master]**` that don't start with `✅`
 2. Read any prior `**[Blacksmith Ledger]**` comments for earlier reasoning
-3. Present the feedback to the user and discuss the fix approach
+3. **Rework cycle check** — count completed rework cycles (comments prefixed with `✅` and tagged `**[Temperer]**` or `**[Proof-Master]**`):
+   ```bash
+   gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[(Temperer|Proof-Master)\\]"))] | length'
+   ```
+   If the count is **3 or more**, do not implement. Escalate instead:
+   ```bash
+   gh issue edit <N> --add-label "agent:needs-human" --remove-label "status:rework"
+   gh issue comment <N> --body "**[Blacksmith Ledger]**
+
+   ## Escalation
+
+   This issue has completed 3+ rework cycles. Escalating to human review.
+
+   *Posted by the Forge Blacksmith.*"
+   ```
+   Then stop — do not proceed to research or implementation.
+4. Present the feedback to the user and discuss the fix approach
 
 ### 3. Research
 
