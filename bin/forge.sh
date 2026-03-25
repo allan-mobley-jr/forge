@@ -158,12 +158,6 @@ case "${1:-}" in
         # 2. Check tools
         echo "Tools:"
 
-        if command -v brew &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} Homebrew $(brew --version 2>/dev/null | head -1 | awk '{print $2}')"
-        else
-            echo -e "  ${RED}✗${NC} Homebrew not installed"
-        fi
-
         if command -v node &>/dev/null; then
             echo -e "  ${GREEN}✓${NC} Node.js $(node --version 2>/dev/null)"
         else
