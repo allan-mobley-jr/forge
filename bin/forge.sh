@@ -164,13 +164,6 @@ case "${1:-}" in
             [ -f AGENTS.md ] && echo -e "  ${GREEN}✓${NC} AGENTS.md generated"
         fi
 
-        # Copy deploy workflow
-        if [ -f "$FORGE_REPO/workflows/deploy-production.yml" ]; then
-            mkdir -p .github/workflows
-            cp "$FORGE_REPO/workflows/deploy-production.yml" .github/workflows/deploy-production.yml
-            echo -e "  ${GREEN}✓${NC} Deploy workflow updated"
-        fi
-
         echo ""
         echo "  Done. Agents and hooks are managed by the Forge plugin."
         echo "  Run 'forge update' to update the plugin itself."
@@ -813,6 +806,55 @@ case "${1:-}" in
         echo ""
         exit 0
         ;;
+    deploy)
+        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
+            echo "forge deploy — Deploy main to production"
+            echo ""
+            echo "Usage: forge deploy"
+            echo ""
+            echo "Fast-forwards the production branch to match main,"
+            echo "triggering a Vercel production deployment."
+            echo "Requires confirmation."
+            exit 0
+        fi
+
+        require_forge_project
+
+        # Ensure we have fresh remote state
+        git fetch origin main production --quiet 2>/dev/null || {
+            echo -e "${RED}Error:${NC} Could not fetch from remote."
+            exit 1
+        }
+
+        local_main=$(git rev-parse origin/main 2>/dev/null)
+        local_prod=$(git rev-parse origin/production 2>/dev/null)
+
+        if [ "$local_main" = "$local_prod" ]; then
+            echo -e "${GREEN}Nothing to deploy — production is already at main.${NC}"
+            exit 0
+        fi
+
+        if ! git merge-base --is-ancestor origin/production origin/main; then
+            echo -e "${RED}Error:${NC} production has diverged from main. Resolve manually."
+            exit 1
+        fi
+
+        # Show what's being deployed
+        echo ""
+        echo "Commits to deploy:"
+        git log --oneline origin/production..origin/main
+        echo ""
+        printf "Deploy to production? (y/n) [n]: "
+        read -r confirm
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+            echo "  Cancelled."
+            exit 0
+        fi
+
+        git push origin origin/main:refs/heads/production
+        echo -e "${GREEN}Production updated. Vercel will deploy automatically.${NC}"
+        ;;
+
     --help|-h|*)
         show_banner
         echo "Usage: forge <command>"
@@ -827,6 +869,9 @@ case "${1:-}" in
         echo "  auto-run        Autonomously process the issue queue"
         echo ""
         echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
+        echo ""
+        echo "Operations:"
+        echo "  deploy           Deploy main to production (human only)"
         echo ""
         echo "Setup commands:"
         echo "  init             Bootstrap a new Forge project"
