@@ -29,9 +29,7 @@ Read the issue body and any `**[Smelter Ledger]**` comments for context. If no i
 
 ### 2. Check for Domain Agents
 
-1. List domain agent files: `ls .claude/agents/my-*.md 2>/dev/null`
-2. If any exist, read YAML frontmatter for `name` and `description`
-3. If relevant, spawn as subagents and incorporate their output
+Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
 ### 3. Evaluate & Refine the Plan
 

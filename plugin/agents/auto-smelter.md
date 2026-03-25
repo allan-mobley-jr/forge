@@ -38,10 +38,7 @@ Spawn research subagents in parallel:
 - Package/service options for key requirements
 - Any domain-specific considerations
 
-**Domain Agent Discovery:** Check for user-defined domain agents:
-1. List domain agent files: `ls .claude/agents/my-*.md 2>/dev/null`
-2. If any exist, read the YAML frontmatter from each to get `name` and `description`
-3. If relevant, spawn as subagents and incorporate their output
+**Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
 Also check if the project has existing code (`src/` or `app/` directories) — if so, analyze the current codebase as part of research.
 
