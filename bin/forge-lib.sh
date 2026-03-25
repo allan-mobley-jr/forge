@@ -58,7 +58,7 @@ require_forge_skills() {
 }
 
 # --- Label definitions ---
-# Canonical label definitions (must match bootstrap/setup.sh create_labels)
+# Single source of truth — used by check_labels, forge doctor, and bootstrap/setup.sh
 FORGE_REQUIRED_LABELS=(
     # Meta labels
     "ai-generated|EEEEEE|Issue or PR filed by agent"
@@ -74,6 +74,19 @@ FORGE_REQUIRED_LABELS=(
     "status:rework|d93f0b|Sent back to Blacksmith"
     "status:proving|1d76db|Validation in progress"
     "status:proved|0e8a16|PR opened"
+    # Descriptive labels — categorize the work
+    "type:bug|d73a4a|Something is broken"
+    "type:feature|0075ca|New functionality"
+    "type:chore|ededed|Maintenance or infrastructure"
+    "type:refactor|c5def5|Code improvement without behavior change"
+    "priority:high|e11d48|Needs immediate attention"
+    "priority:medium|fbca04|Should be addressed soon"
+    "priority:low|0e8a16|Nice to have"
+    "scope:ui|7057ff|Frontend or visual changes"
+    "scope:api|1d76db|Backend or API changes"
+    "scope:data|0e8a16|Database or data model changes"
+    "scope:auth|d93f0b|Authentication or authorization"
+    "scope:infra|ededed|CI, deploy, or config changes"
 )
 
 # --- Label management ---
