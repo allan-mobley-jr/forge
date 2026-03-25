@@ -148,7 +148,9 @@ run_forge_agent() {
     local agent_file="$FORGE_REPO/plugin/agents/${agent_name_lower}.md"
     local tools=""
     if [ -f "$agent_file" ]; then
-        tools=$(sed -n '/^tools:/,/^---/{ /^  - /s/^  - //p }' "$agent_file" | tr '\n' ',' | sed 's/,$//')
+        tools=$(sed -n '/^tools:/,/^---/{
+/^  - /s/^  - //p
+}' "$agent_file" | tr '\n' ',' | sed 's/,$//')
     fi
 
     local cmd=(claude --agent "forge:${agent_name_lower}")
