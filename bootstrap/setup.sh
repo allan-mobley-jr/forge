@@ -16,6 +16,10 @@ FORGE_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="$(pwd)"
 FORGE_CONFIG_DIR="$HOME/.forge"
 
+# Source shared library for label definitions
+# shellcheck source=bin/forge-lib.sh
+source "${FORGE_REPO}/bin/forge-lib.sh"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -205,9 +209,7 @@ initial_commit() {
         skip "$label"
         return
     fi
-    echo '.forge-temp/' > .gitignore
-    git add .gitignore
-    git commit -m "chore: initialize forge project"
+    git commit --allow-empty -m "chore: initialize forge project"
     ok "$label"
 }
 
@@ -371,23 +373,20 @@ create_labels() {
     local failed=0
     info "  Creating labels..."
 
-    gh label create "ai-generated"       --color "EEEEEE" --description "Issue or PR filed by agent"     --force 2>/dev/null || failed=1
-    gh label create "agent:needs-human"  --color "d93f0b" --description "Blocked on human decision"      --force 2>/dev/null || failed=1
-    gh label create "type:ingot"         --color "5319E7" --description "Ingot from Smelter or Honer"    --force 2>/dev/null || failed=1
-    gh label create "status:ready"       --color "0e8a16" --description "Ready for Blacksmith"           --force 2>/dev/null || failed=1
-    gh label create "status:hammering"   --color "c5def5" --description "Implementation in progress"     --force 2>/dev/null || failed=1
-    gh label create "status:hammered"    --color "1d76db" --description "Implementation complete"        --force 2>/dev/null || failed=1
-    gh label create "status:tempering"   --color "fbca04" --description "Review in progress"             --force 2>/dev/null || failed=1
-    gh label create "status:tempered"    --color "0e8a16" --description "Review passed"                  --force 2>/dev/null || failed=1
-    gh label create "status:rework"      --color "d93f0b" --description "Sent back to Blacksmith"        --force 2>/dev/null || failed=1
-    gh label create "status:proving"     --color "1d76db" --description "Validation in progress"         --force 2>/dev/null || failed=1
-    gh label create "status:proved"      --color "0e8a16" --description "PR opened"                      --force 2>/dev/null || failed=1
+    for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
+        local name color desc
+        name="${entry%%|*}"
+        local rest="${entry#*|}"
+        color="${rest%%|*}"
+        desc="${rest#*|}"
+        gh label create "$name" --color "$color" --description "$desc" --force 2>/dev/null || failed=1
+    done
 
     if [ "$failed" -eq 1 ]; then
         add_warning "Some labels failed to create."
         return
     fi
-    ok "$label"
+    ok "$label (${#FORGE_REQUIRED_LABELS[@]} labels)"
 }
 
 # Remove overlapping default labels (non-critical)
