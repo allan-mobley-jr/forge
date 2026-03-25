@@ -150,6 +150,13 @@ preflight_check() {
         missing+=("Vercel CLI — npm install -g vercel")
     fi
 
+    # python3
+    if command -v python3 &>/dev/null; then
+        ok "python3 $(python3 --version 2>&1 | awk '{print $2}')"
+    else
+        missing+=("python3 — brew install python3")
+    fi
+
     if [ ${#missing[@]} -gt 0 ]; then
         echo ""
         fail "Missing prerequisites:"
