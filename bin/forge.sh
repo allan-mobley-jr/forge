@@ -29,7 +29,179 @@ show_banner() {
     echo ""
 }
 
+show_usage() {
+    show_banner
+    echo "Usage: forge <command>"
+    echo ""
+    echo "Pipeline commands:"
+    echo "  smelt            Produce an ingot"
+    echo "  refine           Create GitHub issues from an ingot"
+    echo "  hammer           Implement the current issue"
+    echo "  temper           Review the current issue's implementation"
+    echo "  proof            Validate and open a PR"
+    echo "  hone             Audit the codebase for improvements"
+    echo "  auto-run         Autonomously process the issue queue"
+    echo ""
+    echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
+    echo ""
+    echo "Operations:"
+    echo "  deploy           Deploy main to production (human only)"
+    echo ""
+    echo "Setup commands:"
+    echo "  init             Bootstrap a new Forge project"
+    echo "  init --resume    Resume a failed or interrupted bootstrap"
+    echo "  version          Show installed version and check for updates"
+    echo "  update           Update Forge to the latest version"
+    echo "  doctor           Check tool versions and project health"
+    echo "  uninstall        Remove Forge from your system"
+    echo ""
+    echo "Run 'forge help <command>' for detailed help on a command."
+    echo ""
+    echo "Quick start:"
+    echo "  1. mkdir my-app && cd my-app"
+    echo "  2. forge init"
+    echo "  3. forge smelt"
+    echo "  4. forge refine"
+    echo "  5. forge auto-run"
+}
+
+show_command_help() {
+    case "${1:-}" in
+        init)
+            echo "forge init — Bootstrap a new Forge project"
+            echo ""
+            echo "Usage: forge init [--resume]"
+            echo ""
+            echo "Creates a new Forge project in the current directory:"
+            echo "  1. Checks prerequisites (Node.js, pnpm, gh, vercel, python3)"
+            echo "  2. Verifies Forge plugin is installed"
+            echo "  3. Creates a GitHub repo with branch protection and labels"
+            echo "  4. Sets up production branch"
+            echo ""
+            echo "Options:"
+            echo "  --resume    Resume from where a previous bootstrap stopped"
+            ;;
+        version)
+            echo "forge version — Show installed version"
+            echo ""
+            echo "Usage: forge version"
+            echo ""
+            echo "Shows the current Forge version and checks for updates."
+            ;;
+        update)
+            echo "forge update — Update Forge itself"
+            echo ""
+            echo "Usage: forge update"
+            echo ""
+            echo "Pulls the latest version of Forge from GitHub and"
+            echo "refreshes all plugins if an update is found."
+            ;;
+        doctor)
+            echo "forge doctor — Health check"
+            echo ""
+            echo "Usage: forge doctor"
+            echo ""
+            echo "Checks tool versions, plugins, authentication, and labels."
+            ;;
+        deploy)
+            echo "forge deploy — Deploy main to production"
+            echo ""
+            echo "Usage: forge deploy"
+            echo ""
+            echo "Fast-forwards the production branch to match main,"
+            echo "triggering a Vercel production deployment."
+            echo "Requires confirmation."
+            ;;
+        uninstall)
+            echo "forge uninstall — Remove Forge"
+            echo ""
+            echo "Usage: forge uninstall"
+            echo ""
+            echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
+            echo "shell config files. Does NOT affect existing Forge projects."
+            ;;
+        smelt|auto-smelt)
+            echo "forge smelt — Produce an ingot"
+            echo ""
+            echo "Usage: forge smelt"
+            echo "       forge auto-smelt"
+            echo ""
+            echo "  smelt        Interactive — describe what you want, confer with the Smelter"
+            echo "  auto-smelt   Autonomous — picks up the oldest human-filed type:feature issue"
+            ;;
+        refine|auto-refine)
+            echo "forge refine — Create GitHub issues from an ingot"
+            echo ""
+            echo "Usage: forge refine"
+            echo "       forge auto-refine"
+            echo ""
+            echo "The Refiner reads the oldest unprocessed ingot and creates"
+            echo "sequenced GitHub issues with milestones."
+            ;;
+        hammer|auto-hammer)
+            echo "forge hammer — Implement the current issue"
+            echo ""
+            echo "Usage: forge hammer"
+            echo "       forge auto-hammer"
+            echo ""
+            echo "The Blacksmith picks up the lowest open issue (status:ready or"
+            echo "status:rework) and implements it on a feature branch."
+            ;;
+        temper|auto-temper)
+            echo "forge temper — Review the current issue's implementation"
+            echo ""
+            echo "Usage: forge temper"
+            echo "       forge auto-temper"
+            echo ""
+            echo "The Temperer independently reviews the Blacksmith's work and"
+            echo "either approves (status:tempered) or sends back (status:rework)."
+            ;;
+        proof|auto-proof)
+            echo "forge proof — Validate and open a PR for the current issue"
+            echo ""
+            echo "Usage: forge proof"
+            echo "       forge auto-proof"
+            echo ""
+            echo "The Proof-Master runs the quality suite, validates acceptance"
+            echo "criteria, and opens a PR if everything passes."
+            ;;
+        hone|auto-hone)
+            echo "forge hone — Audit the codebase and produce an improvement ingot"
+            echo ""
+            echo "Usage: forge hone"
+            echo "       forge auto-hone"
+            echo ""
+            echo "  hone         Interactive — choose to triage a bug or audit the codebase"
+            echo "  auto-hone    Autonomous — triages oldest bug first, then audits"
+            ;;
+        auto-run)
+            echo "forge auto-run — Autonomously process the issue queue"
+            echo ""
+            echo "Usage: forge auto-run"
+            echo ""
+            echo "Processes one issue at a time through the full pipeline:"
+            echo "  auto-hammer → auto-temper → auto-proof"
+            echo ""
+            echo "Handles all issue states including interrupted runs."
+            echo "Exits when no actionable issues remain."
+            ;;
+        *)
+            echo "Unknown command: ${1:-}"
+            echo ""
+            echo "Run 'forge help' for a list of commands."
+            ;;
+    esac
+}
+
 case "${1:-}" in
+    help)
+        if [ -n "${2:-}" ]; then
+            show_command_help "$2"
+        else
+            show_usage
+        fi
+        exit 0
+        ;;
     version)
         local_tag=$(git -C "$FORGE_REPO" describe --tags --abbrev=0 2>/dev/null || true)
         local_sha=$(git -C "$FORGE_REPO" rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -50,22 +222,6 @@ case "${1:-}" in
         exit 0
         ;;
     init)
-        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge init — Bootstrap a new Forge project"
-            echo ""
-            echo "Usage: forge init [--resume]"
-            echo ""
-            echo "Creates a new Forge project in the current directory:"
-            echo "  1. Checks prerequisites (Node.js, pnpm, gh, vercel, python3)"
-            echo "  2. Verifies Forge plugin is installed"
-            echo "  3. Creates a GitHub repo with branch protection and labels"
-            echo "  4. Sets up production branch"
-            echo ""
-            echo "Options:"
-            echo "  --resume    Resume from where a previous bootstrap stopped"
-            exit 0
-        fi
-
         FORGE_RESUME=false
         if [ "${2:-}" = "--resume" ]; then
             FORGE_RESUME=true
@@ -93,15 +249,6 @@ case "${1:-}" in
         fi
         ;;
     update)
-        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge update — Update Forge itself"
-            echo ""
-            echo "Usage: forge update"
-            echo ""
-            echo "Pulls the latest version of Forge from GitHub and"
-            echo "refreshes all plugins if an update is found."
-            exit 0
-        fi
         echo -e "${BLUE}Updating Forge...${NC}"
         git -C "$FORGE_REPO" fetch --quiet --tags
         local_head=$(git -C "$FORGE_REPO" rev-parse HEAD)
@@ -137,15 +284,6 @@ case "${1:-}" in
         fi
         ;;
     doctor)
-        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge doctor — Health check"
-            echo ""
-            echo "Usage: forge doctor"
-            echo ""
-            echo "Checks tool versions, plugins, authentication, and labels."
-            exit 0
-        fi
-
         require_forge_project
 
         echo ""
@@ -153,7 +291,6 @@ case "${1:-}" in
         echo "============"
         echo ""
 
-        # 2. Check tools
         echo "Tools:"
 
         if command -v node &>/dev/null; then
@@ -190,10 +327,8 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} python3 not installed (required; install with: brew install python3)"
         fi
 
-
-        # 3. Check Forge plugin
         echo ""
-        echo "Plugin:"
+        echo "Plugins:"
 
         if claude plugin list 2>/dev/null | grep -q "forge"; then
             echo -e "  ${GREEN}✓${NC} Forge plugin installed"
@@ -213,7 +348,6 @@ case "${1:-}" in
             echo -e "  ${YELLOW}⚠${NC} Playwright MCP not installed"
         fi
 
-        # 4. Check connectivity
         echo ""
         echo "Connectivity:"
 
@@ -231,12 +365,10 @@ case "${1:-}" in
             fi
         fi
 
-        # 6. Check labels
         echo ""
         echo "Labels:"
 
         if gh auth status &>/dev/null 2>&1; then
-            # Use the canonical label list from forge-lib.sh
             required_labels=()
             for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
                 required_labels+=("${entry%%|*}")
@@ -270,16 +402,6 @@ case "${1:-}" in
 
     smelt|auto-smelt)
         FORGE_COMMAND="$1"; shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge smelt — Produce an ingot"
-            echo ""
-            echo "Usage: forge smelt"
-            echo "       forge auto-smelt"
-            echo ""
-            echo "  smelt        Interactive — describe what you want, confer with the Smelter"
-            echo "  auto-smelt   Autonomous — picks up the oldest human-filed type:feature issue"
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -311,16 +433,6 @@ case "${1:-}" in
 
     refine|auto-refine)
         FORGE_COMMAND="$1"; shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge refine — Create GitHub issues from an ingot"
-            echo ""
-            echo "Usage: forge refine"
-            echo "       forge auto-refine"
-            echo ""
-            echo "The Refiner reads the oldest unprocessed ingot and creates"
-            echo "sequenced GitHub issues with milestones."
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -352,16 +464,6 @@ case "${1:-}" in
 
     hammer|auto-hammer)
         FORGE_COMMAND="$1"; shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge hammer — Implement the current issue"
-            echo ""
-            echo "Usage: forge hammer"
-            echo "       forge auto-hammer"
-            echo ""
-            echo "The Blacksmith picks up the lowest open issue (status:ready or"
-            echo "status:rework) and implements it on a feature branch."
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -391,16 +493,6 @@ case "${1:-}" in
 
     temper|auto-temper)
         FORGE_COMMAND="$1"; shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge temper — Review the current issue's implementation"
-            echo ""
-            echo "Usage: forge temper"
-            echo "       forge auto-temper"
-            echo ""
-            echo "The Temperer independently reviews the Blacksmith's work and"
-            echo "either approves (status:tempered) or sends back (status:rework)."
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -430,16 +522,6 @@ case "${1:-}" in
 
     proof|auto-proof)
         FORGE_COMMAND="$1"; shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge proof — Validate and open a PR for the current issue"
-            echo ""
-            echo "Usage: forge proof"
-            echo "       forge auto-proof"
-            echo ""
-            echo "The Proof-Master runs the quality suite, validates acceptance criteria,"
-            echo "and opens a PR if everything passes."
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -469,16 +551,6 @@ case "${1:-}" in
 
     hone|auto-hone)
         FORGE_COMMAND="$1"; shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge hone — Audit the codebase and produce an improvement ingot"
-            echo ""
-            echo "Usage: forge hone"
-            echo "       forge auto-hone"
-            echo ""
-            echo "The Honer audits the app against the ingot, triages human"
-            echo "issues, and produces a new ingot for the Refiner."
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -502,16 +574,6 @@ case "${1:-}" in
 
     auto-run)
         shift
-        if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-            echo "forge auto-run — Autonomously process the issue queue"
-            echo ""
-            echo "Usage: forge auto-run"
-            echo ""
-            echo "Chains auto-hammer → auto-temper → auto-proof for each issue,"
-            echo "processing one issue at a time through the full pipeline."
-            echo "Exits when no actionable issues remain."
-            exit 0
-        fi
 
         require_forge_project
         check_auth
@@ -520,7 +582,6 @@ case "${1:-}" in
         echo "[forge] Starting auto-run..."
 
         while true; do
-            # Find the oldest open issue with ai-generated + any status:* label
             # Find oldest open ai-generated issue with any status:* label
             issue_data=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
                 [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
@@ -574,16 +635,6 @@ case "${1:-}" in
         ;;
 
     uninstall)
-        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge uninstall — Remove Forge"
-            echo ""
-            echo "Usage: forge uninstall"
-            echo ""
-            echo "Removes ~/.forge (repo + CLI binary) and PATH entries from"
-            echo "shell config files. Does NOT affect existing Forge projects."
-            exit 0
-        fi
-
         echo ""
         echo "This will remove Forge from your system."
         echo ""
@@ -606,7 +657,6 @@ case "${1:-}" in
         # Remove PATH from shell configs
         for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
             if [ -f "$rc" ]; then
-                # Remove the Forge PATH line and its comment
                 sed -i '' '/# Forge/d' "$rc" 2>/dev/null || true
                 sed -i '' '/\.forge\/bin/d' "$rc" 2>/dev/null || true
             fi
@@ -625,18 +675,8 @@ case "${1:-}" in
         echo ""
         exit 0
         ;;
-    deploy)
-        if [ "${2:-}" = "--help" ] || [ "${2:-}" = "-h" ]; then
-            echo "forge deploy — Deploy main to production"
-            echo ""
-            echo "Usage: forge deploy"
-            echo ""
-            echo "Fast-forwards the production branch to match main,"
-            echo "triggering a Vercel production deployment."
-            echo "Requires confirmation."
-            exit 0
-        fi
 
+    deploy)
         require_forge_project
 
         # Ensure we have fresh remote state
@@ -674,39 +714,14 @@ case "${1:-}" in
         echo -e "${GREEN}Production updated. Vercel will deploy automatically.${NC}"
         ;;
 
-    --help|-h|*)
-        show_banner
-        echo "Usage: forge <command>"
+    --help|-h|"")
+        show_usage
+        ;;
+
+    *)
+        echo "Unknown command: $1"
         echo ""
-        echo "Pipeline commands:"
-        echo "  smelt            Produce an ingot"
-        echo "  refine           Create GitHub issues from an ingot"
-        echo "  hammer           Implement the current issue"
-        echo "  temper           Review the current issue's implementation"
-        echo "  proof            Validate and open a PR"
-        echo "  hone             Audit the codebase for improvements"
-        echo "  auto-run         Autonomously process the issue queue"
-        echo ""
-        echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
-        echo ""
-        echo "Operations:"
-        echo "  deploy           Deploy main to production (human only)"
-        echo ""
-        echo "Setup commands:"
-        echo "  init             Bootstrap a new Forge project"
-        echo "  init --resume    Resume a failed or interrupted bootstrap"
-        echo "  version          Show installed version and check for updates"
-        echo "  update           Update Forge to the latest version"
-        echo "  doctor           Check tool versions and project health"
-        echo "  uninstall        Remove Forge from your system"
-        echo ""
-        echo "Run 'forge <command> --help' for detailed help on a command."
-        echo ""
-        echo "Quick start:"
-        echo "  1. mkdir my-app && cd my-app"
-        echo "  2. forge init"
-        echo "  3. forge smelt"
-        echo "  4. forge refine"
-        echo "  5. forge auto-run"
+        echo "Run 'forge help' for a list of commands."
+        exit 1
         ;;
 esac
