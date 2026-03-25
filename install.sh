@@ -70,8 +70,8 @@ else
     retry git clone --quiet "$FORGE_REMOTE" "$FORGE_REPO"
 fi
 
-# Checkout latest tag (release) if available, otherwise use main
-latest_tag=$(git -C "$FORGE_REPO" describe --tags --abbrev=0 2>/dev/null || true)
+# Checkout highest semver tag (release) if available, otherwise use main
+latest_tag=$(git -C "$FORGE_REPO" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1)
 if [ -n "$latest_tag" ]; then
     git -C "$FORGE_REPO" checkout "$latest_tag" --quiet 2>/dev/null || true
     echo -e "${GREEN}Forge installed ($latest_tag).${NC}"
