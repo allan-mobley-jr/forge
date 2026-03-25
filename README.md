@@ -86,6 +86,8 @@ Every agent exists in two variants:
 - **Interactive** (`forge smelt`): launches a Claude Code session where you confer with the agent — describe what you want, answer questions, approve the plan before it acts.
 - **Auto** (`forge auto-smelt`): runs headless with `-p`. The agent makes decisions autonomously and documents assumptions.
 
+> **Single-track pipeline:** Forge processes one issue at a time, in the order they were created. Do not run multiple `forge auto-run` sessions concurrently — they will conflict on the same issue.
+
 ### Agent Architecture
 
 Every Forge agent follows the same pattern:
