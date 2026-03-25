@@ -262,16 +262,6 @@ case "${1:-}" in
             echo -e "  ${DIM}-${NC} Skipped (GitHub not authenticated)"
         fi
 
-        # 7. Check disk space
-        echo ""
-        echo "System:"
-        avail_gb=$(df -g . 2>/dev/null | tail -1 | awk '{print $4}')
-        if [ -n "$avail_gb" ] && [ "$avail_gb" -ge 2 ]; then
-            echo -e "  ${GREEN}✓${NC} Disk space: ${avail_gb}GB available"
-        elif [ -n "$avail_gb" ]; then
-            echo -e "  ${YELLOW}⚠${NC} Low disk space: ${avail_gb}GB (need >= 2GB)"
-        fi
-
         echo ""
         echo "  Run 'forge update' to update Forge and its plugin."
         echo ""
