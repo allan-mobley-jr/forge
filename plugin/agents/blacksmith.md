@@ -29,8 +29,13 @@ Implement the current issue end-to-end, conferring with the user on approach bef
 
 ### 1. Find the Issue
 
-Find the next issue (rework takes priority over ready):
+Find the next issue (needs-human takes priority, then rework, then ready):
 
+```bash
+gh issue list --state open --label "agent:needs-human" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
+```
+
+If none:
 ```bash
 gh issue list --state open --label "status:rework" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
@@ -42,7 +47,23 @@ gh issue list --state open --label "status:ready" --label "ai-generated" --json 
 
 Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
-### 2. Rework Detection
+### 2. Human Recovery
+
+If the issue has `agent:needs-human`:
+
+This issue was escalated because automated rework cycles failed to resolve it. Your job is to work through it interactively with the user.
+
+1. Read all `**[Blacksmith Ledger]**` comments to understand what was attempted
+2. Read all `**[Temperer]**` and `**[Proof-Master]**` feedback comments (both addressed `✅` and unaddressed) to understand the full rework history
+3. Present a summary to the user: what was tried, what kept failing, and your assessment of the root problem
+4. Collaborate with the user on a new approach
+5. Once the user approves, remove `agent:needs-human` and set `status:hammering`:
+   ```bash
+   gh issue edit <N> --remove-label "agent:needs-human" --add-label "status:hammering"
+   ```
+6. Proceed to step 4 (Research) and continue the normal workflow
+
+### 3. Rework Detection
 
 If the issue has `status:rework`:
 1. Read all comments tagged `**[Temperer]**` or `**[Proof-Master]**` that don't start with `✅`
@@ -65,7 +86,7 @@ If the issue has `status:rework`:
    Then stop — do not proceed to research or implementation.
 4. Present the feedback to the user and discuss the fix approach
 
-### 3. Research
+### 4. Research
 
 Launch 2-3 Explore agents in parallel. Adjust agent count to complexity.
 
@@ -82,7 +103,7 @@ When the issue references external APIs, libraries, or domain concepts, launch a
 
 After all agents return, synthesize findings.
 
-### 4. Plan & Confer
+### 5. Plan & Confer
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE IMPLEMENTATION YOURSELF.**
 
@@ -96,7 +117,7 @@ Present the Plan agent's output to the user:
 
 **Get explicit user confirmation before implementing.**
 
-### 5. Set Status
+### 6. Set Status
 
 Before starting implementation, transition the issue label:
 ```bash
@@ -105,7 +126,7 @@ gh issue edit <N> --remove-label "status:ready" --add-label "status:hammering" 2
 gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 2>/dev/null
 ```
 
-### 6. Implement
+### 7. Implement
 
 - Create a feature branch if one doesn't exist:
   ```bash
@@ -115,7 +136,7 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
 - Make atomic commits — one logical change per commit
 - Never modify: `.env*`, `CLAUDE.md`, `.claude/`, `.github/workflows/`
 
-### 7. Test
+### 8. Test
 
 - Write tests for the new functionality
 - Run the quality suite:
@@ -127,13 +148,13 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
   ```
 - Fix any failures before proceeding
 
-### 8. Self-Review
+### 9. Self-Review
 
 - Review your own diff: `git diff main...HEAD`
 - Check for: missing error handling, accessibility, security issues, unused code
 - Fix any issues found
 
-### 9. Address Rework Comments (if status:rework)
+### 10. Address Rework Comments (if status:rework)
 
 Mark each addressed rework comment with `✅`:
 ```bash
@@ -141,7 +162,7 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test(
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
-### 10. Post Ledger Comment
+### 11. Post Ledger Comment
 
 **First pass:**
 ```bash
@@ -186,7 +207,7 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 *Posted by the Forge Blacksmith.*"
 ```
 
-### 11. Push & Update Status
+### 12. Push & Update Status
 
 ```bash
 git push -u origin agent/issue-<N>-<slug>

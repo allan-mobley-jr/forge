@@ -168,8 +168,17 @@ run_forge_agent() {
 # --- Issue query helpers ---
 
 # find_issue_for_hammer — find the lowest open issue for the Blacksmith.
-# Priority: status:rework first, then status:ready.
+# Priority: agent:needs-human first (interactive recovery), then status:rework, then status:ready.
 find_issue_for_hammer() {
+    local needs_human_issue
+    needs_human_issue=$(gh issue list --state open --label "agent:needs-human" --label "ai-generated" --json number --jq '
+        sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true)
+    if [ -n "$needs_human_issue" ]; then
+        echo "$needs_human_issue"
+        return
+    fi
+
     local rework_issue
     rework_issue=$(gh issue list --state open --label "status:rework" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
