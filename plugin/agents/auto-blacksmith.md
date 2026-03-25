@@ -130,9 +130,12 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
 
 ### 9. Address Rework Comments (if status:rework)
 
-Mark each addressed rework comment with `✅`:
+Mark each addressed rework comment by prepending `✅ ` to the body. The `✅` prefix shifts `**[Temperer]**` away from position 0 so the `^\\*\\*\\[` regex naturally excludes addressed comments on future passes. Do not change this format.
+
 ```bash
+# Find unaddressed rework comments
 gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test("^\\*\\*\\[(Temperer|Proof-Master)\\]")) | select(.body | test("^✅") | not) | {id: .id, body: .body}'
+# Mark as addressed
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
