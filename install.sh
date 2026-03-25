@@ -101,26 +101,19 @@ if command -v claude &>/dev/null; then
             || echo -e "  ${YELLOW}[!]${NC} Marketplace registration failed. Run manually: claude plugin marketplace add $FORGE_REPO"
     fi
 
-    # Install the Forge plugin at user scope
-    if ! claude plugin list 2>/dev/null | grep -q "forge@forge"; then
-        claude plugin install forge@forge 2>/dev/null \
-            && echo -e "  ${GREEN}[x]${NC} Forge plugin installed" \
-            || echo -e "  ${YELLOW}[!]${NC} Plugin install failed. Run manually: claude plugin install forge@forge"
-    fi
+    # Install plugins unconditionally (install is idempotent and re-enables disabled plugins)
+    claude plugin install forge@forge 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} Forge plugin installed" \
+        || echo -e "  ${YELLOW}[!]${NC} Plugin install failed. Run manually: claude plugin install forge@forge"
 
-    # Install Vercel plugin (user scope)
-    if ! claude plugin list 2>/dev/null | grep -q "vercel"; then
-        claude plugin install vercel@claude-plugins-official 2>/dev/null \
-            && echo -e "  ${GREEN}[x]${NC} Vercel plugin installed" \
-            || echo -e "  ${YELLOW}[!]${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
-    fi
+    claude plugin install vercel@claude-plugins-official 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} Vercel plugin installed" \
+        || echo -e "  ${YELLOW}[!]${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
 
     # Install Playwright MCP server
-    if ! claude mcp list 2>/dev/null | grep -q "playwright"; then
-        claude mcp add playwright -- npx @playwright/mcp@latest 2>/dev/null \
-            && echo -e "  ${GREEN}[x]${NC} Playwright MCP installed" \
-            || echo -e "  ${YELLOW}[!]${NC} Playwright MCP failed. Run manually: claude mcp add playwright -- npx @playwright/mcp@latest"
-    fi
+    claude mcp add playwright -- npx @playwright/mcp@latest 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} Playwright MCP installed" \
+        || echo -e "  ${YELLOW}[!]${NC} Playwright MCP failed. Run manually: claude mcp add playwright -- npx @playwright/mcp@latest"
 else
     echo -e "${YELLOW}Note:${NC} Claude Code not found — install it, then run:"
     echo "  claude plugin marketplace add $FORGE_REPO"
