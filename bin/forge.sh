@@ -483,7 +483,7 @@ case "${1:-}" in
             fi
         else
             echo "[forge] Starting Blacksmith on issue #$issue..."
-            if ! run_forge_agent "Blacksmith"; then
+            if ! run_forge_agent "Blacksmith" "Greet the user and begin."; then
                 echo "[forge] Blacksmith failed on issue #$issue."
                 exit 1
             fi
