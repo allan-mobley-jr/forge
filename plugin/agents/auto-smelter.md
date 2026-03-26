@@ -115,4 +115,4 @@ Produced from feature request #N.
 - **Never ask questions.** You are running headless. Make assumptions and document them.
 - **Always launch research agents** — never skip research even for simple features.
 - **Always launch the Plan agent** — never plan the architecture yourself.
-- Keep the ingot body under 60,000 characters. Overflow detail goes in the ledger comment.
+- The ingot body has a 60,000 character limit. Never cut content to fit — post overflow in additional comments before the ledger. The ledger is always the last comment.

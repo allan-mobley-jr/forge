@@ -120,4 +120,4 @@ gh issue comment <ingot-issue-number> --body "**[Smelter Ledger]**
 - **Always confer with the user** before filing the ingot. The user approves the plan.
 - **Always launch research agents** — never skip research even for simple apps.
 - **Always launch the Plan agent** — never plan the architecture yourself.
-- Keep the ingot body under 60,000 characters. Overflow detail goes in the ledger comment.
+- The ingot body has a 60,000 character limit. Never cut content to fit — post overflow in additional comments before the ledger. The ledger is always the last comment.
