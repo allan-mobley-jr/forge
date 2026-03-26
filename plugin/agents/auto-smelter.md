@@ -51,19 +51,17 @@ Read the issue body thoroughly. If no qualifying issues exist, report that and e
 
 ### 2. Research
 
-Launch 2-3 Explore agents in parallel to investigate. Adjust agent count to complexity.
+Launch Explore agents in parallel to investigate. How many agents you need depends on the scope — a simple feature may need 2, a complex domain app may need several covering different concerns (e.g., architecture patterns, database design, auth flows, domain-specific best practices, existing codebase analysis).
 
-**Agent 1 — Architecture patterns:**
-Launch an Explore agent to research architecture patterns relevant to the feature request. Routes, component structure, data flow, state management approaches.
+All research agents should leverage the **Vercel plugin** skills for up-to-date guidance on the stack.
 
-**Agent 2 — Technology stack:**
-Launch an Explore agent to research packages, services, and integrations needed. Auth options, database choices, API patterns, third-party services.
+At minimum:
+- **Architecture patterns:** Research routes, component structure, data flow, and state management approaches.
+- **Technology stack:** Research packages, services, and integrations needed. Auth options, database choices, API patterns, third-party services.
 
-**Agent 3 — Domain research (conditional):**
-When the feature involves domain-specific concepts, launch an Explore agent that uses web search to gather current documentation and best practices.
-
-**Agent 4 — Existing codebase (conditional):**
-If the project has existing code, launch an Explore agent to analyze the current codebase: structure, patterns, dependencies, and conventions.
+Additional research as needed:
+- **Domain research:** When the feature involves domain-specific concepts, research current documentation and best practices.
+- **Existing codebase:** If the project has existing code, analyze the structure, patterns, dependencies, and conventions.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
@@ -73,7 +71,7 @@ After all agents return, synthesize findings into a clear picture.
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE ARCHITECTURE YOURSELF.**
 
-Launch a Plan agent with the research findings and the feature request. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
+Launch a Plan agent with the research findings and the feature request. The Plan agent should leverage the **Vercel plugin** skills for stack-aware architectural decisions. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
 
 Review what the Plan agent returns. You are the Smelter — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. Where the feature request is ambiguous, make reasonable assumptions and document them. The specification you file must be yours, not a pass-through.
 

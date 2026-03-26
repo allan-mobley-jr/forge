@@ -52,29 +52,25 @@ If bugs exist, mention them. Let the user decide what to focus on.
 
 ### 2. Research
 
-Launch 2-3 Explore agents in parallel. Adjust agent count to complexity.
+Launch Explore agents in parallel. How many agents you need depends on the scope — a simple bug may need 2, a full codebase audit may need several covering different concerns.
+
+All research agents should leverage the **Vercel plugin** skills for up-to-date guidance on the stack.
 
 **If triaging a bug:**
 
-**Agent 1 — Root cause:**
-Launch an Explore agent to trace the bug through the codebase. Read the relevant source files, callers, data flow, and reproduce the issue path.
+At minimum:
+- **Root cause:** Trace the bug through the codebase. Read the relevant source files, callers, data flow, and reproduce the issue path.
+- **Context:** Find related tests, git history for the affected area, and any prior fixes or related issues.
 
-**Agent 2 — Context:**
-Launch an Explore agent to find related tests, git history for the affected area, and any prior fixes or related issues.
-
-**Agent 3 — Domain research (conditional):**
-When the bug involves external services or domain-specific behavior, launch an Explore agent that uses web search to gather current documentation.
+Additional research as needed:
+- **Domain research:** When the bug involves external services or domain-specific behavior, research current documentation.
 
 **If auditing:**
 
-**Agent 1 — Quality audit:**
-Launch an Explore agent to analyze the codebase for quality gaps, missing error handling, accessibility issues, and deviations from best practices.
-
-**Agent 2 — Security & performance:**
-Launch an Explore agent to check for security vulnerabilities (auth, validation, injection) and performance concerns (N+1 queries, missing caching, large bundles).
-
-**Agent 3 — Best practices (conditional):**
-Launch an Explore agent that uses web search to research current best practices for the tech stack in use.
+At minimum:
+- **Quality audit:** Analyze the codebase for quality gaps, missing error handling, accessibility issues, and deviations from best practices.
+- **Security & performance:** Check for security vulnerabilities (auth, validation, injection) and performance concerns (N+1 queries, missing caching, large bundles).
+- **Best practices:** Research current best practices for the tech stack in use.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
@@ -84,7 +80,7 @@ After all agents return, synthesize findings.
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE INGOT YOURSELF.**
 
-Launch a Plan agent with the research findings. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
+Launch a Plan agent with the research findings. The Plan agent should leverage the **Vercel plugin** skills for stack-aware decisions. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
 
 Review what the Plan agent returns. You are the Honer — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings and the user conversation. The specification you present must be yours, not a pass-through.
 
