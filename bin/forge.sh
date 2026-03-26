@@ -558,13 +558,13 @@ case "${1:-}" in
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             echo "[forge] Starting Auto-Honer..."
-            if ! run_forge_agent "auto-honer" "Triage bugs or audit the codebase and produce an improvement ingot."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
                 echo "[forge] Auto-Honer failed."
                 exit 1
             fi
         else
             echo "[forge] Starting Honer..."
-            if ! run_forge_agent "Honer"; then
+            if ! run_forge_agent "Honer" "Greet the user and begin."; then
                 echo "[forge] Honer failed."
                 exit 1
             fi
