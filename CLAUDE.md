@@ -1,6 +1,6 @@
 # Forge
 
-Autonomous Next.js development system for macOS. See `README.md` for the full specification.
+Autonomous Next.js development system. See `README.md` for the full specification.
 
 ## Repository Structure
 

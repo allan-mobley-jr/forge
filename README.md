@@ -24,7 +24,6 @@ $${\color{#d97706}\textbf{Describe\ your\ app\ in\ plain\ English\ —\ Forge\ p
 
 ## Requirements
 
-- macOS
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with a Pro subscription, Max subscription, or API key
 - GitHub account with the [Vercel GitHub App](https://github.com/apps/vercel) installed
 - Vercel account
@@ -281,7 +280,7 @@ forge/
 
 **Dual artifact model.** The Smelter produces ingots (specifications). The Honer files both ingots (for broad gaps needing architecture) and implementation issues (for concrete fixes that go straight to the Blacksmith). The Refiner breaks ingots into issues regardless of who created them.
 
-**Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow.
+**Opinionated scope.** Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow.
 
 ## License
 
