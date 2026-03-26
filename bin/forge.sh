@@ -541,7 +541,7 @@ case "${1:-}" in
             fi
         else
             echo "[forge] Starting Proof-Master on issue #$issue..."
-            if ! run_forge_agent "Proof-Master"; then
+            if ! run_forge_agent "Proof-Master" "Greet the user and begin."; then
                 echo "[forge] Proof-Master failed on issue #$issue."
                 exit 1
             fi
