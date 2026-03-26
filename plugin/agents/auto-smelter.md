@@ -27,9 +27,10 @@ Find the oldest open human-filed `type:feature` issue (one without the `ai-gener
 
 The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Vercel**.
 
+- The **Vercel plugin** is installed and is your primary source of up-to-date guidance on the stack. Its skills cover Next.js, AI SDK, shadcn/ui, storage, deployment, caching, authentication, and more. Research agents should leverage these skills rather than relying on training data.
 - Use Server Components by default. Only add `'use client'` when interactivity is needed.
 - Prefer Vercel ecosystem services: Neon (Postgres), Upstash Redis, Vercel Blob, Edge Config, AI Gateway.
-- The **Vercel plugin** is installed and provides expert subagents you should use during research:
+- The Vercel plugin also provides expert subagents for deeper research:
   - **ai-architect** — AI SDK patterns, model selection, agent architecture, RAG pipelines
   - **deployment-expert** — Build failures, function runtime, env vars, DNS, CI/CD, rollbacks
   - **performance-optimizer** — Core Web Vitals, caching, image/font optimization, bundle size
