@@ -344,3 +344,165 @@ EOF
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
 }
+
+# --- run_stoke_loop ---
+
+# Helper: mock gh that returns an issue on first status query, empty on second.
+# Uses a counter file to track call sequence.
+# $1 = issue number, $2 = status label
+_mock_stoke_gh() {
+    local issue="$1" status="$2"
+    mock_gh_with "
+        args=\"\$*\"
+        # agent:needs-human check — always empty
+        if [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
+            echo ''
+            exit 0
+        fi
+        # Status query — use counter to return issue first, then empty
+        COUNTER_FILE=\"$TEST_TMPDIR/gh_call_count\"
+        count=\$(cat \"\$COUNTER_FILE\" 2>/dev/null || echo 0)
+        count=\$((count + 1))
+        echo \"\$count\" > \"\$COUNTER_FILE\"
+        if [ \"\$count\" -eq 1 ]; then
+            printf '%s\t%s' '$issue' '$status'
+        else
+            echo ''
+        fi
+    "
+}
+
+@test "run_stoke_loop returns 0 when queue is empty" {
+    mock_gh_with '
+        echo ""
+    '
+    mock_claude_with 'exit 0'
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Queue complete"* ]]
+}
+
+@test "run_stoke_loop returns 1 when agent:needs-human is set" {
+    mock_gh_with '
+        if [[ "$*" == *"agent:needs-human"* ]]; then
+            echo "7"
+            exit 0
+        fi
+        echo ""
+    '
+    mock_claude_with 'exit 0'
+    run run_stoke_loop
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"agent:needs-human"* ]]
+    [[ "$output" == *"#7"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-blacksmith for status:ready" {
+    _mock_stoke_gh 10 "status:ready"
+    mock_claude_with 'echo "called: $*"'
+    # Create agent file so run_forge_agent can extract tools
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-blacksmith.md" <<'AGENT'
+---
+name: auto-blacksmith
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Hammering issue #10"* ]]
+    [[ "$output" == *"forge:auto-blacksmith"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-blacksmith for status:rework" {
+    _mock_stoke_gh 5 "status:rework"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-blacksmith.md" <<'AGENT'
+---
+name: auto-blacksmith
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Hammering issue #5"* ]]
+    [[ "$output" == *"forge:auto-blacksmith"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-temperer for status:hammered" {
+    _mock_stoke_gh 10 "status:hammered"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-temperer.md" <<'AGENT'
+---
+name: auto-temperer
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Tempering issue #10"* ]]
+    [[ "$output" == *"forge:auto-temperer"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-proof-master for status:tempered" {
+    _mock_stoke_gh 10 "status:tempered"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-proof-master.md" <<'AGENT'
+---
+name: auto-proof-master
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Proofing issue #10"* ]]
+    [[ "$output" == *"forge:auto-proof-master"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-proof-master for status:proved" {
+    _mock_stoke_gh 10 "status:proved"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-proof-master.md" <<'AGENT'
+---
+name: auto-proof-master
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"proved but still open"* ]]
+    [[ "$output" == *"forge:auto-proof-master"* ]]
+}
+
+@test "run_stoke_loop returns 1 on unknown status" {
+    _mock_stoke_gh 10 "status:something-weird"
+    mock_claude_with 'exit 0'
+    run run_stoke_loop
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"unknown status"* ]]
+}
+
+@test "run_stoke_loop returns 1 when agent fails" {
+    _mock_stoke_gh 10 "status:ready"
+    mock_claude_with 'exit 1'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-blacksmith.md" <<'AGENT'
+---
+name: auto-blacksmith
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"failed"* ]]
+}
