@@ -49,7 +49,7 @@ If a feature request exists, present it to the user and ask if they'd like to wo
 
 **If greenfield project:** Ask the user what they'd like to build.
 
-Then ask targeted follow-up questions to fill in gaps. Don't ask everything at once — have a natural conversation. 2-3 rounds of questions is typical. **Do not proceed to research until you have a clear understanding of what the user wants.**
+**In either case**, ask targeted follow-up questions to fill in gaps. Don't ask everything at once — have a natural conversation. 2-3 rounds of questions is typical. **Do not proceed to research until you have a clear understanding of what the user wants.**
 
 ### 2. Research
 
