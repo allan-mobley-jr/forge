@@ -94,7 +94,7 @@ Every agent exists in two variants:
 Every Forge agent follows the same pattern:
 
 1. **Research** — parallel Explore agents investigate the codebase, context, and domain
-2. **Plan** — a mandatory Plan agent designs the approach (agents never plan themselves)
+2. **Plan** — a mandatory Plan agent informs the approach (agents own and adjust the output)
 3. **Confer** (interactive) or **Decide** (auto) — user approves or agent decides autonomously
 4. **Execute** — the agent-specific work
 5. **Record** — reasoning posted as a ledger comment on the GitHub issue
@@ -119,7 +119,7 @@ status:ready → status:hammering → status:hammered → status:tempering → s
                      └──────────── status:rework ◀──────────┘
 ```
 
-The Blacksmith always picks up the **lowest numbered open issue** with `ai-generated` + `status:ready` (or `status:rework`). Only one issue is active at a time.
+The Blacksmith always picks up the **lowest numbered open issue** — `agent:needs-human` first (interactive recovery), then `status:rework`, then `status:ready`. Only one issue is active at a time.
 
 ### Rework Protocol
 
@@ -138,7 +138,7 @@ Create a directory and run `forge init`. The bootstrap runs idempotent steps:
 - Tool checks: Node.js >= 24, pnpm >= 9, gh CLI, Vercel CLI, python3
 - Forge plugin verification
 - Git init, GitHub repo, branch protection, production branch
-- Label taxonomy (24 labels)
+- Label taxonomy (23 labels)
 - Project registration in `~/.forge/config.json`
 
 Every step checks whether it already ran. Resume with `forge init --resume`.
@@ -279,7 +279,7 @@ forge/
 
 **Ledger for reasoning.** Every craftsman records its decisions as tagged comments on GitHub issues. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
 
-**Ingots feed the Refiner.** Both the Smelter (greenfield planning) and Honer (maintenance/bugs) produce ingots. The Refiner doesn't care who created the ingot — it just breaks it into issues. This creates a clean improvement cycle.
+**Dual artifact model.** The Smelter produces ingots (specifications). The Honer files both ingots (for broad gaps needing architecture) and implementation issues (for concrete fixes that go straight to the Blacksmith). The Refiner breaks ingots into issues regardless of who created them.
 
 **Opinionated scope.** macOS, Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow.
 

@@ -52,7 +52,7 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 
 ## Labels
 
-Target projects use these labels (24 total, defined in `forge-lib.sh`):
+Target projects use these labels (23 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`, `agent:needs-human`
 - **Artifact:** `type:ingot`
