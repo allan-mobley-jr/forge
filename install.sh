@@ -115,11 +115,10 @@ if command -v claude &>/dev/null; then
         && echo -e "  ${GREEN}[x]${NC} Playwright MCP installed" \
         || echo -e "  ${YELLOW}[!]${NC} Playwright MCP failed. Run manually: claude mcp add playwright -- npx @playwright/mcp@latest"
 else
-    echo -e "${YELLOW}Note:${NC} Claude Code not found — install it, then run:"
-    echo "  claude plugin marketplace add $FORGE_REPO"
-    echo "  claude plugin install forge@forge"
-    echo "  claude plugin install vercel@claude-plugins-official"
-    echo "  claude mcp add playwright -- npx @playwright/mcp@latest"
+    echo -e "${RED}Error:${NC} Claude Code is required but not found in PATH."
+    echo "  Install Claude Code first: https://docs.anthropic.com/en/docs/claude-code"
+    echo "  Then re-run this installer."
+    exit 1
 fi
 
 echo ""
