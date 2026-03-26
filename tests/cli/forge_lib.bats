@@ -53,6 +53,11 @@ EOF
     mock_gh_with '
         args="$*"
         if [[ "$args" == *"label list"* ]]; then
+            # Verify correct flags are used
+            if [[ "$args" != *"--json"* ]] || [[ "$args" != *"--jq"* ]]; then
+                echo "ERROR: label list called without --json/--jq" >&2
+                exit 1
+            fi
             # Only agent:planning exists
             echo "agent:planning"
             exit 0
@@ -80,6 +85,10 @@ EOF
     mock_gh_with "
         args=\"\$*\"
         if [[ \"\$args\" == *\"label list\"* ]]; then
+            if [[ \"\$args\" != *\"--json\"* ]] || [[ \"\$args\" != *\"--jq\"* ]]; then
+                echo 'ERROR: label list called without --json/--jq' >&2
+                exit 1
+            fi
             echo '$all_names'
             exit 0
         fi
