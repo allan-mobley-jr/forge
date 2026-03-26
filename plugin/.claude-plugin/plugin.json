@@ -1,5 +1,6 @@
 {
   "name": "forge",
+  "version": "0.1.0",
   "description": "Autonomous Next.js development pipeline with craftsman agents (Smelter, Refiner, Blacksmith, Temperer, Proof-Master, Honer)",
   "author": {
     "name": "Allan Mobley Jr."
