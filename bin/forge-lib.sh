@@ -110,7 +110,7 @@ check_auth() {
 
     # GitHub CLI
     if ! command -v gh &>/dev/null; then
-        errors+=("GitHub CLI (gh) not found in PATH. Install with: brew install gh")
+        errors+=("GitHub CLI (gh) not found in PATH. Install from: https://cli.github.com")
     elif ! gh auth status &>/dev/null; then
         echo "[forge] GitHub auth invalid. Attempting refresh..."
         if gh auth refresh &>/dev/null; then
