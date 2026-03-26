@@ -265,7 +265,11 @@ case "${1:-}" in
         # Prefer highest semver tag (not just nearest to HEAD), fall back to origin/main
         latest_tag=$(git -C "$FORGE_REPO" tag -l 'v[0-9]*' --sort=-v:refname 2>/dev/null | head -1)
         if [ -n "$latest_tag" ]; then
-            git -C "$FORGE_REPO" checkout "$latest_tag" --quiet 2>/dev/null || true
+            git -C "$FORGE_REPO" checkout "$latest_tag" --quiet 2>/dev/null || {
+                echo -e "${RED}Error:${NC} Failed to checkout $latest_tag in $FORGE_REPO."
+                echo "  Check for uncommitted changes: git -C $FORGE_REPO status"
+                exit 1
+            }
         else
             git -C "$FORGE_REPO" reset --hard origin/main --quiet
         fi
