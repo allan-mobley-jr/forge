@@ -39,7 +39,7 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Greet & Gather
 
-First, determine context by checking for existing code (`src/` or `app/` directories).
+First, determine context. If the working directory is empty (no source files — only git/config), this is a greenfield project. Otherwise, it's an existing project.
 
 **If existing project:** Check GitHub for human-filed `type:feature` issues (without the `ai-generated` label):
 ```bash
