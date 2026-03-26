@@ -298,6 +298,8 @@ case "${1:-}" in
         fi
         ;;
     doctor)
+        require_forge_project
+
         echo ""
         echo "Forge Doctor"
         echo "============"
@@ -337,12 +339,6 @@ case "${1:-}" in
             echo -e "  ${GREEN}✓${NC} python3 $(python3 --version 2>&1 | awk '{print $2}')"
         else
             echo -e "  ${RED}✗${NC} python3 not installed (required; install with: brew install python3)"
-        fi
-
-        if command -v claude &>/dev/null; then
-            echo -e "  ${GREEN}✓${NC} Claude Code $(claude --version 2>/dev/null | head -1)"
-        else
-            echo -e "  ${RED}✗${NC} Claude Code not installed — https://docs.anthropic.com/en/docs/claude-code"
         fi
 
         echo ""
@@ -386,9 +382,7 @@ case "${1:-}" in
         echo ""
         echo "Labels:"
 
-        if ! require_forge_project &>/dev/null; then
-            echo -e "  ${DIM}-${NC} Skipped (not a Forge project)"
-        elif gh auth status &>/dev/null 2>&1; then
+        if gh auth status &>/dev/null 2>&1; then
             required_labels=()
             for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
                 required_labels+=("${entry%%|*}")
