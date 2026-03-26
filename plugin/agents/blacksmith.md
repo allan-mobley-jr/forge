@@ -75,7 +75,7 @@ If the issue has `agent:needs-human`:
 This issue was escalated because automated rework cycles failed to resolve it. Your job is to work through it interactively with the user.
 
 1. Read all `**[Blacksmith Ledger]**` comments to understand what was attempted
-2. Read all `**[Temperer]**` and `**[Proof-Master]**` feedback comments (both addressed `✅` and unaddressed) to understand the full rework history
+2. Read all `**[Temperer]**` feedback comments (both addressed `✅` and unaddressed) to understand the full rework history
 3. Present a summary to the user: what was tried, what kept failing, and your assessment of the root problem
 4. Collaborate with the user on a new approach
 5. Once the user approves, remove `agent:needs-human` and set `status:hammering`:
@@ -87,11 +87,11 @@ This issue was escalated because automated rework cycles failed to resolve it. Y
 ### 3. Rework Detection
 
 If the issue has `status:rework`:
-1. Read all comments tagged `**[Temperer]**` or `**[Proof-Master]**` that don't start with `✅`
+1. Read all comments tagged `**[Temperer]**` that don't start with `✅`
 2. Read any prior `**[Blacksmith Ledger]**` comments for earlier reasoning
-3. **Rework cycle check** — count completed rework cycles (comments prefixed with `✅` and tagged `**[Temperer]**` or `**[Proof-Master]**`):
+3. **Rework cycle check** — count completed rework cycles (comments prefixed with `✅` and tagged `**[Temperer]**`):
    ```bash
-   gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[(Temperer|Proof-Master)\\]"))] | length'
+   gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length'
    ```
    If the count is **5 or more**, do not implement. Escalate instead:
    ```bash
@@ -190,7 +190,7 @@ Mark each addressed rework comment by prepending `✅ ` to the body. The `✅` p
 
 ```bash
 # Find unaddressed rework comments
-gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test("^\\*\\*\\[(Temperer|Proof-Master)\\]")) | select(.body | test("^✅") | not) | {id: .id, body: .body}'
+gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test("^\\*\\*\\[Temperer\\]")) | select(.body | test("^✅") | not) | {id: .id, body: .body}'
 # Mark as addressed
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```

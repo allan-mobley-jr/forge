@@ -66,11 +66,11 @@ Note: issues may include an **Implementation Details** section with suggested fi
 ### 2. Rework Detection
 
 If the issue has `status:rework`:
-1. Read all comments tagged `**[Temperer]**` or `**[Proof-Master]**` that don't start with `✅`
+1. Read all comments tagged `**[Temperer]**` that don't start with `✅`
 2. Read any prior `**[Blacksmith Ledger]**` comments for earlier reasoning
-3. **Rework cycle check** — count completed rework cycles (comments prefixed with `✅` and tagged `**[Temperer]**` or `**[Proof-Master]**`):
+3. **Rework cycle check** — count completed rework cycles (comments prefixed with `✅` and tagged `**[Temperer]**`):
    ```bash
-   gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[(Temperer|Proof-Master)\\]"))] | length'
+   gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length'
    ```
    If the count is **5 or more**, do not implement. Escalate instead:
    ```bash
@@ -161,7 +161,7 @@ Mark each addressed rework comment by prepending `✅ ` to the body. The `✅` p
 
 ```bash
 # Find unaddressed rework comments
-gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test("^\\*\\*\\[(Temperer|Proof-Master)\\]")) | select(.body | test("^✅") | not) | {id: .id, body: .body}'
+gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test("^\\*\\*\\[Temperer\\]")) | select(.body | test("^✅") | not) | {id: .id, body: .body}'
 # Mark as addressed
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
