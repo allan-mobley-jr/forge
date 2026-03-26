@@ -283,6 +283,10 @@ rules = [
         'strict_required_status_checks_policy': False,
         'required_status_checks': [{'context': 'Quality Checks'}]
     }},
+    {'type': 'copilot_code_review', 'parameters': {
+        'review_on_push': False,
+        'review_draft_pull_requests': False
+    }},
     {'type': 'non_fast_forward'},
     {'type': 'deletion'}
 ]
