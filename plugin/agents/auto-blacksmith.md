@@ -145,9 +145,13 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
 
 ### 8. Self-Review
 
-- Review your own diff: `git diff main...HEAD`
-- Check for: missing error handling, accessibility, security issues, unused code
-- Fix any issues found
+Review your own diff (`git diff main...HEAD`), then launch review agents in parallel for targeted analysis:
+
+- **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
+- **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
+- **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
+
+Fix any issues found before proceeding. The goal is to catch your own mistakes before the code moves to review.
 
 ### 9. Address Rework Comments (if status:rework)
 
