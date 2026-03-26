@@ -126,8 +126,11 @@ gh issue create \
     --title "<issue title>" \
     --body "<issue body>" \
     --label "ai-generated" \
-    --label "status:ready"
+    --label "status:ready" \
+    --label "type:<bug|chore|refactor>"
 ```
+
+Choose the type label based on the finding: `type:bug` for broken behavior, `type:chore` for maintenance or missing tests, `type:refactor` for code improvement without behavior change.
 
 **Issue body format:**
 ```markdown
