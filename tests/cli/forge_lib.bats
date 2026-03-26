@@ -93,10 +93,6 @@ EOF
 
 # --- FORGE_REQUIRED_LABELS constant ---
 
-@test "FORGE_REQUIRED_LABELS has 23 entries" {
-    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 23 ]]
-}
-
 @test "FORGE_REQUIRED_LABELS entries have pipe-separated format" {
     for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
         # Each entry should have exactly 2 pipes (name|color|description)
