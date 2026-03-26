@@ -733,6 +733,7 @@ case "${1:-}" in
         echo ""
         printf "Deploy to production? (y/n) [n]: "
         read -r confirm
+        confirm="${confirm:-n}"
         if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
             echo "  Cancelled."
             exit 0
