@@ -45,13 +45,13 @@ Read the issue body and all comments for context. If no ingot exists, report tha
 
 ### 2. Research
 
-Launch 1-2 Explore agents in parallel to validate the ingot's plan against reality.
+Launch 2 Explore agents in parallel to validate the ingot against reality.
 
 **Agent 1 — Codebase analysis:**
-Launch an Explore agent to analyze the current project structure, existing patterns, dependencies, and any code already in place. This grounds the issue breakdown in what actually exists.
+Launch an Explore agent to analyze the current project. If code exists, examine the structure, patterns, dependencies, and conventions. If greenfield, confirm the starting state.
 
-**Agent 2 — Domain validation (conditional):**
-If the ingot references domain-specific technology or integrations, launch an Explore agent that uses web search to validate the ingot's technical choices against current best practices and documentation.
+**Agent 2 — Domain validation:**
+Launch an Explore agent that uses web search to validate the ingot's technical choices against current best practices and documentation.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
