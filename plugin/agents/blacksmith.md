@@ -93,14 +93,14 @@ If the issue has `status:rework`:
    ```bash
    gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[(Temperer|Proof-Master)\\]"))] | length'
    ```
-   If the count is **3 or more**, do not implement. Escalate instead:
+   If the count is **5 or more**, do not implement. Escalate instead:
    ```bash
    gh issue edit <N> --add-label "agent:needs-human" --remove-label "status:rework"
    gh issue comment <N> --body "**[Blacksmith Ledger]**
 
    ## Escalation
 
-   This issue has completed 3+ rework cycles. Escalating to human review.
+   This issue has completed 5+ rework cycles. Escalating to human review.
 
    *Posted by the Forge Blacksmith.*"
    ```
@@ -254,4 +254,4 @@ gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered
 - **Always confer with the user** on the plan before implementing.
 - **Always launch research agents** — never skip research.
 - **Always launch the Plan agent** — never plan the implementation yourself.
-- **Max 2 rework cycles** from each reviewer. If sent back 3 times, escalate to `agent:needs-human`.
+- **Max rework cycles:** If sent back 5 times total, escalate to `agent:needs-human`.

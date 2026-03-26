@@ -197,4 +197,4 @@ gh issue comment <N> --body "**[Proof-Master Ledger]**
 - **Action before ledger.** Post the verdict action (label change + feedback/PR) before the ledger comment.
 - **Be specific about failures.** Include exact error output.
 - The PR must reference the issue number with `#<N>`.
-- If the Blacksmith has been sent back 3 times total (Temperer + Proof-Master reworks), escalate to `agent:needs-human`.
+- If the Blacksmith has been sent back 5 times total (Temperer + Proof-Master reworks), escalate to `agent:needs-human`.
