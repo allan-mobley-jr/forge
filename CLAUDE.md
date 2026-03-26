@@ -21,7 +21,6 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-proof-master.md — Auto-Proof-Master: headless testing + PR
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
-  hooks/           — Plugin hooks (hooks.json)
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
@@ -63,7 +62,7 @@ Target projects use these labels (23 total, defined in `forge-lib.sh`):
 
 When creating issues or PRs for **this repo**, apply relevant labels:
 
-- **Component:** `cli`, `bootstrap`, `agents`, `hooks`, `ci`
+- **Component:** `cli`, `bootstrap`, `agents`, `ci`
 - **Type:** `bug`, `enhancement`, `documentation`, `refactor`, `chore`
 
 ## Pipeline Flow

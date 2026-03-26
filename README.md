@@ -264,8 +264,7 @@ forge/
 ├── bootstrap/setup.sh                  # Idempotent project setup
 ├── plugin/                             # Claude Code plugin
 │   ├── .claude-plugin/plugin.json      #   Plugin manifest
-│   ├── agents/                         #   Forge craftsman agents (interactive + auto)
-│   └── hooks/                          #   Plugin hooks
+│   └── agents/                         #   Forge craftsman agents (interactive + auto)
 ├── tests/                              # CLI tests (bats framework)
 └── .claude-plugin/marketplace.json     # Marketplace listing
 ```
