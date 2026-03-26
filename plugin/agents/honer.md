@@ -67,14 +67,29 @@ Additional research as needed:
 
 **If auditing:**
 
-At minimum:
-- **Quality audit:** Analyze the codebase for quality gaps, missing error handling, accessibility issues, and deviations from best practices.
+A codebase audit is hands-on — you read code, run the app, execute tests, and interact with the UI. Launch Explore agents for code analysis, but also perform direct investigation yourself.
+
+**Direct investigation (do this yourself, not via subagents):**
+- Run the test suite (`pnpm test`) and analyze any failures
+- Run the linter and type checker (`pnpm lint`, `pnpm tsc --noEmit`)
+- Start the dev server (`pnpm dev`) and use browser tools (Playwright MCP) to:
+  - Navigate key pages and take screenshots
+  - Check the browser console for errors and warnings
+  - Check network requests for failures or slow responses
+  - Test interactive flows (forms, navigation, auth)
+  - Assess accessibility (contrast, keyboard navigation, screen reader landmarks)
+- Run `pnpm build` and check for build warnings or errors
+
+**Launch Explore agents in parallel for code-level analysis:**
+- **Quality audit:** Analyze the codebase for quality gaps, missing error handling, dead code, and deviations from best practices.
 - **Security & performance:** Check for security vulnerabilities (auth, validation, injection) and performance concerns (N+1 queries, missing caching, large bundles).
 - **Best practices:** Research current best practices for the tech stack in use.
 
+Additional agents as needed for specific concerns surfaced during investigation.
+
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
-After all agents return, synthesize findings.
+After all investigation and agents complete, synthesize findings.
 
 ### 3. Plan
 
