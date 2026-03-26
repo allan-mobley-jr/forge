@@ -323,7 +323,7 @@ Pre-merge gate — verify ALL of the following before merging:
 - [ ] If fixes were made in step 13: second review pass was completed
 - [ ] All review threads resolved
 
-Confirm with the user that everything is ready, then merge:
+**Get explicit user confirmation before merging.** Present the pre-merge gate checklist results and wait for approval.
 ```bash
 gh pr merge <pr_number> --squash --delete-branch
 ```
