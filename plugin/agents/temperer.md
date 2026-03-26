@@ -158,7 +158,7 @@ gh issue comment <N> --body "**[Temperer]** Escalating to human review.
 <describe the ambiguity or design problem>
 
 *Escalated by the Forge Temperer.*"
-gh issue edit <N> --add-label "agent:needs-human"
+gh issue edit <N> --remove-label "status:tempering" --add-label "agent:needs-human"
 ```
 
 ### 8. Post Ledger Comment
