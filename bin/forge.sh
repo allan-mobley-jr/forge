@@ -674,8 +674,8 @@ case "${1:-}" in
         # Remove PATH from shell configs
         for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
             if [ -f "$rc" ]; then
-                sed -i '' '/# Forge/d' "$rc" 2>/dev/null || true
-                sed -i '' '/\.forge\/bin/d' "$rc" 2>/dev/null || true
+                sed -i.bak '/# Forge/d' "$rc" 2>/dev/null && rm -f "${rc}.bak"
+                sed -i.bak '/\.forge\/bin/d' "$rc" 2>/dev/null && rm -f "${rc}.bak"
             fi
         done
 
