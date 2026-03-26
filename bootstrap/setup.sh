@@ -178,7 +178,7 @@ verify_forge_plugin() {
     else
         fail "Forge plugin not installed."
         echo ""
-        echo "  Run: claude plugin marketplace add $FORGE_REPO && claude plugin install forge@forge"
+        echo "  Re-run the installer: curl -fsSL https://raw.githubusercontent.com/allan-mobley-jr/forge/main/install.sh | bash"
         exit 1
     fi
 }
