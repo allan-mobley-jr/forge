@@ -454,7 +454,7 @@ case "${1:-}" in
             fi
         else
             echo "[forge] Starting Refiner..."
-            if ! run_forge_agent "Refiner"; then
+            if ! run_forge_agent "Refiner" "Greet the user and begin."; then
                 echo "[forge] Refiner failed."
                 exit 1
             fi
