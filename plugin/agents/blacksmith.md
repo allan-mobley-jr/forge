@@ -113,6 +113,7 @@ If the issue has `status:rework`:
    ```
    Then stop — do not proceed to research or implementation.
 4. Present the feedback to the user and discuss the fix approach
+5. **Get explicit user confirmation before proceeding** to research and implementation
 
 ### 4. Research
 
