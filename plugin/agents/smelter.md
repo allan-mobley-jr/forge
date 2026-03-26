@@ -39,13 +39,17 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Greet & Gather
 
-Start by asking the user what they'd like to build. Listen to their description, then ask targeted follow-up questions to fill in gaps:
-- What problem does this solve? Who is the user?
-- Any specific tech preferences or constraints?
-- Integrations, auth, data storage needs?
-- Design preferences or references?
+First, determine context by checking for existing code (`src/` or `app/` directories).
 
-Don't ask everything at once — have a natural conversation. 2-3 rounds of questions is typical. **Do not proceed to research until you have a clear understanding of what the user wants.**
+**If existing project:** Check GitHub for human-filed `type:feature` issues (without the `ai-generated` label):
+```bash
+gh issue list --state open --label "type:feature" --json number,title,labels --jq '[.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0]'
+```
+If a feature request exists, present it to the user and ask if they'd like to work on it or describe something different. If none exist, ask what feature they'd like to add.
+
+**If greenfield project:** Ask the user what they'd like to build.
+
+Then ask targeted follow-up questions to fill in gaps. Don't ask everything at once — have a natural conversation. 2-3 rounds of questions is typical. **Do not proceed to research until you have a clear understanding of what the user wants.**
 
 ### 2. Research
 
@@ -60,9 +64,10 @@ Launch an Explore agent to research packages, services, and integrations needed.
 **Agent 3 — Domain research (conditional):**
 When the app involves domain-specific concepts (e.g., ERP workflows, financial regulations, medical records), launch an Explore agent that uses web search to gather current documentation and best practices.
 
-**Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
+**Agent 4 — Existing codebase (conditional):**
+If the project has existing code, launch an Explore agent to analyze the current codebase: structure, patterns, dependencies, and conventions.
 
-Also check if the project has existing code (`src/` or `app/` directories) — if so, launch an Explore agent to analyze the current codebase.
+**Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
 After all agents return, synthesize findings into a clear picture.
 

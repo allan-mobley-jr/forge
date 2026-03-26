@@ -423,7 +423,7 @@ case "${1:-}" in
             fi
         else
             echo "[forge] Starting Smelter..."
-            if ! run_forge_agent "Smelter"; then
+            if ! run_forge_agent "Smelter" "Greet the user and begin."; then
                 echo "[forge] Smelter failed."
                 exit 1
             fi
