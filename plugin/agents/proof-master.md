@@ -126,7 +126,18 @@ Follow existing test patterns and conventions in the project.
 If tests (existing or new) reveal bugs:
 - Fix the bug. You are not adding features or refactoring — only fixing what breaks during testing.
 - Re-run the affected tests to confirm the fix.
-- If you cannot fix a bug, escalate to `agent:needs-human`.
+- If you cannot fix a bug, escalate:
+  ```bash
+  gh issue edit <N> --add-label "agent:needs-human" --remove-label "status:proving"
+  gh issue comment <N> --body "**[Proof-Master]** Escalating to human review.
+
+  ## Unfixable Test Failure
+
+  <describe what failed and why it couldn't be fixed>
+
+  *Escalated by the Forge Proof-Master.*"
+  ```
+  Then stop — do not proceed.
 
 ### 8. Ensure CI Workflow
 
@@ -144,7 +155,18 @@ pnpm build
 
 Validate each acceptance criterion from the issue body.
 
-If everything passes, proceed to open the PR. If something still fails and you cannot fix it, escalate to `agent:needs-human`.
+If everything passes, proceed to open the PR. If something still fails and you cannot fix it, escalate:
+```bash
+gh issue edit <N> --add-label "agent:needs-human" --remove-label "status:proving"
+gh issue comment <N> --body "**[Proof-Master]** Escalating to human review.
+
+## Validation Failure
+
+<describe what still fails after all fix attempts>
+
+*Escalated by the Forge Proof-Master.*"
+```
+Then stop — do not proceed.
 
 ### 10. Open PR
 
