@@ -48,7 +48,14 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Find the Issue
 
-Find the next issue (rework takes priority over ready):
+First, check if any issue is flagged for human attention:
+```bash
+gh issue list --state open --label "agent:needs-human" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
+```
+
+If an `agent:needs-human` issue exists, **stop immediately**. Report: "Issue #N requires human intervention. Run `forge hammer` (interactive) to resolve it." Do not proceed to other issues.
+
+Otherwise, find the next issue (rework takes priority over ready):
 
 ```bash
 gh issue list --state open --label "status:rework" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
