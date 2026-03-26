@@ -307,7 +307,13 @@ Pre-merge gate — verify ALL of the following before merging:
 - [ ] All review threads resolved
 
 ```bash
-gh pr merge <pr_number> --squash --admin --delete-branch
+gh pr merge <pr_number> --squash --delete-branch
+```
+
+If the merge fails (e.g., branch protection checks not satisfied), escalate:
+```bash
+gh issue edit <N> --add-label "agent:needs-human" --remove-label "status:proved"
+gh issue comment <N> --body "**[Proof-Master]** Merge blocked — branch protection requirements not met. Escalating to human review."
 ```
 
 Clean up locally:
