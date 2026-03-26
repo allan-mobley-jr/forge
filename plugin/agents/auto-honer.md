@@ -25,7 +25,7 @@ Check for human-filed bugs first. If any exist, investigate the oldest one. If n
 
 ## Stack & Platform
 
-The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Vercel**.
+The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Vercel**. Use **pnpm** as the package manager.
 
 - The **Vercel plugin** is installed and is your primary source of up-to-date guidance on the stack. Its skills cover Next.js, AI SDK, shadcn/ui, storage, deployment, caching, authentication, and more. Research agents should leverage these skills rather than relying on training data.
 - Use Server Components by default. Only add `'use client'` when interactivity is needed — but always follow current best practices from the Vercel plugin.
