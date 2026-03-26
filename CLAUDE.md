@@ -1,65 +1,82 @@
 # Forge
 
-Autonomous Next.js development system for macOS. See `README.md` for the full specification.
+Autonomous Next.js development system. See `README.md` for the full specification.
 
 ## Repository Structure
 
 ```
-skills/                              — Claude Code skill definitions (orchestrators)
-  forge-smelting-orchestrator/       — Smelting pipeline: PROMPT.md → specification + issue queue
-  forge-hammering-orchestrator/      — Hammering pipeline: implement one ai-generated issue
-  forge-tempering-orchestrator/      — Tempering pipeline: independent review + PR opening
-  forge-honing-orchestrator/         — Honing pipeline: triage, audit, file maintenance issues
-agents/                              — Claude Code agent definitions (pipeline stages)
-  smelting-architect.md              — Smelting stage: architecture analysis
-  smelting-designer.md               — Smelting stage: design analysis
-  smelting-stacker.md                — Smelting stage: stack analysis
-  smelting-assessor.md               — Smelting stage: risk assessment
-  smelting-planner.md                — Smelting stage: issue breakdown
-  smelting-advocate.md               — Smelting stage: devil's advocate
-  smelting-reviewer.md               — Smelting stage: meta-review of plan
-  smelting-filer.md                  — Smelting stage: file issues + SPECIFICATION.md
-  hammering-researcher.md            — Hammering stage: codebase research
-  hammering-planner.md               — Hammering stage: implementation plan
-  hammering-advocate.md              — Hammering stage: devil's advocate
-  hammering-implementor.md           — Hammering stage: write code
-  hammering-tester.md                — Hammering stage: write tests
-  hammering-reviewer.md              — Hammering stage: self-review
-  tempering-reviewer.md              — Tempering stage: independent code review (read-only)
-  tempering-advocate.md              — Tempering stage: challenge review fairness
-  tempering-opener.md                — Tempering stage: open PR
-  tempering-reviser.md               — Tempering stage: PR review feedback
-  honing-triager.md                  — Honing stage: triage human issues
-  honing-auditor.md                  — Honing stage: audit app vs spec
-  honing-domain-researcher.md        — Honing stage: external domain research
-  honing-planner.md                  — Honing stage: propose maintenance issues
-  honing-advocate.md                 — Honing stage: challenge proposed issues
-  honing-filer.md                    — Honing stage: file issues
-cli/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
-hooks/           — .claude/settings.json template for projects
-workflows/       — GitHub Actions CI templates
-templates/       — CLAUDE.md.hbs, PROMPT.md, issue-body.md
-bootstrap/       — setup.sh (38-step idempotent project bootstrap)
+.claude-plugin/  — Marketplace listing (marketplace.json)
+plugin/          — Claude Code plugin (only this gets cached)
+  .claude-plugin/  — Plugin manifest (plugin.json)
+  agents/          — Forge craftsman agents (interactive + auto pairs)
+    smelter.md       — Smelter: interactive ingot creation
+    auto-smelter.md  — Auto-Smelter: ingot from type:feature issue
+    refiner.md       — Refiner: interactive ingot → issues
+    auto-refiner.md  — Auto-Refiner: ingot → issues headless
+    blacksmith.md    — Blacksmith: interactive implementation
+    auto-blacksmith.md — Auto-Blacksmith: headless implementation
+    temperer.md      — Temperer: interactive code review
+    auto-temperer.md — Auto-Temperer: headless code review
+    proof-master.md  — Proof-Master: interactive testing + PR
+    auto-proof-master.md — Auto-Proof-Master: headless testing + PR
+    honer.md         — Honer: interactive bug triage / audit
+    auto-honer.md    — Auto-Honer: headless bug triage / audit
+bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
+bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
 install.sh       — curl | bash installer
 research/        — ad-hoc research notes and scratchpad (not committed)
 ```
 
+## Artifacts (in target projects)
+
+All planning artifacts are stored as GitHub issues and comments — not files on disk:
+
+- **Ingots** — GitHub issues labeled `type:ingot`, created by Smelter and Honer
+- **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
+- **Rework comments** — tagged with `**[Temperer]**`
+
 ## Conventions
 
-- Skills use YAML frontmatter with `name`, `description`, `allowed-tools`
-- Agents use YAML frontmatter with `name`, `description`, `tools`, `disallowedTools`
+- Agents use YAML frontmatter with `name`, `description`, `tools`
+- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`)
+- Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
+- Agents own their label transitions — the CLI only reads state
+- Every agent follows: research (Explore agents) → plan (Plan agent) → confer/decide → execute → record
+- Domain agents at `~/.claude/agents/` are considered during research
+- Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
-- GitHub is the sole state machine — no local state files
-- Shell scripts target macOS (zsh) with Homebrew assumed
+- GitHub labels and issue comments track pipeline state
+- Forge targets Next.js + Tailwind CSS + TypeScript on Vercel — this is intentional scope, not a limitation to fix
 
 ## Labels
 
-When creating issues or PRs, apply relevant labels:
+Target projects use these labels (23 total, defined in `forge-lib.sh`):
 
-- **Component:** `cli`, `bootstrap`, `skills`, `agents`, `hooks`, `ci`
-- **Pipeline:** `pipeline:smelting`, `pipeline:hammering`, `pipeline:tempering`, `pipeline:honing`
+- **Meta:** `ai-generated`, `agent:needs-human`
+- **Artifact:** `type:ingot`
+- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:proving`, `status:proved`
+- **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
+- **Priority:** `priority:high`, `priority:medium`, `priority:low`
+- **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`
+
+When creating issues or PRs for **this repo**, apply relevant labels:
+
+- **Component:** `cli`, `bootstrap`, `agents`, `ci`
 - **Type:** `bug`, `enhancement`, `documentation`, `refactor`, `chore`
+
+## Pipeline Flow
+
+```
+forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
+                     ↑                                                    │
+                     │                                                    │
+                forge hone  ←─────────── (app running, issues done) ──────┘
+```
+
+Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
+`forge stoke` processes the issue queue: dispatches based on the oldest issue's status label.
+`forge cast` runs the full autonomous cycle: smelt → refine → stoke → hone (repeats if new work emerges).
 
 ## Git Workflow
 
@@ -68,7 +85,7 @@ When creating issues or PRs, apply relevant labels:
 **Every commit must be exactly one logical change.** This is non-negotiable.
 
 - One fix per commit. One feature per commit. One refactor per commit.
-- If you changed a skill file AND updated docs AND fixed a bootstrap bug, that's three commits — not one.
+- If you changed an agent file AND updated docs AND fixed a bootstrap bug, that's three commits — not one.
 - If you're about to `git add` files from different concerns, stop and split them.
 - Commit early and often. Small commits are easier to review, revert, and bisect.
 - Write a short "why" summary on the first line, add detail in the body if needed.

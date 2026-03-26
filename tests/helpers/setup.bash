@@ -25,7 +25,7 @@ setup() {
     export RED="" GREEN="" YELLOW="" BLUE="" BOLD="" DIM="" NC=""
 
     # Source the library under test
-    source "$FORGE_TEST_DIR/cli/forge-lib.sh"
+    source "$FORGE_TEST_DIR/bin/forge-lib.sh"
 }
 
 teardown() {
@@ -43,6 +43,16 @@ mock_gh_with() {
 $1
 MOCK_SCRIPT
     chmod +x "$MOCK_BIN/gh"
+}
+
+# Create a mock `claude` that dispatches based on arguments.
+# Usage: mock_claude_with <script-body>
+mock_claude_with() {
+    cat > "$MOCK_BIN/claude" <<MOCK_SCRIPT
+#!/usr/bin/env bash
+$1
+MOCK_SCRIPT
+    chmod +x "$MOCK_BIN/claude"
 }
 
 # Ensure jq is available, otherwise skip the test.

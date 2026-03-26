@@ -21,37 +21,28 @@ load "../helpers/setup"
 
 # --- require_forge_project ---
 
-@test "require_forge_project exits 1 when .claude/skills missing" {
+@test "require_forge_project exits 1 when not registered" {
     cd "$TEST_TMPDIR"
     run require_forge_project
     [[ "$status" -eq 1 ]]
     [[ "$output" == *"Not a Forge project"* ]]
 }
 
-@test "require_forge_project succeeds when .claude/skills exists" {
+@test "require_forge_project succeeds when registered in config.json" {
     cd "$TEST_TMPDIR"
-    mkdir -p .claude/skills
+    mkdir -p "$HOME/.forge"
+    cat > "$HOME/.forge/config.json" <<EOF
+{
+  "projects": {
+    "test": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z"
+    }
+  }
+}
+EOF
     run require_forge_project
-    [[ "$status" -eq 0 ]]
-}
-
-# --- require_forge_skills ---
-
-@test "require_forge_skills exits when orchestrator skills missing" {
-    cd "$TEST_TMPDIR"
-    mkdir -p .claude/skills
-    run require_forge_skills
-    [[ "$status" -eq 1 ]]
-    [[ "$output" == *"forge-smelting-orchestrator"* ]]
-}
-
-@test "require_forge_skills succeeds when all four orchestrators present" {
-    cd "$TEST_TMPDIR"
-    for skill in forge-smelting-orchestrator forge-hammering-orchestrator forge-tempering-orchestrator forge-honing-orchestrator; do
-        mkdir -p ".claude/skills/$skill"
-        touch ".claude/skills/$skill/SKILL.md"
-    done
-    run require_forge_skills
     [[ "$status" -eq 0 ]]
 }
 
@@ -62,6 +53,11 @@ load "../helpers/setup"
     mock_gh_with '
         args="$*"
         if [[ "$args" == *"label list"* ]]; then
+            # Verify correct flags are used
+            if [[ "$args" != *"--json"* ]] || [[ "$args" != *"--jq"* ]]; then
+                echo "ERROR: label list called without --json/--jq" >&2
+                exit 1
+            fi
             # Only agent:planning exists
             echo "agent:planning"
             exit 0
@@ -89,6 +85,10 @@ load "../helpers/setup"
     mock_gh_with "
         args=\"\$*\"
         if [[ \"\$args\" == *\"label list\"* ]]; then
+            if [[ \"\$args\" != *\"--json\"* ]] || [[ \"\$args\" != *\"--jq\"* ]]; then
+                echo 'ERROR: label list called without --json/--jq' >&2
+                exit 1
+            fi
             echo '$all_names'
             exit 0
         fi
@@ -100,84 +100,7 @@ load "../helpers/setup"
     [[ "$output" != *"Re-created"* ]]
 }
 
-# --- set_stage_label ---
-
-@test "set_stage_label removes old stage labels and adds new one" {
-    local calls=()
-    mock_gh_with '
-        args="$*"
-        if [[ "$args" == *"issue view"* ]]; then
-            echo "agent:create-researcher"
-            exit 0
-        fi
-        if [[ "$args" == *"--remove-label"* ]]; then
-            echo "removed" >&2
-            exit 0
-        fi
-        if [[ "$args" == *"--add-label"* ]]; then
-            echo "added" >&2
-            exit 0
-        fi
-    '
-
-    run set_stage_label 1 "agent:create-architect"
-    [[ "$status" -eq 0 ]]
-}
-
-# --- escalate ---
-
-@test "escalate posts comment and adds needs-human label" {
-    mock_gh_with '
-        args="$*"
-        if [[ "$args" == *"issue comment"* ]]; then
-            # Verify the comment body contains Agent Question
-            if [[ "$args" == *"Agent Question"* ]]; then
-                exit 0
-            fi
-            exit 1
-        fi
-        if [[ "$args" == *"--add-label"*"agent:needs-human"* ]]; then
-            exit 0
-        fi
-        if [[ "$args" == *"issue view"* ]]; then
-            echo ""
-            exit 0
-        fi
-        if [[ "$args" == *"--remove-label"* ]]; then
-            exit 0
-        fi
-    '
-
-    run escalate 5 "I need help with something"
-    [[ "$status" -eq 0 ]]
-}
-
-# --- apply_timeout_default ---
-
-@test "apply_timeout_default posts acknowledgment and removes label" {
-    mock_gh_with '
-        args="$*"
-        if [[ "$args" == *"issue comment"* ]]; then
-            if [[ "$args" == *"Acknowledged"* ]]; then
-                exit 0
-            fi
-        fi
-        if [[ "$args" == *"--remove-label"*"agent:needs-human"* ]]; then
-            exit 0
-        fi
-        exit 0
-    '
-
-    run apply_timeout_default 12
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == *"24h timeout"* ]]
-}
-
 # --- FORGE_REQUIRED_LABELS constant ---
-
-@test "FORGE_REQUIRED_LABELS has 37 entries" {
-    [[ ${#FORGE_REQUIRED_LABELS[@]} -eq 37 ]]
-}
 
 @test "FORGE_REQUIRED_LABELS entries have pipe-separated format" {
     for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
@@ -188,15 +111,403 @@ load "../helpers/setup"
     done
 }
 
-# --- AGENT_HEADER_PATTERN ---
+# --- check_auth ---
 
-@test "AGENT_HEADER_PATTERN matches agent headers" {
-    [[ "## Agent Question" =~ $AGENT_HEADER_PATTERN ]]
-    [[ "## Acknowledged" =~ $AGENT_HEADER_PATTERN ]]
-    [[ "## [Stage: researcher]" =~ $AGENT_HEADER_PATTERN ]]
+@test "check_auth succeeds when gh is authenticated" {
+    mock_gh_with '
+        if [[ "$*" == *"auth status"* ]]; then
+            exit 0
+        fi
+    '
+    run check_auth
+    [[ "$status" -eq 0 ]]
 }
 
-@test "AGENT_HEADER_PATTERN does not match human comments" {
-    [[ ! "Do option A please" =~ $AGENT_HEADER_PATTERN ]]
-    [[ ! "## My Heading" =~ $AGENT_HEADER_PATTERN ]]
+@test "check_auth exits 1 when gh is missing" {
+    # Remove gh from PATH entirely
+    rm -f "$MOCK_BIN/gh"
+    hash -r 2>/dev/null || true
+    OLD_PATH="$PATH"
+    export PATH="$MOCK_BIN"
+    run check_auth
+    export PATH="$OLD_PATH"
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"Auth check failed"* ]]
+}
+
+@test "check_auth exits 1 when not authenticated and refresh fails" {
+    mock_gh_with '
+        if [[ "$*" == *"auth status"* ]]; then
+            exit 1
+        fi
+        if [[ "$*" == *"auth refresh"* ]]; then
+            exit 1
+        fi
+    '
+    run check_auth
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"not authenticated"* ]]
+}
+
+@test "check_auth recovers when refresh succeeds" {
+    mock_gh_with '
+        if [[ "$*" == *"auth status"* ]]; then
+            exit 1
+        fi
+        if [[ "$*" == *"auth refresh"* ]]; then
+            exit 0
+        fi
+    '
+    run check_auth
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"auth refreshed"* ]]
+}
+
+# --- run_forge_agent ---
+
+@test "run_forge_agent invokes claude with correct agent name" {
+    # Create a minimal agent file
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/smelter.md" <<'EOF'
+---
+name: Smelter
+tools:
+  - Bash
+  - Read
+---
+EOF
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--agent"* ]]
+    [[ "$output" == *"forge:smelter"* ]]
+}
+
+@test "run_forge_agent passes prompt with -p flag" {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-smelter.md" <<'EOF'
+---
+name: Auto-Smelter
+tools:
+  - Bash
+---
+EOF
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "auto-smelter" "Do the thing."
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"-p"* ]]
+    [[ "$output" == *"Do the thing."* ]]
+}
+
+@test "run_forge_agent extracts tools from frontmatter" {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/blacksmith.md" <<'EOF'
+---
+name: Blacksmith
+tools:
+  - Bash
+  - Read
+  - Write
+---
+EOF
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--allowedTools"* ]]
+    [[ "$output" == *"Bash,Read,Write"* ]]
+}
+
+@test "run_forge_agent propagates exit code from claude" {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/smelter.md" <<'EOF'
+---
+name: Smelter
+tools:
+  - Bash
+---
+EOF
+    mock_claude_with 'exit 42'
+    run run_forge_agent "Smelter"
+    [[ "$status" -eq 42 ]]
+}
+
+# --- find_issue_for_hammer ---
+
+@test "find_issue_for_hammer returns needs-human issue first" {
+    mock_gh_with '
+        if [[ "$*" == *"agent:needs-human"* ]]; then
+            echo "7"
+            exit 0
+        fi
+        if [[ "$*" == *"status:rework"* ]]; then
+            echo "5"
+            exit 0
+        fi
+        if [[ "$*" == *"status:ready"* ]]; then
+            echo "3"
+            exit 0
+        fi
+    '
+    run find_issue_for_hammer
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "7" ]]
+}
+
+@test "find_issue_for_hammer prefers rework over ready" {
+    mock_gh_with '
+        if [[ "$*" == *"agent:needs-human"* ]]; then
+            echo ""
+            exit 0
+        fi
+        if [[ "$*" == *"status:rework"* ]]; then
+            echo "5"
+            exit 0
+        fi
+        if [[ "$*" == *"status:ready"* ]]; then
+            echo "3"
+            exit 0
+        fi
+    '
+    run find_issue_for_hammer
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "5" ]]
+}
+
+@test "find_issue_for_hammer falls back to ready" {
+    mock_gh_with '
+        if [[ "$*" == *"agent:needs-human"* ]]; then
+            echo ""
+            exit 0
+        fi
+        if [[ "$*" == *"status:rework"* ]]; then
+            echo ""
+            exit 0
+        fi
+        if [[ "$*" == *"status:ready"* ]]; then
+            echo "3"
+            exit 0
+        fi
+    '
+    run find_issue_for_hammer
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "3" ]]
+}
+
+@test "find_issue_for_hammer returns empty when no issues" {
+    mock_gh_with 'echo ""'
+    run find_issue_for_hammer
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+# --- find_issue_for_temper ---
+
+@test "find_issue_for_temper returns lowest hammered issue" {
+    mock_gh_with 'echo "12"'
+    run find_issue_for_temper
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "12" ]]
+}
+
+@test "find_issue_for_temper returns empty when none" {
+    mock_gh_with 'echo ""'
+    run find_issue_for_temper
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+# --- find_issue_for_proof ---
+
+@test "find_issue_for_proof returns lowest tempered issue" {
+    mock_gh_with 'echo "15"'
+    run find_issue_for_proof
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "15" ]]
+}
+
+@test "find_issue_for_proof returns empty when none" {
+    mock_gh_with 'echo ""'
+    run find_issue_for_proof
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+# --- find_unprocessed_ingots ---
+
+@test "find_unprocessed_ingots returns multiple issues" {
+    mock_gh_with 'printf "1\n2\n3\n"'
+    run find_unprocessed_ingots
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"1"* ]]
+    [[ "$output" == *"2"* ]]
+    [[ "$output" == *"3"* ]]
+}
+
+@test "find_unprocessed_ingots returns empty when none" {
+    mock_gh_with 'echo ""'
+    run find_unprocessed_ingots
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+# --- run_stoke_loop ---
+
+# Helper: mock gh that returns an issue on first status query, empty on second.
+# Uses a counter file to track call sequence.
+# $1 = issue number, $2 = status label
+_mock_stoke_gh() {
+    local issue="$1" status="$2"
+    mock_gh_with "
+        args=\"\$*\"
+        # agent:needs-human check — always empty
+        if [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
+            echo ''
+            exit 0
+        fi
+        # Status query — use counter to return issue first, then empty
+        COUNTER_FILE=\"$TEST_TMPDIR/gh_call_count\"
+        count=\$(cat \"\$COUNTER_FILE\" 2>/dev/null || echo 0)
+        count=\$((count + 1))
+        echo \"\$count\" > \"\$COUNTER_FILE\"
+        if [ \"\$count\" -eq 1 ]; then
+            printf '%s\t%s' '$issue' '$status'
+        else
+            echo ''
+        fi
+    "
+}
+
+@test "run_stoke_loop returns 0 when queue is empty" {
+    mock_gh_with '
+        echo ""
+    '
+    mock_claude_with 'exit 0'
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Queue complete"* ]]
+}
+
+@test "run_stoke_loop returns 1 when agent:needs-human is set" {
+    mock_gh_with '
+        if [[ "$*" == *"agent:needs-human"* ]]; then
+            echo "7"
+            exit 0
+        fi
+        echo ""
+    '
+    mock_claude_with 'exit 0'
+    run run_stoke_loop
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"agent:needs-human"* ]]
+    [[ "$output" == *"#7"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-blacksmith for status:ready" {
+    _mock_stoke_gh 10 "status:ready"
+    mock_claude_with 'echo "called: $*"'
+    # Create agent file so run_forge_agent can extract tools
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-blacksmith.md" <<'AGENT'
+---
+name: auto-blacksmith
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Hammering issue #10"* ]]
+    [[ "$output" == *"forge:auto-blacksmith"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-blacksmith for status:rework" {
+    _mock_stoke_gh 5 "status:rework"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-blacksmith.md" <<'AGENT'
+---
+name: auto-blacksmith
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Hammering issue #5"* ]]
+    [[ "$output" == *"forge:auto-blacksmith"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-temperer for status:hammered" {
+    _mock_stoke_gh 10 "status:hammered"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-temperer.md" <<'AGENT'
+---
+name: auto-temperer
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Tempering issue #10"* ]]
+    [[ "$output" == *"forge:auto-temperer"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-proof-master for status:tempered" {
+    _mock_stoke_gh 10 "status:tempered"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-proof-master.md" <<'AGENT'
+---
+name: auto-proof-master
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Proofing issue #10"* ]]
+    [[ "$output" == *"forge:auto-proof-master"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-proof-master for status:proved" {
+    _mock_stoke_gh 10 "status:proved"
+    mock_claude_with 'echo "called: $*"'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-proof-master.md" <<'AGENT'
+---
+name: auto-proof-master
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"proved but still open"* ]]
+    [[ "$output" == *"forge:auto-proof-master"* ]]
+}
+
+@test "run_stoke_loop returns 1 on unknown status" {
+    _mock_stoke_gh 10 "status:something-weird"
+    mock_claude_with 'exit 0'
+    run run_stoke_loop
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"unknown status"* ]]
+}
+
+@test "run_stoke_loop returns 1 when agent fails" {
+    _mock_stoke_gh 10 "status:ready"
+    mock_claude_with 'exit 1'
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/auto-blacksmith.md" <<'AGENT'
+---
+name: auto-blacksmith
+tools:
+  - Bash
+---
+AGENT
+    run run_stoke_loop
+    [[ "$status" -eq 1 ]]
+    [[ "$output" == *"failed"* ]]
 }
