@@ -512,7 +512,7 @@ case "${1:-}" in
             fi
         else
             echo "[forge] Starting Temperer on issue #$issue..."
-            if ! run_forge_agent "Temperer"; then
+            if ! run_forge_agent "Temperer" "Greet the user and begin."; then
                 echo "[forge] Temperer failed on issue #$issue."
                 exit 1
             fi
