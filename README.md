@@ -61,9 +61,11 @@ Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent
    └───────────────┘       └──────────┘
 
    forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
-                        ↑                                                    │
-                        │                                                    │
-                   forge hone  ←────────── (app running, issues done) ───────┘
+                        ↑              ↑─── forge stoke ───↑              │
+                        │                                                 │
+                   forge hone  ←────────── (app running, issues done) ────┘
+
+                   forge cast  =  smelt → refine → stoke → hone (full cycle)
 ```
 
 ### The Craftsmen
