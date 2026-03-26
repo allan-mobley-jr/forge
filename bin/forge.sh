@@ -702,10 +702,17 @@ case "${1:-}" in
             exit 1
         }
 
-        local_main=$(git rev-parse origin/main 2>/dev/null)
-        local_prod=$(git rev-parse origin/production 2>/dev/null)
+        remote_main=$(git rev-parse origin/main 2>/dev/null)
+        remote_prod=$(git rev-parse origin/production 2>/dev/null)
 
-        if [ "$local_main" = "$local_prod" ]; then
+        if [ -z "$remote_prod" ]; then
+            echo -e "${RED}Error:${NC} Remote production branch not found."
+            echo "  Run 'forge init --resume' to create it, or push manually:"
+            echo "  git push origin main:production"
+            exit 1
+        fi
+
+        if [ "$remote_main" = "$remote_prod" ]; then
             echo -e "${GREEN}Nothing to deploy — production is already at main.${NC}"
             exit 0
         fi
