@@ -62,6 +62,8 @@ Additional research as needed:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
+**Historical context:** Research agents should run `git blame` on suspicious code to understand why it was written that way before flagging it. Check closed issues (`gh issue list --state closed`) for recurring bugs or prior fixes in the same area. Read commit messages for rationale on past decisions.
+
 After all agents return, synthesize findings.
 
 ### 2b. Research Audit
@@ -94,6 +96,8 @@ Additional agents as needed for specific concerns surfaced during investigation.
 - **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
+
+**Historical context:** Same as above — `git blame`, closed issues, and commit messages provide essential context for audit findings.
 
 After all investigation and agents complete, synthesize findings.
 

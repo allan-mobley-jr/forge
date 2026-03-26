@@ -67,6 +67,8 @@ Additional research as needed:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
+**Historical context:** Research agents should check closed ingots (`gh issue list --state closed --label type:ingot`) to understand what was already planned and built. Read their ledger comments for architectural decisions that inform the current specification.
+
 After all agents return, synthesize findings into a clear picture.
 
 ### 3. Plan

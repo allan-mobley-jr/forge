@@ -122,6 +122,8 @@ Additional research as needed:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
+**Historical context:** Research agents should run `git blame` on files being modified to understand why code was written that way. Read `git log` for the affected area to understand prior changes. Trace the issue back to its originating ingot (referenced in the issue body or comments) for architectural context.
+
 After all agents return, synthesize findings.
 
 ### 5. Plan & Confer

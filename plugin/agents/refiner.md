@@ -55,6 +55,8 @@ At minimum:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
+**Historical context:** Research agents should check closed issues for precedent on how similar work was decomposed and sequenced. Read commit messages (`git log --oneline`) for a sense of the project's evolution and existing patterns.
+
 After all agents return, synthesize findings.
 
 ### 3. Plan

@@ -87,6 +87,8 @@ At minimum:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
+**Historical context:** Research agents should run `git blame` on changed files to distinguish intentional design from accidental patterns. Read the originating ingot (traced via issue comments) to understand whether the implementation aligns with the original specification.
+
 After all agents return, synthesize findings.
 
 ### 4. Plan

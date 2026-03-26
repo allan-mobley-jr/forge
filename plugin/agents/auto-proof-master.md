@@ -79,6 +79,8 @@ At minimum:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
+**Historical context:** Research agents should read `git log` for test files to understand existing test patterns and conventions. Check closed PRs for the project's testing standards.
+
 After all agents return, synthesize findings.
 
 ### 4. Plan & Decide
