@@ -204,63 +204,100 @@ EOF
 
 ### 11. Wait for Copilot Review
 
-Wait 15 seconds after PR creation for the Copilot review workflow to trigger:
+Copilot code review runs as a GitHub Actions workflow, not a PR status check. It uses `refs/pull/<pr_number>/head` as its head branch.
+
+Poll for the workflow run every 5 seconds (up to 60 seconds):
 ```bash
-gh run list --limit 10 --json databaseId,name,status,headBranch \
-  --jq '.[] | select(.headBranch == "refs/pull/<pr_number>/head") | select(.name | test("copilot|code.review"; "i"))'
+for i in $(seq 1 12); do
+  RUN=$(gh run list --limit 10 --json databaseId,name,status,headBranch \
+    --jq '.[] | select(.headBranch == "refs/pull/<pr_number>/head") | select(.name | test("copilot|code.review"; "i")) | .databaseId' | head -1)
+  [ -n "$RUN" ] && break
+  sleep 5
+done
 ```
 
-If a matching workflow is found with status `in_progress` or `queued`, watch it:
-```bash
-gh run watch <run-id>
-```
-
-If no matching workflow appears within 30 seconds, proceed. Never wait longer than 5 minutes.
+If `$RUN` is set, watch it: `gh run watch <run-id>`. If no run appears within 60 seconds, proceed. **Never wait longer than 5 minutes total.**
 
 ### 12. Handle Copilot Comments
 
-Wait 30 seconds after the workflow completes, then fetch comments:
+Poll for review comments every 10 seconds (up to 60 seconds) — Copilot posts comments asynchronously after the workflow finishes:
 ```bash
+for i in $(seq 1 6); do
+  COMMENTS=$(gh api repos/{owner}/{repo}/pulls/<pr_number>/comments --jq 'length')
+  [ "$COMMENTS" -gt 0 ] && break
+  sleep 10
+done
 gh api repos/{owner}/{repo}/pulls/<pr_number>/comments --paginate
 ```
 
-If empty, wait 15 more seconds and retry once.
+Classify every comment into one of four categories:
+- **Legitimate bug** — real issue causing incorrect behavior or failures
+- **Legitimate but dormant** — technically correct but code path is unreachable or blocked by safeguards
+- **Noise/false positive** — reviewer misread code, missed context, or flagged something that isn't an issue
+- **Style preference** — valid observation about naming/formatting, not a correctness issue
 
-Classify each comment:
-- **Legitimate bug** — real issue causing incorrect behavior. Fix it.
-- **Legitimate but dormant** — technically correct but unreachable. Note it but don't fix.
-- **Noise/false positive** — reviewer misread code. Reply explaining why it's correct.
-- **Style preference** — apply if trivial, skip if opinionated.
+Identify shared root causes — multiple comments may stem from the same underlying issue; group these together.
 
-Present the comments and your classification to the user. **Get user confirmation before acting.**
+**Never accept automated reviewer suggestions at face value.** Copilot and similar tools frequently flag correct error handling, suggest changes that break architecture, miss that problems are handled elsewhere, or raise concerns about unreachable code paths.
+
+Present findings organized by classification to the user. **Get explicit user confirmation** on what to fix, what to skip, and what to defer.
 
 ### 13. Implement Fixes & Re-Review
+
+If no changes are needed, skip to step 14.
 
 If fixes are needed:
 1. Implement the agreed fixes
 2. Run the quality suite again (`pnpm lint`, `pnpm tsc --noEmit`, `pnpm test`, `pnpm build`)
+
+> **DO NOT SKIP THE SECOND REVIEW PASS. DO NOT PROCEED UNTIL COMPLETE.**
+
 3. Launch a second review pass — three agents in parallel:
    - **`pr-review-toolkit:code-reviewer`**
    - **`pr-review-toolkit:silent-failure-hunter`**
    - **`pr-review-toolkit:pr-test-analyzer`**
 4. Fix any issues from the review agents
-5. Commit and push
+5. Re-run tests after fixes
+6. Commit and push
+
+This step is not optional. Copilot fixes are new code that has not been reviewed.
 
 ### 14. Reply & Resolve Threads
 
-Reply to each Copilot comment:
-- Fixed: `Fixed in <commit-sha>. <brief explanation>`
-- False positive: `This is handled correctly — <explanation>`
-- Dormant: `Good catch, though this path isn't reachable because <reason>.`
+Reply to each comment thread:
+- Fixed: `Fixed in <commit-sha>. <brief explanation of the change>`
+- False positive: `This is actually handled correctly — <explanation>. <reference to the specific code>`
+- Dormant: `Good catch, though this path isn't reachable today because <reason>.`
 
-Resolve all review threads:
+Resolve all threads:
 ```bash
-gh api graphql -f query='query { repository(owner: "{owner}", name: "{repo}") { pullRequest(number: <pr_number>) { reviewThreads(first: 100) { nodes { id isResolved } } } } }'
+gh api graphql -f query='
+query {
+  repository(owner: "{owner}", name: "{repo}") {
+    pullRequest(number: <pr_number>) {
+      reviewThreads(first: 100) {
+        nodes { id isResolved }
+      }
+    }
+  }
+}'
+
 # For each unresolved thread:
-gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<thread_id>"}) { thread { isResolved } } }'
+gh api graphql -f query='
+mutation {
+  resolveReviewThread(input: {threadId: "<thread_id>"}) {
+    thread { isResolved }
+  }
+}'
 ```
 
 ### 15. Merge
+
+Pre-merge gate — verify ALL of the following before merging:
+- [ ] Tests pass
+- [ ] Lint clean
+- [ ] If fixes were made in step 13: second review pass was completed
+- [ ] All review threads resolved
 
 Confirm with the user that everything is ready, then merge:
 ```bash
