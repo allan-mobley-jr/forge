@@ -202,12 +202,77 @@ EOF
     --head <branch>
 ```
 
-Enable auto-merge if available:
+### 11. Wait for Copilot Review
+
+Wait 15 seconds after PR creation for the Copilot review workflow to trigger:
 ```bash
-gh pr merge --auto --squash
+gh run list --limit 10 --json databaseId,name,status,headBranch \
+  --jq '.[] | select(.headBranch == "refs/pull/<pr_number>/head") | select(.name | test("copilot|code.review"; "i"))'
 ```
 
-### 11. Post Ledger Comment
+If a matching workflow is found with status `in_progress` or `queued`, watch it:
+```bash
+gh run watch <run-id>
+```
+
+If no matching workflow appears within 30 seconds, proceed. Never wait longer than 5 minutes.
+
+### 12. Handle Copilot Comments
+
+Wait 30 seconds after the workflow completes, then fetch comments:
+```bash
+gh api repos/{owner}/{repo}/pulls/<pr_number>/comments --paginate
+```
+
+If empty, wait 15 more seconds and retry once.
+
+Classify each comment:
+- **Legitimate bug** — real issue causing incorrect behavior. Fix it.
+- **Legitimate but dormant** — technically correct but unreachable. Note it but don't fix.
+- **Noise/false positive** — reviewer misread code. Reply explaining why it's correct.
+- **Style preference** — apply if trivial, skip if opinionated.
+
+Present the comments and your classification to the user. **Get user confirmation before acting.**
+
+### 13. Implement Fixes & Re-Review
+
+If fixes are needed:
+1. Implement the agreed fixes
+2. Run the quality suite again (`pnpm lint`, `pnpm tsc --noEmit`, `pnpm test`, `pnpm build`)
+3. Launch a second review pass — three agents in parallel:
+   - **`pr-review-toolkit:code-reviewer`**
+   - **`pr-review-toolkit:silent-failure-hunter`**
+   - **`pr-review-toolkit:pr-test-analyzer`**
+4. Fix any issues from the review agents
+5. Commit and push
+
+### 14. Reply & Resolve Threads
+
+Reply to each Copilot comment:
+- Fixed: `Fixed in <commit-sha>. <brief explanation>`
+- False positive: `This is handled correctly — <explanation>`
+- Dormant: `Good catch, though this path isn't reachable because <reason>.`
+
+Resolve all review threads:
+```bash
+gh api graphql -f query='query { repository(owner: "{owner}", name: "{repo}") { pullRequest(number: <pr_number>) { reviewThreads(first: 100) { nodes { id isResolved } } } } }'
+# For each unresolved thread:
+gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<thread_id>"}) { thread { isResolved } } }'
+```
+
+### 15. Merge
+
+Confirm with the user that everything is ready, then merge:
+```bash
+gh pr merge <pr_number> --squash --delete-branch
+```
+
+Clean up locally:
+```bash
+git checkout main && git pull origin main && git fetch --prune
+```
+
+### 16. Post Ledger Comment
 
 ```bash
 gh issue comment <N> --body "**[Proof-Master Ledger]**
@@ -225,6 +290,11 @@ gh issue comment <N> --body "**[Proof-Master Ledger]**
 
 ## Bugs Fixed During Testing
 <list of bugs found and fixed, or 'None'>
+
+## Copilot Review
+- Comments received: <N>
+- Fixed: <N>
+- Dismissed: <N>
 
 ## CI Workflow
 <created | updated | already adequate>
