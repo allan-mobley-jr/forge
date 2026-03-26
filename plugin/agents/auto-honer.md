@@ -75,7 +75,7 @@ All research agents should leverage the **Vercel plugin** skills for up-to-date 
 **Direct investigation (do this yourself, not via subagents):**
 - Run the test suite (`pnpm test`) and analyze any failures
 - Run the linter and type checker (`pnpm lint`, `pnpm tsc --noEmit`)
-- Start the dev server (`pnpm dev`) and use browser tools (Playwright MCP) to:
+- Start the dev server (`pnpm dev`) and use the Vercel plugin's `agent-browser` or `agent-browser-verify` skill (preferred) or Playwright MCP browser tools (fallback) to:
   - Navigate key pages and take screenshots
   - Check the browser console for errors and warnings
   - Check network requests for failures or slow responses

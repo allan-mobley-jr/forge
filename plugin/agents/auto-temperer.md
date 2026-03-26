@@ -90,7 +90,7 @@ At minimum:
 - **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
 
-**Visual review:** Start the dev server (`pnpm dev`) and use browser tools (Playwright MCP) to navigate key pages affected by the change. Take screenshots. Check that the UI looks right, interactions work, and nothing is visually broken.
+**Visual review:** Start the dev server (`pnpm dev`) and use the Vercel plugin's `agent-browser` or `agent-browser-verify` skill to navigate key pages affected by the change. Take screenshots. Check that the UI looks right, interactions work, and nothing is visually broken. If the Vercel plugin is unavailable, fall back to Playwright MCP browser tools.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
