@@ -45,13 +45,13 @@ Read the issue body and all comments for context. If no ingot exists, report tha
 
 ### 2. Research
 
-Launch 2 Explore agents in parallel to deepen your understanding of the ingot so you can break it down into well-scoped work items.
+Launch Explore agents in parallel to deepen your understanding of the ingot so you can break it down into well-scoped work items. How many agents you need depends on the ingot — a simple feature may need 2, a complex domain app may need several covering different concerns (e.g., database design, auth flows, domain-specific best practices).
 
-**Agent 1 — Project context:**
-Launch an Explore agent to understand the current project state. If code exists, examine the structure, patterns, dependencies, and conventions. If greenfield, confirm the starting state and what needs to be scaffolded.
+All research agents should leverage the **Vercel plugin** skills for up-to-date guidance on the stack.
 
-**Agent 2 — Technical research:**
-Launch an Explore agent that uses web search to research the technologies, integrations, and patterns referenced in the ingot. Current documentation and best practices inform how the work should be sequenced and scoped.
+At minimum:
+- **Project context:** Understand the current project state. If code exists, examine the structure, patterns, dependencies, and conventions. If greenfield, confirm the starting state and what needs to be scaffolded.
+- **Technical research:** Research the technologies, integrations, and patterns referenced in the ingot. Current documentation and best practices inform how the work should be sequenced and scoped.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
@@ -61,7 +61,7 @@ After all agents return, synthesize findings.
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE ISSUE BREAKDOWN YOURSELF.**
 
-Launch a Plan agent with the ingot contents and research findings. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
+Launch a Plan agent with the ingot contents and research findings. The Plan agent should leverage the **Vercel plugin** skills for stack-aware scoping decisions. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
 
 Review what the Plan agent returns. You are the Refiner — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings and the ingot content. Make scope decisions autonomously and document them. The issue breakdown you file must be yours, not a pass-through.
 
