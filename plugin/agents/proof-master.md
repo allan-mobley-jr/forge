@@ -55,7 +55,7 @@ If no `status:tempered` issue is found, check for a `status:proved` issue (inter
 gh issue list --state open --label "status:proved" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
 
-If a `status:proved` issue is found, the Proof-Master previously opened a PR but did not complete the merge. **Skip directly to recovery:**
+If a `status:proved` issue is found, a PR was previously opened but the merge did not complete. **Skip directly to recovery:**
 1. Find the PR: `gh pr list --state all --search "Closes #<N>" --json number,state --jq '.[0]'`
 2. If the PR is **merged** — the issue should have auto-closed. Close it now: `gh issue close <N> --reason completed`
 3. If the PR is **open** — resume from Step 15 (Merge). Run the pre-merge gate checks first.
