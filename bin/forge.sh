@@ -295,6 +295,9 @@ case "${1:-}" in
             claude plugin install playwright@claude-plugins-official 2>/dev/null \
                 && echo -e "  ${GREEN}✓${NC} Playwright plugin refreshed" \
                 || echo -e "  ${YELLOW}!${NC} Playwright plugin failed. Run manually: claude plugin install playwright@claude-plugins-official"
+            claude plugin install pr-review-toolkit@claude-plugins-official 2>/dev/null \
+                && echo -e "  ${GREEN}✓${NC} PR Review Toolkit plugin refreshed" \
+                || echo -e "  ${YELLOW}!${NC} PR Review Toolkit plugin failed. Run manually: claude plugin install pr-review-toolkit@claude-plugins-official"
         fi
         ;;
     doctor)

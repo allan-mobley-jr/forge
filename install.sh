@@ -110,6 +110,14 @@ if command -v claude &>/dev/null; then
         && echo -e "  ${GREEN}[x]${NC} Vercel plugin installed" \
         || echo -e "  ${YELLOW}[!]${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
 
+    claude plugin install playwright@claude-plugins-official 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} Playwright plugin installed" \
+        || echo -e "  ${YELLOW}[!]${NC} Playwright plugin failed. Run manually: claude plugin install playwright@claude-plugins-official"
+
+    claude plugin install pr-review-toolkit@claude-plugins-official 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} PR Review Toolkit plugin installed" \
+        || echo -e "  ${YELLOW}[!]${NC} PR Review Toolkit plugin failed. Run manually: claude plugin install pr-review-toolkit@claude-plugins-official"
+
     # Install Playwright MCP server
     claude mcp add playwright -- npx @playwright/mcp@latest 2>/dev/null \
         && echo -e "  ${GREEN}[x]${NC} Playwright MCP installed" \
