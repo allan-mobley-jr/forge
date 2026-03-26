@@ -40,7 +40,8 @@ show_usage() {
     echo "  temper           Review the current issue's implementation"
     echo "  proof            Validate and open a PR"
     echo "  hone             Audit the codebase for improvements"
-    echo "  auto-run         Autonomously process the issue queue"
+    echo "  stoke            Autonomously process the issue queue"
+    echo "  cast             Full autonomous cycle: smelt → refine → stoke → hone"
     echo ""
     echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
     echo ""
@@ -62,7 +63,7 @@ show_usage() {
     echo "  2. forge init"
     echo "  3. forge smelt"
     echo "  4. forge refine"
-    echo "  5. forge auto-run"
+    echo "  5. forge stoke          (or forge cast for the full cycle)"
 }
 
 show_command_help() {
@@ -162,8 +163,8 @@ show_command_help() {
             echo "Usage: forge proof"
             echo "       forge auto-proof"
             echo ""
-            echo "The Proof-Master runs the quality suite, validates acceptance"
-            echo "criteria, and opens a PR if everything passes."
+            echo "The Proof-Master ensures test coverage, writes missing tests,"
+            echo "fixes test failures, manages CI, and opens a PR."
             ;;
         hone|auto-hone)
             echo "forge hone — Audit the codebase and produce an improvement ingot"
@@ -174,16 +175,25 @@ show_command_help() {
             echo "  hone         Interactive — choose to triage a bug or audit the codebase"
             echo "  auto-hone    Autonomous — triages oldest bug first, then audits"
             ;;
-        auto-run)
-            echo "forge auto-run — Autonomously process the issue queue"
+        stoke)
+            echo "forge stoke — Autonomously process the issue queue"
             echo ""
-            echo "Usage: forge auto-run"
+            echo "Usage: forge stoke"
             echo ""
-            echo "Processes one issue at a time through the full pipeline:"
-            echo "  auto-hammer → auto-temper → auto-proof"
-            echo ""
+            echo "Processes one issue at a time: hammer → temper → proof."
             echo "Handles all issue states including interrupted runs."
             echo "Exits when no actionable issues remain."
+            ;;
+        cast)
+            echo "forge cast — Full autonomous cycle"
+            echo ""
+            echo "Usage: forge cast"
+            echo ""
+            echo "Runs the entire pipeline end-to-end:"
+            echo "  smelt → refine → stoke (hammer/temper/proof) → hone"
+            echo ""
+            echo "If the Honer produces new work, the cycle repeats."
+            echo "Exits when no new work is generated."
             ;;
         *)
             echo "Unknown command: ${1:-}"
@@ -572,81 +582,72 @@ case "${1:-}" in
         echo "[forge] Honer complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
-    auto-run)
+    stoke)
         shift
 
         require_forge_project
         check_auth
         check_labels
 
-        echo "[forge] Starting auto-run..."
+        echo "[forge] Stoking the forge..."
+        run_stoke_loop
+        echo "[forge] Stoke complete."
+        ;;
+
+    cast)
+        shift
+
+        require_forge_project
+        check_auth
+        check_labels
+
+        echo "[forge] Starting full cast..."
 
         while true; do
-            # Check if the oldest open ai-generated issue needs human intervention
-            blocked_issue=$(gh issue list --state open --label "ai-generated" --label "agent:needs-human" --json number --jq '
-                sort_by(.number) | .[0].number // empty
+            # Phase 1: Smelt — produce ingot from feature request (if any)
+            feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
+                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
             ' 2>/dev/null || true)
-
-            if [ -n "$blocked_issue" ]; then
-                echo "[forge] Issue #$blocked_issue is labeled agent:needs-human. Auto-run cannot proceed."
-                echo "[forge] Resolve the issue manually, then re-run."
-                break
+            if [ -n "$feature_issue" ]; then
+                echo "[forge] Smelting feature request #$feature_issue..."
+                if ! run_forge_agent "auto-smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
+                    echo "[forge] Smelter failed. Stopping."
+                    exit 1
+                fi
             fi
 
-            # Find oldest open ai-generated issue with any status:* label
-            issue_line=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
-                [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
-                 | select(.status)]
-                | sort_by(.number) | .[0] | "\(.number)\t\(.status)" // empty
-            ' 2>/dev/null || true)
+            # Phase 2: Refine — break all ingots into issues
+            next_ingot=$(find_unprocessed_ingots | head -1)
+            while [ -n "$next_ingot" ]; do
+                echo "[forge] Refining ingot #$next_ingot..."
+                if ! run_forge_agent "auto-refiner" "Process the oldest open ingot issue."; then
+                    echo "[forge] Refiner failed. Stopping."
+                    exit 1
+                fi
+                next_ingot=$(find_unprocessed_ingots | head -1)
+            done
 
-            if [ -z "$issue_line" ]; then
-                echo "[forge] No actionable issues. Auto-loop complete."
-                break
+            # Phase 3: Stoke — process issue queue (hammer → temper → proof)
+            echo "[forge] Stoking the forge..."
+            run_stoke_loop || {
+                echo "[forge] Stoke loop stopped. Checking if cast can continue..."
+            }
+
+            # Phase 4: Hone — audit the built app
+            echo "[forge] Honing..."
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
+                echo "[forge] Honer failed. Stopping."
+                exit 1
             fi
 
-            issue=$(printf '%s' "$issue_line" | cut -f1)
-            status=$(printf '%s' "$issue_line" | cut -f2)
-
-            if [ -z "$issue" ] || [ -z "$status" ]; then
-                echo "[forge] Failed to parse issue data. Stopping."
+            # Phase 5: Check if hone produced new work
+            next_ingot=$(find_unprocessed_ingots | head -1)
+            new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
+            if [ -z "$next_ingot" ] && [ "$new_ready" -eq 0 ]; then
+                echo "[forge] No new work from honing. Cast complete."
                 break
             fi
-
-            case "$status" in
-                status:ready|status:rework|status:hammering)
-                    echo "[forge] Hammering issue #$issue ($status)..."
-                    run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
-                        echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
-                        break
-                    }
-                    ;;
-                status:hammered|status:tempering)
-                    echo "[forge] Tempering issue #$issue ($status)..."
-                    run_forge_agent "auto-temperer" "Review the next hammered issue." || {
-                        echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
-                        break
-                    }
-                    ;;
-                status:tempered|status:proving)
-                    echo "[forge] Proofing issue #$issue ($status)..."
-                    run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
-                        echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
-                        break
-                    }
-                    ;;
-                status:proved)
-                    echo "[forge] Issue #$issue proved but still open. Checking PR status..."
-                    run_forge_agent "auto-proof-master" "Issue has status:proved but is still open. Check the PR status and resolve." || {
-                        echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
-                        break
-                    }
-                    ;;
-                *)
-                    echo "[forge] Issue #$issue has unknown status '$status'. Skipping."
-                    break
-                    ;;
-            esac
+            echo "[forge] Honer produced new work. Continuing cast..."
         done
         ;;
 

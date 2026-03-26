@@ -222,3 +222,79 @@ find_unprocessed_ingots() {
     ' 2>/dev/null || true
 }
 
+# --- Stoke loop ---
+# Processes the issue queue: hammer → temper → proof for each issue.
+# Returns 0 on clean exit (queue empty), 1 on failure or blocked.
+run_stoke_loop() {
+    while true; do
+        # Check if any issue needs human intervention
+        local blocked_issue
+        blocked_issue=$(gh issue list --state open --label "ai-generated" --label "agent:needs-human" --json number --jq '
+            sort_by(.number) | .[0].number // empty
+        ' 2>/dev/null || true)
+
+        if [ -n "$blocked_issue" ]; then
+            echo "[forge] Issue #$blocked_issue is labeled agent:needs-human. Cannot proceed."
+            echo "[forge] Resolve the issue manually, then re-run."
+            return 1
+        fi
+
+        # Find oldest open ai-generated issue with any status:* label
+        local issue_line
+        issue_line=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
+            [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
+             | select(.status)]
+            | sort_by(.number) | .[0] | "\(.number)\t\(.status)" // empty
+        ' 2>/dev/null || true)
+
+        if [ -z "$issue_line" ]; then
+            echo "[forge] No actionable issues. Queue complete."
+            return 0
+        fi
+
+        local issue status
+        issue=$(printf '%s' "$issue_line" | cut -f1)
+        status=$(printf '%s' "$issue_line" | cut -f2)
+
+        if [ -z "$issue" ] || [ -z "$status" ]; then
+            echo "[forge] Failed to parse issue data. Stopping."
+            return 1
+        fi
+
+        case "$status" in
+            status:ready|status:rework|status:hammering)
+                echo "[forge] Hammering issue #$issue ($status)..."
+                run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
+                    echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
+                    return 1
+                }
+                ;;
+            status:hammered|status:tempering)
+                echo "[forge] Tempering issue #$issue ($status)..."
+                run_forge_agent "auto-temperer" "Review the next hammered issue." || {
+                    echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
+                    return 1
+                }
+                ;;
+            status:tempered|status:proving)
+                echo "[forge] Proofing issue #$issue ($status)..."
+                run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
+                    echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                    return 1
+                }
+                ;;
+            status:proved)
+                echo "[forge] Issue #$issue proved but still open. Checking PR status..."
+                run_forge_agent "auto-proof-master" "Issue has status:proved but is still open. Check the PR status and resolve." || {
+                    echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                    return 1
+                }
+                ;;
+            *)
+                echo "[forge] Issue #$issue has unknown status '$status'. Skipping."
+                return 1
+                ;;
+        esac
+    done
+}
+

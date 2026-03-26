@@ -47,7 +47,8 @@ Then start building:
 ```bash
 forge smelt                  # describe your app to the Smelter
 forge refine                 # create GitHub issues from the ingot
-forge auto-run               # autonomously implement, review, and PR each issue
+forge stoke                  # autonomously implement, review, and PR each issue
+forge cast                   # full autonomous cycle: smelt → refine → stoke → hone
 ```
 
 ## How It Works
@@ -86,7 +87,7 @@ Every agent exists in two variants:
 - **Interactive** (`forge smelt`): launches a Claude Code session where you confer with the agent — describe what you want, answer questions, approve the plan before it acts.
 - **Auto** (`forge auto-smelt`): runs headless with `-p`. The agent makes decisions autonomously and documents assumptions.
 
-> **Single-track pipeline:** Forge processes one issue at a time, in the order they were created. Do not run multiple `forge auto-run` sessions concurrently — they will conflict on the same issue.
+> **Single-track pipeline:** Forge processes one issue at a time, in the order they were created. Do not run multiple `forge stoke` or `forge cast` sessions concurrently — they will conflict on the same issue.
 
 ### Agent Architecture
 
@@ -174,7 +175,8 @@ Vercel watches the `production` branch and deploys automatically. The human cont
 | `forge auto-proof` | Same, autonomous |
 | `forge hone` | Triage bugs or audit the codebase (interactive) |
 | `forge auto-hone` | Triages oldest bug first, then audits |
-| `forge auto-run` | Process the issue queue autonomously |
+| `forge stoke` | Process the issue queue autonomously |
+| `forge cast` | Full autonomous cycle: smelt → refine → stoke → hone |
 
 ### Operations
 
@@ -271,7 +273,7 @@ forge/
 
 **GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and comments. Clone the repo on a new Mac, run a forge command, and it picks up where it left off.
 
-**Agents own their state.** Each agent sets its own status labels — the CLI is a thin dispatcher that finds issues and launches agents. If an agent crashes mid-run, the in-progress label (`status:hammering`, etc.) persists and `forge auto-run` picks it back up.
+**Agents own their state.** Each agent sets its own status labels — the CLI is a thin dispatcher that finds issues and launches agents. If an agent crashes mid-run, the in-progress label (`status:hammering`, etc.) persists and `forge stoke` picks it back up.
 
 **Agents, not skills.** Each craftsman is a Claude Code agent loaded via `claude --agent`. The CLI handles dispatch; the agent handles the work, including research (parallel Explore agents), planning (mandatory Plan agent), and label transitions.
 

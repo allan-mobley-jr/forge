@@ -76,7 +76,8 @@ forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
-`forge auto-run` processes the issue queue: dispatches based on the oldest issue's status label.
+`forge stoke` processes the issue queue: dispatches based on the oldest issue's status label.
+`forge cast` runs the full autonomous cycle: smelt → refine → stoke → hone (repeats if new work emerges).
 
 ## Git Workflow
 
