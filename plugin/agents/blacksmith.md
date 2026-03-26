@@ -180,7 +180,9 @@ Review your own diff (`git diff main...HEAD`), then launch review agents in para
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
 - **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
 
-Fix any issues found before proceeding. The goal is to catch your own mistakes before the code moves to review.
+Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
+
+The goal is to catch your own mistakes before the code moves to review.
 
 ### 10. Address Rework Comments (if status:rework)
 
