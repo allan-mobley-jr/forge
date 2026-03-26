@@ -39,4 +39,4 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 
 - **Ingots** — planning documents from Smelter and Honer, stored as GitHub issues labeled `type:ingot`
 - **Ledger entries** — craftsman reasoning records, stored as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
-- **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`, addressed by prepending `✅`
+- **Rework comments** — tagged with `**[Temperer]**`, addressed by prepending `✅`

@@ -60,7 +60,7 @@ gh issue develop <N> --list
 
 Count completed rework cycles to calibrate your review:
 ```bash
-gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[(Temperer|Proof-Master)\\]"))] | length'
+gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length'
 ```
 
 ### 2. Set Status

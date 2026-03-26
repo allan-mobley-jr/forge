@@ -17,8 +17,8 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
     temperer.md      — Temperer: interactive code review
     auto-temperer.md — Auto-Temperer: headless code review
-    proof-master.md  — Proof-Master: interactive validation + PR
-    auto-proof-master.md — Auto-Proof-Master: headless validation + PR
+    proof-master.md  — Proof-Master: interactive testing + PR
+    auto-proof-master.md — Auto-Proof-Master: headless testing + PR
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
   hooks/           — Plugin hooks (hooks.json + standalone scripts)
@@ -36,7 +36,7 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 
 - **Ingots** — GitHub issues labeled `type:ingot`, created by Smelter and Honer
 - **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
-- **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`
+- **Rework comments** — tagged with `**[Temperer]**`
 
 ## Conventions
 

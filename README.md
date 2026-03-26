@@ -74,8 +74,8 @@ Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent
 | **Refiner** | `forge refine` | Takes an ingot and creates sequenced GitHub issues with milestones. |
 | **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. |
 | **Temperer** | `forge temper` | Independently reviews the Blacksmith's work. Approves or sends back for rework. |
-| **Proof-Master** | `forge proof` | Runs tests, validates acceptance criteria, opens a PR if everything passes. |
-| **Honer** | `forge hone` | Triages bugs or audits the codebase. Produces a new ingot of improvements. |
+| **Proof-Master** | `forge proof` | Ensures test coverage, writes missing tests, fixes test failures, manages CI, and opens a PR. |
+| **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues or ingots. |
 
 Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent runs headless via `-p` without human interaction.
 
@@ -106,7 +106,7 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 
 - **Ingots** — comprehensive plans stored as GitHub issues labeled `type:ingot`
 - **Ledger entries** — reasoning records stored as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
-- **Rework comments** — tagged with `**[Temperer]**` or `**[Proof-Master]**`, addressed by prepending `✅`
+- **Rework comments** — tagged with `**[Temperer]**`, addressed by prepending `✅`
 
 ### Issue Lifecycle
 
@@ -114,19 +114,21 @@ Issues flow through status labels. Agents own all label transitions.
 
 ```
 status:ready → status:hammering → status:hammered → status:tempering → status:tempered → status:proving → status:proved
-                     ↑                                      │                    │
-                     └──────────── status:rework ◀──────────┘────────────────────┘
+                     ↑                                      │
+                     └──────────── status:rework ◀──────────┘
 ```
 
 The Blacksmith always picks up the **lowest numbered open issue** with `ai-generated` + `status:ready` (or `status:rework`). Only one issue is active at a time.
 
 ### Rework Protocol
 
-When the Temperer or Proof-Master rejects work:
-1. They set `status:rework` and post a tagged comment (`**[Temperer]**` or `**[Proof-Master]**`)
+When the Temperer rejects work:
+1. It sets `status:rework` and posts a tagged comment (`**[Temperer]**`)
 2. The Blacksmith reads the feedback and fixes the issues
 3. The Blacksmith marks addressed comments with a `✅` prefix
-4. After 3 total rework cycles, the issue is escalated to `agent:needs-human`
+4. After 5 total rework cycles, the issue is escalated to `agent:needs-human`
+
+The Proof-Master does not send work back — it fixes test failures itself or escalates to `agent:needs-human`.
 
 ### Bootstrap (`forge init`)
 
