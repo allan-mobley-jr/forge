@@ -70,11 +70,13 @@ After all agents return, synthesize findings into a clear picture.
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE ARCHITECTURE YOURSELF.**
 
-Launch a Plan agent with the research findings from step 2 and the user's requirements. The Plan agent designs the architecture: component structure, data flow, technology choices, and trade-offs. You must launch this agent regardless of how confident you are — planning the architecture yourself instead of launching the Plan agent is a protocol violation.
+Launch a Plan agent with the research findings from step 2 and the user's requirements. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
+
+Review what the Plan agent returns. You are the Smelter — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings and the user conversation. The specification you present must be yours, not a pass-through.
 
 ### 4. Present & Confer
 
-Present the Plan agent's output alongside your research to the user:
+Present your specification to the user:
 - Architecture (routes, components, data flow)
 - Design (UI patterns, styling, accessibility)
 - Technology stack (packages, services, env vars, database)

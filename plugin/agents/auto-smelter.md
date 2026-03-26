@@ -70,11 +70,11 @@ After all agents return, synthesize findings into a clear picture.
 
 > **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE ARCHITECTURE YOURSELF.**
 
-Launch a Plan agent with the research findings and the feature request. The Plan agent designs the architecture: component structure, data flow, technology choices, and trade-offs. You must launch this agent regardless of how confident you are — planning yourself is a protocol violation.
+Launch a Plan agent with the research findings and the feature request. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
 
 ### 4. Decide
 
-Review the Plan agent's output. Where the feature request is ambiguous, make reasonable assumptions and document them in the Decisions table.
+Review what the Plan agent returns. You are the Smelter — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. Where the feature request is ambiguous, make reasonable assumptions and document them in the Decisions table. The specification you file must be yours, not a pass-through.
 
 ### 5. File Ingot Issue
 
