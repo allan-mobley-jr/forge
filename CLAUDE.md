@@ -21,8 +21,7 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-proof-master.md — Auto-Proof-Master: headless testing + PR
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
-  hooks/           — Plugin hooks (hooks.json + standalone scripts)
-  system-prompt.md — Context injected into agent sessions via SessionStart hook
+  hooks/           — Plugin hooks (hooks.json)
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)

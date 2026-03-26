@@ -261,7 +261,6 @@ forge/
 ├── bootstrap/setup.sh                  # Idempotent project setup
 ├── plugin/                             # Claude Code plugin
 │   ├── .claude-plugin/plugin.json      #   Plugin manifest
-│   ├── system-prompt.md                #   Context injected into agent sessions
 │   ├── agents/                         #   Forge craftsman agents (interactive + auto)
 │   └── hooks/                          #   Plugin hooks
 ├── tests/                              # CLI tests (bats framework)
