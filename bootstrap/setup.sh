@@ -178,8 +178,7 @@ verify_forge_plugin() {
     else
         fail "Forge plugin not installed."
         echo ""
-        echo "  Run: forge install"
-        echo "  Or manually: claude plugin marketplace add $FORGE_REPO && claude plugin install forge@forge"
+        echo "  Run: claude plugin marketplace add $FORGE_REPO && claude plugin install forge@forge"
         exit 1
     fi
 }
