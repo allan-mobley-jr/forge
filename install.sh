@@ -117,11 +117,6 @@ if command -v claude &>/dev/null; then
     claude plugin install pr-review-toolkit@claude-plugins-official 2>/dev/null \
         && echo -e "  ${GREEN}[x]${NC} PR Review Toolkit plugin installed" \
         || echo -e "  ${YELLOW}[!]${NC} PR Review Toolkit plugin failed. Run manually: claude plugin install pr-review-toolkit@claude-plugins-official"
-
-    # Install Playwright MCP server
-    claude mcp add playwright -- npx @playwright/mcp@latest 2>/dev/null \
-        && echo -e "  ${GREEN}[x]${NC} Playwright MCP installed" \
-        || echo -e "  ${YELLOW}[!]${NC} Playwright MCP failed. Run manually: claude mcp add playwright -- npx @playwright/mcp@latest"
 else
     echo -e "${RED}Error:${NC} Claude Code is required but not found in PATH."
     echo "  Install Claude Code first: https://docs.anthropic.com/en/docs/claude-code"
