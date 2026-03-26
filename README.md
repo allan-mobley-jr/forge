@@ -249,7 +249,7 @@ Human-filed issues (without `ai-generated`) are what trigger the auto-smelter an
 | "This directory is already a git repository" | Run `forge init --resume`. |
 | SSH key or GitHub auth failures | `gh auth login --web --git-protocol ssh` |
 | Agent gets stuck | Check for `agent:needs-human` label. Answer the question in the comments. |
-| PR quality checks keep failing | After 3 rework cycles, the issue is escalated to `agent:needs-human`. |
+| PR quality checks keep failing | After 5 rework cycles, the issue is escalated to `agent:needs-human`. |
 | "Not a Forge project" error | Run from the project root where `forge init` was run. |
 
 ## Repository Structure
