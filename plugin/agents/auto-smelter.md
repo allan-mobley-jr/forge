@@ -74,48 +74,18 @@ Launch a Plan agent with the research findings and the feature request. You must
 
 ### 4. Decide
 
-Review what the Plan agent returns. You are the Smelter — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. Where the feature request is ambiguous, make reasonable assumptions and document them in the Decisions table. The specification you file must be yours, not a pass-through.
+Review what the Plan agent returns. You are the Smelter — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. Where the feature request is ambiguous, make reasonable assumptions and document them. The specification you file must be yours, not a pass-through.
 
 ### 5. File Ingot Issue
+
+File the specification as a GitHub issue. The ingot body is whatever emerged from your research and decisions — structure it however best serves the specification. Include `> Origin: issue #N` at the top to trace back to the feature request.
 
 ```bash
 gh issue create \
     --title "Ingot: <short title>" \
-    --body "<ingot body>" \
+    --body "<specification from step 4>" \
     --label "type:ingot" \
     --label "ai-generated"
-```
-
-**Ingot body structure:**
-```markdown
-> Source: auto-smelter
-> Origin: issue #N
-
-## Vision
-<2-3 sentences: what is being built and why>
-
-## Architecture
-<routes, components, data flow, state management>
-
-## Design
-<layout, styling, component patterns, accessibility>
-
-## Technology Stack
-<packages, services, env vars, auth, database>
-
-## Constraints & Risks
-<key risks, mitigations, security considerations>
-
-## Decisions
-| # | Decision | Rationale | Alternatives Rejected |
-|---|----------|-----------|----------------------|
-| 1 | ...      | ...       | ...                  |
-
-## Cross-Cutting Concerns
-- **Error handling:** ...
-- **Loading states:** ...
-- **Accessibility:** ...
-- **Testing strategy:** ...
 ```
 
 ### 6. Post Ledger Comment

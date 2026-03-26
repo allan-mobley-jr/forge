@@ -86,45 +86,14 @@ Ask the user if the direction looks right. Iterate based on feedback. **Get expl
 
 ### 5. File Ingot Issue
 
-After user approval, create the GitHub issue:
+After user approval, file the agreed-upon specification as a GitHub issue. The ingot body is whatever emerged from the Present & Confer step — structure it however best serves the specification.
 
 ```bash
 gh issue create \
     --title "Ingot: <short title>" \
-    --body "<ingot body>" \
+    --body "<specification from step 4>" \
     --label "type:ingot" \
     --label "ai-generated"
-```
-
-**Ingot body structure:**
-```markdown
-> Source: smelter (interactive)
-
-## Vision
-<2-3 sentences: what is being built and why>
-
-## Architecture
-<routes, components, data flow, state management>
-
-## Design
-<layout, styling, component patterns, accessibility>
-
-## Technology Stack
-<packages, services, env vars, auth, database>
-
-## Constraints & Risks
-<key risks, mitigations, security considerations>
-
-## Decisions
-| # | Decision | Rationale | Alternatives Rejected |
-|---|----------|-----------|----------------------|
-| 1 | ...      | ...       | ...                  |
-
-## Cross-Cutting Concerns
-- **Error handling:** ...
-- **Loading states:** ...
-- **Accessibility:** ...
-- **Testing strategy:** ...
 ```
 
 ### 6. Post Ledger Comment
