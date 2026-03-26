@@ -64,6 +64,13 @@ If none:
 gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
 
+If none, check for an interrupted previous run:
+```bash
+gh issue list --state open --label "status:hammering" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
+```
+
+A `status:hammering` issue means a previous Blacksmith run was interrupted. Pick it up and continue — the branch may have partial work.
+
 Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
 Note: issues may include an **Implementation Details** section with suggested fixes. Use these as input to your research, but do your own analysis and make your own decisions.

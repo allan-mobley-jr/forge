@@ -51,6 +51,13 @@ You are a thoughtful reviewer, not a gatekeeper. Your job is to be the devil's a
 gh issue list --state open --label "status:hammered" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
 
+If none, check for an interrupted previous run:
+```bash
+gh issue list --state open --label "status:tempering" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
+```
+
+A `status:tempering` issue means a previous Temperer run was interrupted. Pick it up and start the review from scratch.
+
 Read the issue body and **all comments** to understand the full journey — the original requirements, implementation decisions, any prior rework feedback, and how many rework cycles have occurred.
 
 Find the linked branch:

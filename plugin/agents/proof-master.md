@@ -50,7 +50,14 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 gh issue list --state open --label "status:tempered" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
 
-If no `status:tempered` issue is found, check for a `status:proved` issue (interrupted previous run):
+If none, check for an interrupted previous run:
+```bash
+gh issue list --state open --label "status:proving" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
+```
+
+A `status:proving` issue means a previous Proof-Master run was interrupted. Pick it up and start from Step 3 (Research).
+
+If no `status:tempered` or `status:proving` issue is found, check for a `status:proved` issue (interrupted previous run):
 ```bash
 gh issue list --state open --label "status:proved" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
