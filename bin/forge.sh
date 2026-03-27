@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Exit cleanly on CTRL+C (exit code 130 = 128 + SIGINT)
+trap 'echo ""; echo "[forge] Interrupted."; exit 130' INT
+
 FORGE_REPO="$HOME/.forge/repo"
 
 if [ ! -d "$FORGE_REPO" ]; then
@@ -307,18 +310,21 @@ case "${1:-}" in
                     [ -d "$cache_dir" ] && rm -rf "$cache_dir"
                 done
             done
-            claude plugin install forge@forge 2>/dev/null \
-                && echo -e "  ${GREEN}✓${NC} Forge plugin refreshed" \
-                || echo -e "  ${YELLOW}!${NC} Forge plugin failed. Run manually: claude plugin install forge@forge"
-            claude plugin install vercel@claude-plugins-official 2>/dev/null \
-                && echo -e "  ${GREEN}✓${NC} Vercel plugin refreshed" \
-                || echo -e "  ${YELLOW}!${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
-            claude plugin install playwright@claude-plugins-official 2>/dev/null \
-                && echo -e "  ${GREEN}✓${NC} Playwright plugin refreshed" \
-                || echo -e "  ${YELLOW}!${NC} Playwright plugin failed. Run manually: claude plugin install playwright@claude-plugins-official"
-            claude plugin install pr-review-toolkit@claude-plugins-official 2>/dev/null \
-                && echo -e "  ${GREEN}✓${NC} PR Review Toolkit plugin refreshed" \
-                || echo -e "  ${YELLOW}!${NC} PR Review Toolkit plugin failed. Run manually: claude plugin install pr-review-toolkit@claude-plugins-official"
+            plugins=(
+                "Forge|forge@forge"
+                "Vercel|vercel@claude-plugins-official"
+                "Playwright|playwright@claude-plugins-official"
+                "PR Review Toolkit|pr-review-toolkit@claude-plugins-official"
+            )
+            for plugin_entry in "${plugins[@]}"; do
+                display_name="${plugin_entry%%|*}"
+                install_spec="${plugin_entry#*|}"
+                if claude plugin install "$install_spec" 2>/dev/null; then
+                    echo -e "  ${GREEN}✓${NC} $display_name plugin refreshed"
+                else
+                    echo -e "  ${YELLOW}!${NC} $display_name plugin failed. Run manually: claude plugin install $install_spec"
+                fi
+            done
         fi
         ;;
     doctor)
@@ -389,14 +395,14 @@ case "${1:-}" in
         echo ""
         echo "Connectivity:"
 
-        if gh auth status &>/dev/null 2>&1; then
+        if gh auth status &>/dev/null; then
             echo -e "  ${GREEN}✓${NC} GitHub authenticated"
         else
             echo -e "  ${RED}✗${NC} GitHub not authenticated — run: gh auth login"
         fi
 
         if command -v vercel &>/dev/null; then
-            if vercel whoami &>/dev/null 2>&1; then
+            if vercel whoami &>/dev/null; then
                 echo -e "  ${GREEN}✓${NC} Vercel authenticated"
             else
                 echo -e "  ${YELLOW}⚠${NC} Vercel not authenticated — run: vercel login"
@@ -406,7 +412,7 @@ case "${1:-}" in
         echo ""
         echo "Labels:"
 
-        if gh auth status &>/dev/null 2>&1; then
+        if gh auth status &>/dev/null; then
             required_labels=()
             for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
                 required_labels+=("${entry%%|*}")
@@ -631,46 +637,68 @@ case "${1:-}" in
         show_banner cast
         echo "[forge] Starting full cast..."
 
+        cast_did_work=false
         while true; do
-            # Phase 1: Smelt — produce ingot from feature request (if any)
+            # Check queue state — drain existing work before creating new work
+            has_status_issues=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
+                [.[] | select(.labels | map(.name) | any(startswith("status:")))] | length
+            ' 2>/dev/null || echo "0")
+            has_status_issues="${has_status_issues:-0}"
+
+            # Priority 1: Implementation issues on the board → stoke
+            if [ "$has_status_issues" -gt 0 ]; then
+                cast_did_work=true
+                echo "[forge] Stoking the forge..."
+                if ! run_stoke_loop; then
+                    echo "[forge] Cast paused. Resolve the above, then re-run 'forge cast'."
+                    exit 1
+                fi
+                continue
+            fi
+
+            # Priority 2: Unprocessed ingots → refine
+            next_ingot=$(find_unprocessed_ingots | head -1)
+            if [ -n "$next_ingot" ]; then
+                cast_did_work=true
+                echo "[forge] Refining ingot #$next_ingot..."
+                if ! run_forge_agent "auto-refiner" "Process ingot issue #${next_ingot}."; then
+                    echo "[forge] Refiner failed. Stopping."
+                    exit 1
+                fi
+                continue
+            fi
+
+            # Priority 3: Human-filed feature requests → smelt
             feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
                 [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
             ' 2>/dev/null || true)
             if [ -n "$feature_issue" ]; then
+                cast_did_work=true
                 echo "[forge] Smelting feature request #$feature_issue..."
-                if ! run_forge_agent "auto-smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
+                if ! run_forge_agent "auto-smelter" "Produce an ingot from feature request issue #${feature_issue}."; then
                     echo "[forge] Smelter failed. Stopping."
                     exit 1
                 fi
+                continue
             fi
 
-            # Phase 2: Refine — break all ingots into issues
-            next_ingot=$(find_unprocessed_ingots | head -1)
-            while [ -n "$next_ingot" ]; do
-                echo "[forge] Refining ingot #$next_ingot..."
-                if ! run_forge_agent "auto-refiner" "Process the oldest open ingot issue."; then
-                    echo "[forge] Refiner failed. Stopping."
-                    exit 1
-                fi
-                next_ingot=$(find_unprocessed_ingots | head -1)
-            done
+            # Nothing queued — if no work was ever done, exit early (#204)
+            if [ "$cast_did_work" = false ]; then
+                echo "[forge] Nothing to cast. File a type:feature issue or add code to the project first."
+                break
+            fi
 
-            # Phase 3: Stoke — process issue queue (hammer → temper → proof)
-            echo "[forge] Stoking the forge..."
-            run_stoke_loop || {
-                echo "[forge] Stoke loop stopped. Checking if cast can continue..."
-            }
-
-            # Phase 4: Hone — audit the built app
+            # All work drained — audit the result
             echo "[forge] Honing..."
             if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
                 echo "[forge] Honer failed. Stopping."
                 exit 1
             fi
 
-            # Phase 5: Check if hone produced new work
+            # Check if hone produced new work
             next_ingot=$(find_unprocessed_ingots | head -1)
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
+            new_ready="${new_ready:-0}"
             if [ -z "$next_ingot" ] && [ "$new_ready" -eq 0 ]; then
                 echo "[forge] No new work from honing. Cast complete."
                 break
