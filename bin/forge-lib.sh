@@ -130,7 +130,6 @@ check_auth() {
         echo "Fix the above, then re-run the command."
         exit 1
     fi
-
 }
 
 # --- Agent invocation ---
@@ -157,9 +156,7 @@ run_forge_agent() {
     [ -n "$prompt" ] && cmd+=(-p "$prompt")
     [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
 
-    local exit_code=0
-    "${cmd[@]}" || exit_code=$?
-    return $exit_code
+    "${cmd[@]}"
 }
 
 # --- Issue query helpers ---
