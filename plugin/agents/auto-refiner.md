@@ -37,8 +37,12 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Find & Read the Ingot
 
+If a specific issue number was provided in your prompt (e.g., "Process ingot issue #5"), use that issue directly — skip the lookup below and go straight to reading the issue.
+
+Otherwise, find the oldest open ingot:
+
 ```bash
-gh issue list --state open --label "type:ingot" --label "ai-generated" --json number,title --jq 'sort_by(.number) | .[0]'
+gh issue list --state open --label "type:ingot" --label "ai-generated" --json number,title --jq 'sort_by(.number) | .[0].number // empty'
 ```
 
 Read the issue body and all comments for context. If no ingot exists, report that and exit.

@@ -46,6 +46,10 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Find the Issue
 
+If a specific issue number was provided in your prompt (e.g., "Validate and open PR for issue #42"), use that issue directly — skip the lookup below and go straight to reading the issue.
+
+Otherwise, find the issue using the lookup below.
+
 ```bash
 gh issue list --state open --label "status:tempered" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
 ```
@@ -365,6 +369,7 @@ gh issue comment <N> --body "**[Proof-Master Ledger]**
 
 ## Rules
 
+- **Never substitute a different issue** than the one you were assigned in the prompt.
 - **Test engineer, not reviewer.** You ensure code is tested, not that it's well-written.
 - **Fix only what surfaces during testing.** No new features, no refactors, no "improvements." Only fix bugs that tests reveal.
 - **Never send work back.** Fix it yourself or escalate to `agent:needs-human`.

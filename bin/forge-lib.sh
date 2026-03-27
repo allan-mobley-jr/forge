@@ -262,28 +262,28 @@ run_stoke_loop() {
         case "$status" in
             status:ready|status:rework|status:hammering)
                 echo "[forge] Hammering issue #$issue ($status)..."
-                run_forge_agent "auto-blacksmith" "Implement the next ready issue." || {
+                run_forge_agent "auto-blacksmith" "Implement issue #${issue}." || {
                     echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             status:hammered|status:tempering)
                 echo "[forge] Tempering issue #$issue ($status)..."
-                run_forge_agent "auto-temperer" "Review the next hammered issue." || {
+                run_forge_agent "auto-temperer" "Review issue #${issue}." || {
                     echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             status:tempered|status:proving)
                 echo "[forge] Proofing issue #$issue ($status)..."
-                run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue." || {
+                run_forge_agent "auto-proof-master" "Validate and open PR for issue #${issue}." || {
                     echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             status:proved)
                 echo "[forge] Issue #$issue proved but still open. Checking PR status..."
-                run_forge_agent "auto-proof-master" "Issue has status:proved but is still open. Check the PR status and resolve." || {
+                run_forge_agent "auto-proof-master" "Issue #${issue} has status:proved but is still open. Check the PR status and resolve." || {
                     echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
                     return 1
                 }
@@ -295,4 +295,3 @@ run_stoke_loop() {
         esac
     done
 }
-

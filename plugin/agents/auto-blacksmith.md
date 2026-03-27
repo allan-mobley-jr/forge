@@ -48,6 +48,10 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Find the Issue
 
+If a specific issue number was provided in your prompt (e.g., "Implement issue #42"), use that issue directly — skip the lookup below and go straight to reading the issue with `gh issue view`.
+
+Otherwise, find the issue using the lookup below.
+
 First, check if any issue is flagged for human attention:
 ```bash
 gh issue list --state open --label "agent:needs-human" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
@@ -235,6 +239,7 @@ gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered
 
 ## Rules
 
+- **Never substitute a different issue** than the one you were assigned in the prompt.
 - **One issue at a time.** Never work on multiple issues.
 - **Never open a PR.** That is not your job.
 - **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
