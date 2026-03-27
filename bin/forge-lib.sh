@@ -9,6 +9,7 @@
 RED="${RED:-\033[0;31m}"
 GREEN="${GREEN:-\033[0;32m}"
 YELLOW="${YELLOW:-\033[1;33m}"
+ORANGE="${ORANGE:-\033[38;5;208m}"
 BLUE="${BLUE:-\033[0;34m}"
 BOLD="${BOLD:-\033[1m}"
 DIM="${DIM:-\033[2m}"
