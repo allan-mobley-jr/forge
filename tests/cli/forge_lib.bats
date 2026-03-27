@@ -19,6 +19,33 @@ load "../helpers/setup"
     [[ "$output" == "v1.2.3" ]]
 }
 
+# --- color variables ---
+
+@test "color variables respect empty-string override" {
+    # setup() exports all color vars as "" before sourcing forge-lib.sh
+    [[ -z "$RED" ]]
+    [[ -z "$GREEN" ]]
+    [[ -z "$YELLOW" ]]
+    [[ -z "$ORANGE" ]]
+    [[ -z "$BLUE" ]]
+    [[ -z "$BOLD" ]]
+    [[ -z "$DIM" ]]
+    [[ -z "$NC" ]]
+}
+
+@test "color variables get ANSI defaults when unset" {
+    unset RED GREEN YELLOW ORANGE BLUE BOLD DIM NC
+    source "$FORGE_TEST_DIR/bin/forge-lib.sh"
+    [[ "$RED" == '\033[0;31m' ]]
+    [[ "$GREEN" == '\033[0;32m' ]]
+    [[ "$YELLOW" == '\033[1;33m' ]]
+    [[ "$ORANGE" == '\033[38;5;208m' ]]
+    [[ "$BLUE" == '\033[0;34m' ]]
+    [[ "$BOLD" == '\033[1m' ]]
+    [[ "$DIM" == '\033[2m' ]]
+    [[ "$NC" == '\033[0m' ]]
+}
+
 # --- require_forge_project ---
 
 @test "require_forge_project exits 1 when not registered" {

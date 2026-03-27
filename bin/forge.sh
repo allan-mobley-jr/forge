@@ -15,18 +15,39 @@ FORGE_LIB_DIR="${FORGE_LIB_DIR:-"$FORGE_REPO/bin"}"
 source "${FORGE_LIB_DIR}/forge-lib.sh"
 
 show_banner() {
+    local variant="${1:-main}"
     local version
     version=$(forge_version)
-    echo ""
-    echo -e "  ${YELLOW}███████╗ ██████╗ ██████╗  ██████╗ ███████╗${NC}"
-    echo -e "  ${YELLOW}██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝${NC}"
-    echo -e "  ${YELLOW}█████╗  ██║   ██║██████╔╝██║  ███╗█████╗${NC}"
-    echo -e "  ${YELLOW}██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝${NC}"
-    echo -e "  ${YELLOW}██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗${NC}"
-    echo -e "  ${YELLOW}╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝${NC}"
-    echo ""
-    echo -e "  Autonomous Next.js Development      ${DIM}${version}${NC}"
-    echo ""
+
+    printf '%b' "$ORANGE"
+    cat <<'BANNER'
+
+  ███████╗ ██████╗ ██████╗  ██████╗ ███████╗
+  ██╔════╝██╔═══██╗██╔══██╗██╔════╝ ██╔════╝
+  █████╗  ██║   ██║██████╔╝██║  ███╗█████╗
+  ██╔══╝  ██║   ██║██╔══██╗██║   ██║██╔══╝
+  ██║     ╚██████╔╝██║  ██║╚██████╔╝███████╗
+  ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝
+BANNER
+    printf '%b' "$NC"
+
+    case "$variant" in
+        stoke)
+            echo -e "\n  ${BLUE}STOKE${NC}  Stoking the fire — processing the issue queue"
+            ;;
+        cast)
+            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → refine → stoke → hone"
+            ;;
+        init)
+            echo -e "\n  ${BLUE}INIT${NC}  Forging a new project"
+            ;;
+        *)
+            echo -e "\n  Autonomous Next.js Development"
+            ;;
+    esac
+
+    printf "  %-47s %s\n" "MIT License" "$version"
+    echo
 }
 
 show_usage() {
@@ -237,7 +258,7 @@ case "${1:-}" in
             FORGE_RESUME=true
         fi
 
-        show_banner
+        show_banner init
 
         if [ -d ".git" ]; then
             if [ "$FORGE_RESUME" = true ]; then
@@ -455,8 +476,6 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        # Check for open ingot issues
-        next_ingot=""
         next_ingot=$(find_unprocessed_ingots | head -1)
         if [ -z "$next_ingot" ]; then
             echo "[forge] No open ingot issues. Run this command after the Smelter has produced a type:ingot issue."
@@ -596,6 +615,7 @@ case "${1:-}" in
         check_auth
         check_labels
 
+        show_banner stoke
         echo "[forge] Stoking the forge..."
         run_stoke_loop
         echo "[forge] Stoke complete."
@@ -608,6 +628,7 @@ case "${1:-}" in
         check_auth
         check_labels
 
+        show_banner cast
         echo "[forge] Starting full cast..."
 
         while true; do

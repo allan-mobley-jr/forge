@@ -22,7 +22,7 @@ setup() {
     git -C "$FORGE_REPO" commit --allow-empty -m "init" --quiet
 
     # Disable colors for cleaner test output
-    export RED="" GREEN="" YELLOW="" BLUE="" BOLD="" DIM="" NC=""
+    export RED="" GREEN="" YELLOW="" ORANGE="" BLUE="" BOLD="" DIM="" NC=""
 
     # Source the library under test
     source "$FORGE_TEST_DIR/bin/forge-lib.sh"
