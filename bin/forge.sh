@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Exit cleanly on CTRL+C (exit code 130 = 128 + SIGINT)
-trap 'echo ""; echo "[forge] Interrupted."; exit 130' INT
+trap 'echo ""; echo -e "${RED}✗${NC} Interrupted."; exit 130' INT
 
 FORGE_REPO="$HOME/.forge/repo"
 
@@ -457,22 +457,22 @@ case "${1:-}" in
                 [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
             ' 2>/dev/null || true)
             if [ -z "$feature_issue" ]; then
-                echo "[forge] No human-filed type:feature issues found."
+                forge_info "No human-filed type:feature issues found."
                 exit 0
             fi
-            echo "[forge] Starting Auto-Smelter on issue #$feature_issue..."
+            agent_msg SMELTER "Starting on issue #$feature_issue..."
             if ! run_forge_agent "auto-smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
-                echo "[forge] Smelter failed."
+                agent_fail SMELTER "failed."
                 exit 1
             fi
         else
-            echo "[forge] Starting Smelter..."
+            agent_msg SMELTER "Starting..."
             if ! run_forge_agent "Smelter" "Greet the user and begin."; then
-                echo "[forge] Smelter failed."
+                agent_fail SMELTER "failed."
                 exit 1
             fi
         fi
-        echo "[forge] Smelter complete. Run 'forge refine' to create issues from the ingot."
+        agent_ok SMELTER "complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
     refine|auto-refine)
@@ -484,24 +484,24 @@ case "${1:-}" in
 
         next_ingot=$(find_unprocessed_ingots | head -1)
         if [ -z "$next_ingot" ]; then
-            echo "[forge] No open ingot issues. Run this command after the Smelter has produced a type:ingot issue."
+            forge_info "No open ingot issues. Run this command after the Smelter has produced a type:ingot issue."
             exit 0
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Auto-Refiner..."
+            agent_msg REFINER "Starting..."
             if ! run_forge_agent "auto-refiner" "Process the oldest open ingot issue."; then
-                echo "[forge] Auto-Refiner failed."
+                agent_fail REFINER "failed."
                 exit 1
             fi
         else
-            echo "[forge] Starting Refiner..."
+            agent_msg REFINER "Starting..."
             if ! run_forge_agent "Refiner" "Greet the user and begin."; then
-                echo "[forge] Refiner failed."
+                agent_fail REFINER "failed."
                 exit 1
             fi
         fi
-        echo "[forge] Refiner complete. Run 'forge hammer' to start implementing."
+        agent_ok REFINER "complete. Run 'forge hammer' to start implementing."
         ;;
 
     hammer|auto-hammer)
@@ -513,24 +513,24 @@ case "${1:-}" in
 
         issue=$(find_issue_for_hammer)
         if [ -z "$issue" ]; then
-            echo "[forge] No issues ready for hammering."
+            forge_info "No issues ready for hammering."
             exit 0
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Auto-Blacksmith on issue #$issue..."
+            agent_msg BLACKSMITH "Starting on issue #$issue..."
             if ! run_forge_agent "auto-blacksmith" "Implement the next ready issue."; then
-                echo "[forge] Auto-Blacksmith failed on issue #$issue."
+                agent_fail BLACKSMITH "failed on issue #$issue."
                 exit 1
             fi
         else
-            echo "[forge] Starting Blacksmith on issue #$issue..."
+            agent_msg BLACKSMITH "Starting on issue #$issue..."
             if ! run_forge_agent "Blacksmith" "Greet the user and begin."; then
-                echo "[forge] Blacksmith failed on issue #$issue."
+                agent_fail BLACKSMITH "failed on issue #$issue."
                 exit 1
             fi
         fi
-        echo "[forge] Blacksmith complete."
+        agent_ok BLACKSMITH "complete."
         ;;
 
     temper|auto-temper)
@@ -542,24 +542,24 @@ case "${1:-}" in
 
         issue=$(find_issue_for_temper)
         if [ -z "$issue" ]; then
-            echo "[forge] No issues ready for tempering."
+            forge_info "No issues ready for tempering."
             exit 0
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Auto-Temperer on issue #$issue..."
+            agent_msg TEMPERER "Starting on issue #$issue..."
             if ! run_forge_agent "auto-temperer" "Review the next hammered issue."; then
-                echo "[forge] Auto-Temperer failed on issue #$issue."
+                agent_fail TEMPERER "failed on issue #$issue."
                 exit 1
             fi
         else
-            echo "[forge] Starting Temperer on issue #$issue..."
+            agent_msg TEMPERER "Starting on issue #$issue..."
             if ! run_forge_agent "Temperer" "Greet the user and begin."; then
-                echo "[forge] Temperer failed on issue #$issue."
+                agent_fail TEMPERER "failed on issue #$issue."
                 exit 1
             fi
         fi
-        echo "[forge] Temperer complete."
+        agent_ok TEMPERER "complete."
         ;;
 
     proof|auto-proof)
@@ -571,24 +571,24 @@ case "${1:-}" in
 
         issue=$(find_issue_for_proof)
         if [ -z "$issue" ]; then
-            echo "[forge] No issues ready for proofing."
+            forge_info "No issues ready for proofing."
             exit 0
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Auto-Proof-Master on issue #$issue..."
+            agent_msg PROOF-MASTER "Starting on issue #$issue..."
             if ! run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue."; then
-                echo "[forge] Auto-Proof-Master failed on issue #$issue."
+                agent_fail PROOF-MASTER "failed on issue #$issue."
                 exit 1
             fi
         else
-            echo "[forge] Starting Proof-Master on issue #$issue..."
+            agent_msg PROOF-MASTER "Starting on issue #$issue..."
             if ! run_forge_agent "Proof-Master" "Greet the user and begin."; then
-                echo "[forge] Proof-Master failed on issue #$issue."
+                agent_fail PROOF-MASTER "failed on issue #$issue."
                 exit 1
             fi
         fi
-        echo "[forge] Proof-Master complete."
+        agent_ok PROOF-MASTER "complete."
         ;;
 
     hone|auto-hone)
@@ -599,19 +599,19 @@ case "${1:-}" in
         check_labels
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            echo "[forge] Starting Auto-Honer..."
+            agent_msg HONER "Starting..."
             if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
-                echo "[forge] Auto-Honer failed."
+                agent_fail HONER "failed."
                 exit 1
             fi
         else
-            echo "[forge] Starting Honer..."
+            agent_msg HONER "Starting..."
             if ! run_forge_agent "Honer" "Greet the user and begin."; then
-                echo "[forge] Honer failed."
+                agent_fail HONER "failed."
                 exit 1
             fi
         fi
-        echo "[forge] Honer complete. Run 'forge refine' to create issues from the ingot."
+        agent_ok HONER "complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
     stoke)
@@ -622,9 +622,12 @@ case "${1:-}" in
         check_labels
 
         show_banner stoke
-        echo "[forge] Stoking the forge..."
-        run_stoke_loop
-        echo "[forge] Stoke complete."
+        forge_info "Stoking the forge..."
+        if ! run_stoke_loop; then
+            forge_fail "Stoke failed. Resolve the above, then re-run 'forge stoke'."
+            exit 1
+        fi
+        forge_ok "Stoke complete."
         ;;
 
     cast)
@@ -635,7 +638,7 @@ case "${1:-}" in
         check_labels
 
         show_banner cast
-        echo "[forge] Starting full cast..."
+        forge_info "Starting full cast..."
 
         cast_did_work=false
         while true; do
@@ -648,9 +651,9 @@ case "${1:-}" in
             # Priority 1: Implementation issues on the board → stoke
             if [ "$has_status_issues" -gt 0 ]; then
                 cast_did_work=true
-                echo "[forge] Stoking the forge..."
+                forge_info "Stoking the forge..."
                 if ! run_stoke_loop; then
-                    echo "[forge] Cast paused. Resolve the above, then re-run 'forge cast'."
+                    forge_fail "Cast paused. Resolve the above, then re-run 'forge cast'."
                     exit 1
                 fi
                 continue
@@ -660,9 +663,9 @@ case "${1:-}" in
             next_ingot=$(find_unprocessed_ingots | head -1)
             if [ -n "$next_ingot" ]; then
                 cast_did_work=true
-                echo "[forge] Refining ingot #$next_ingot..."
+                agent_msg REFINER "Refining ingot #$next_ingot..."
                 if ! run_forge_agent "auto-refiner" "Process ingot issue #${next_ingot}."; then
-                    echo "[forge] Refiner failed. Stopping."
+                    agent_fail REFINER "failed. Stopping."
                     exit 1
                 fi
                 continue
@@ -674,9 +677,9 @@ case "${1:-}" in
             ' 2>/dev/null || true)
             if [ -n "$feature_issue" ]; then
                 cast_did_work=true
-                echo "[forge] Smelting feature request #$feature_issue..."
+                agent_msg SMELTER "Smelting feature request #$feature_issue..."
                 if ! run_forge_agent "auto-smelter" "Produce an ingot from feature request issue #${feature_issue}."; then
-                    echo "[forge] Smelter failed. Stopping."
+                    agent_fail SMELTER "failed. Stopping."
                     exit 1
                 fi
                 continue
@@ -684,14 +687,14 @@ case "${1:-}" in
 
             # Nothing queued — if no work was ever done, exit early (#204)
             if [ "$cast_did_work" = false ]; then
-                echo "[forge] Nothing to cast. File a type:feature issue or add code to the project first."
+                forge_info "Nothing to cast. File a type:feature issue or add code to the project first."
                 break
             fi
 
             # All work drained — audit the result
-            echo "[forge] Honing..."
+            agent_msg HONER "Honing..."
             if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
-                echo "[forge] Honer failed. Stopping."
+                agent_fail HONER "failed. Stopping."
                 exit 1
             fi
 
@@ -700,10 +703,10 @@ case "${1:-}" in
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
             new_ready="${new_ready:-0}"
             if [ -z "$next_ingot" ] && [ "$new_ready" -eq 0 ]; then
-                echo "[forge] No new work from honing. Cast complete."
+                forge_ok "No new work from honing. Cast complete."
                 break
             fi
-            echo "[forge] Honer produced new work. Continuing cast..."
+            agent_msg HONER "Produced new work. Continuing cast..."
         done
         ;;
 

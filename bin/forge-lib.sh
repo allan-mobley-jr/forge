@@ -15,6 +15,19 @@ BOLD="${BOLD-\033[1m}"
 DIM="${DIM-\033[2m}"
 NC="${NC-\033[0m}"
 
+# --- Output helpers ---
+
+# Agent-specific messages: [ AGENT ]  message
+agent_msg()  { echo -e "[ ${ORANGE}${1}${NC} ]  $2"; }
+agent_ok()   { echo -e "[ ${ORANGE}${1}${NC} ]  $2 ${GREEN}✓${NC}"; }
+agent_fail() { echo -e "[ ${ORANGE}${1}${NC} ]  ${RED}✗${NC} $2"; }
+
+# General messages (no agent name)
+forge_info() { echo -e "${DIM}▸${NC} $1"; }
+forge_ok()   { echo -e "${GREEN}✓${NC} $1"; }
+forge_fail() { echo -e "${RED}✗${NC} $1"; }
+forge_warn() { echo -e "${YELLOW}!${NC} $1"; }
+
 # --- Shared helpers ---
 
 forge_version() {
@@ -81,7 +94,7 @@ FORGE_REQUIRED_LABELS=(
 # --- Label management ---
 
 check_labels() {
-    echo "[forge] Checking labels..."
+    forge_info "Checking labels..."
     local existing_labels
     existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
     local recreated=0
@@ -100,7 +113,7 @@ check_labels() {
     done
 
     if [ "$recreated" -gt 0 ]; then
-        echo "[forge] Re-created $recreated missing label(s)."
+        forge_info "Re-created $recreated missing label(s)."
     fi
 }
 
@@ -113,9 +126,9 @@ check_auth() {
     if ! command -v gh &>/dev/null; then
         errors+=("GitHub CLI (gh) not found in PATH. Install from: https://cli.github.com")
     elif ! gh auth status &>/dev/null; then
-        echo "[forge] GitHub auth invalid. Attempting refresh..."
+        forge_warn "GitHub auth invalid. Attempting refresh..."
         if gh auth refresh &>/dev/null; then
-            echo "[forge] GitHub auth refreshed."
+            forge_ok "GitHub auth refreshed."
         else
             errors+=("GitHub not authenticated. Run: gh auth login")
         fi
@@ -123,7 +136,7 @@ check_auth() {
 
     if [ ${#errors[@]} -gt 0 ]; then
         echo ""
-        echo -e "[forge] ${RED}Auth check failed:${NC}"
+        forge_fail "Auth check failed:"
         for err in "${errors[@]}"; do
             echo "  - $err"
         done
@@ -232,8 +245,8 @@ run_stoke_loop() {
         ' 2>/dev/null || true)
 
         if [ -n "$blocked_issue" ]; then
-            echo "[forge] Issue #$blocked_issue is labeled agent:needs-human. Cannot proceed."
-            echo "[forge] Resolve the issue manually, then re-run."
+            forge_warn "Issue #$blocked_issue is labeled agent:needs-human. Cannot proceed."
+            forge_info "Resolve the issue manually, then re-run."
             return 1
         fi
 
@@ -246,7 +259,7 @@ run_stoke_loop() {
         ' 2>/dev/null || true)
 
         if [ -z "$issue_line" ]; then
-            echo "[forge] No actionable issues. Queue complete."
+            forge_ok "No actionable issues. Queue complete."
             return 0
         fi
 
@@ -255,41 +268,41 @@ run_stoke_loop() {
         status=$(printf '%s' "$issue_line" | cut -f2)
 
         if [ -z "$issue" ] || [ -z "$status" ]; then
-            echo "[forge] Failed to parse issue data. Stopping."
+            forge_fail "Failed to parse issue data. Stopping."
             return 1
         fi
 
         case "$status" in
             status:ready|status:rework|status:hammering)
-                echo "[forge] Hammering issue #$issue ($status)..."
+                agent_msg BLACKSMITH "Hammering issue #$issue ($status)..."
                 run_forge_agent "auto-blacksmith" "Implement issue #${issue}." || {
-                    echo "[forge] Auto-Blacksmith failed on issue #$issue. Stopping."
+                    agent_fail BLACKSMITH "failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             status:hammered|status:tempering)
-                echo "[forge] Tempering issue #$issue ($status)..."
+                agent_msg TEMPERER "Tempering issue #$issue ($status)..."
                 run_forge_agent "auto-temperer" "Review issue #${issue}." || {
-                    echo "[forge] Auto-Temperer failed on issue #$issue. Stopping."
+                    agent_fail TEMPERER "failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             status:tempered|status:proving)
-                echo "[forge] Proofing issue #$issue ($status)..."
+                agent_msg PROOF-MASTER "Proofing issue #$issue ($status)..."
                 run_forge_agent "auto-proof-master" "Validate and open PR for issue #${issue}." || {
-                    echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                    agent_fail PROOF-MASTER "failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             status:proved)
-                echo "[forge] Issue #$issue proved but still open. Checking PR status..."
+                agent_msg PROOF-MASTER "Issue #$issue proved but still open. Checking PR status..."
                 run_forge_agent "auto-proof-master" "Issue #${issue} has status:proved but is still open. Check the PR status and resolve." || {
-                    echo "[forge] Auto-Proof-Master failed on issue #$issue. Stopping."
+                    agent_fail PROOF-MASTER "failed on issue #$issue. Stopping."
                     return 1
                 }
                 ;;
             *)
-                echo "[forge] Issue #$issue has unknown status '$status'. Skipping."
+                forge_fail "Issue #$issue has unknown status '$status'. Stopping."
                 return 1
                 ;;
         esac
