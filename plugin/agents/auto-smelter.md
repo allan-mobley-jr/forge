@@ -39,7 +39,9 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Find the Feature Request
 
-Check GitHub for human-filed `type:feature` issues (without the `ai-generated` label):
+If a specific issue number was provided in your prompt (e.g., "Produce an ingot from feature request issue #5"), use that issue directly — skip the lookup below and go straight to reading the issue.
+
+Otherwise, check GitHub for human-filed `type:feature` issues (without the `ai-generated` label):
 
 ```bash
 gh issue list --state open --label "type:feature" --json number,title,body,labels --jq '
@@ -107,6 +109,15 @@ Produced from feature request #N.
 <why the architecture was structured this way>
 
 *Posted by the Forge Smelter.*"
+```
+
+### 6. Close Source Issue
+
+Close the original feature request to prevent it from being picked up again:
+
+```bash
+gh issue close <source-issue-number> --reason completed \
+  --comment "Processed into ingot #<ingot-issue-number>."
 ```
 
 ## Rules

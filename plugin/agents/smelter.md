@@ -118,6 +118,15 @@ gh issue comment <ingot-issue-number> --body "**[Smelter Ledger]**
 *Posted by the Forge Smelter.*"
 ```
 
+### 7. Close Source Issue
+
+If the ingot was produced from an existing feature request issue, close it:
+
+```bash
+gh issue close <source-issue-number> --reason completed \
+  --comment "Processed into ingot #<ingot-issue-number>."
+```
+
 ## Rules
 
 - **Never file implementation issues.** You produce specifications, not work items.
