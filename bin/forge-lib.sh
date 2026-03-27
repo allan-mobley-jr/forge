@@ -5,15 +5,15 @@
 # Guard: FORGE_REPO must be set by the caller.
 : "${FORGE_REPO:?FORGE_REPO must be set before sourcing forge-lib.sh}"
 
-# Colors (can be overridden before sourcing, e.g. to disable in tests)
-RED="${RED:-\033[0;31m}"
-GREEN="${GREEN:-\033[0;32m}"
-YELLOW="${YELLOW:-\033[1;33m}"
-ORANGE="${ORANGE:-\033[38;5;208m}"
-BLUE="${BLUE:-\033[0;34m}"
-BOLD="${BOLD:-\033[1m}"
-DIM="${DIM:-\033[2m}"
-NC="${NC:-\033[0m}"
+# Colors (can be overridden before sourcing; set to "" to disable in tests)
+RED="${RED-\033[0;31m}"
+GREEN="${GREEN-\033[0;32m}"
+YELLOW="${YELLOW-\033[1;33m}"
+ORANGE="${ORANGE-\033[38;5;208m}"
+BLUE="${BLUE-\033[0;34m}"
+BOLD="${BOLD-\033[1m}"
+DIM="${DIM-\033[2m}"
+NC="${NC-\033[0m}"
 
 # --- Shared helpers ---
 
