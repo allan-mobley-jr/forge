@@ -55,6 +55,19 @@ MOCK_SCRIPT
     chmod +x "$MOCK_BIN/claude"
 }
 
+# Create a minimal agent file for run_forge_agent to parse.
+# Usage: _create_agent_file <agent-name>
+_create_agent_file() {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/$1.md" <<AGENT
+---
+name: $1
+tools:
+  - Bash
+---
+AGENT
+}
+
 # Ensure jq is available, otherwise skip the test.
 ensure_jq() {
     if ! command -v jq &>/dev/null; then
