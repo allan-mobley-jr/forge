@@ -25,7 +25,7 @@ setup() {
     export FORGE_CONFIG_DIR="$TEST_TMPDIR/.forge"
 
     # Disable colors for cleaner test output
-    export RED="" GREEN="" YELLOW="" ORANGE="" BLUE="" BOLD="" DIM="" NC=""
+    export RED="" GREEN="" YELLOW="" ORANGE="" BLUE="" CYAN="" MAGENTA="" BOLD="" DIM="" NC=""
 
     # Source the library under test
     source "$FORGE_TEST_DIR/bin/forge-lib.sh"
