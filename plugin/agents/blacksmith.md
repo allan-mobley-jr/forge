@@ -150,7 +150,7 @@ Present your implementation plan to the user:
 
 **Get explicit user confirmation before implementing.**
 
-**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, present this finding to the user. If confirmed, skip implementation — post a ledger documenting what was verified and why no changes are needed, including `**Status: Already Addressed**` so downstream agents can detect this case. Then mark `status:hammered` (removing `status:ready` or `status:rework` directly, since `status:hammering` was never set).
+**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, present this finding to the user. If confirmed, mark `status:hammered` first (removing `status:ready` or `status:rework` directly, since `status:hammering` was never set). Then post a ledger documenting what was verified and why no changes are needed, including `**Status: Already Addressed**` so downstream agents can detect this case.
 
 ### 6. Set Status
 
@@ -207,7 +207,14 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test(
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
-### 11. Post Ledger Comment
+### 11. Push & Update Status
+
+```bash
+git push -u origin HEAD
+gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
+```
+
+### 12. Post Ledger Comment
 
 **First pass:**
 ```bash
@@ -251,13 +258,6 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 *Posted by the Forge Blacksmith.*"
 ```
 
-### 12. Push & Update Status
-
-```bash
-git push -u origin HEAD
-gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
-```
-
 ## Rules
 
 - **One issue at a time.** Never work on multiple issues.
@@ -266,4 +266,5 @@ gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered
 - **Always confer with the user** on the plan before implementing.
 - **Always launch research agents** — never skip research.
 - **Always launch the Plan agent** — never plan the implementation yourself.
+- **Action before ledger.** Push and update the status label before posting the ledger comment.
 - **Max rework cycles:** If sent back 5 times total, escalate to `agent:needs-human`.

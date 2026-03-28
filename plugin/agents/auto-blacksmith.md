@@ -131,7 +131,7 @@ Launch a Plan agent with the research findings and issue requirements. The Plan 
 
 Review what the Plan agent returns. You are the Blacksmith — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. The implementation plan must be yours, not a pass-through. Document your decisions in the ledger.
 
-**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 5 through 9 (no `status:hammering`, no branch, no commits). Go directly to Step 10 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case. Then mark `status:hammered` (skip the `git push` in Step 11 — only update the label, removing `status:ready` or `status:rework` instead of `status:hammering`).
+**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 5 through 9 (no `status:hammering`, no branch, no commits). Mark `status:hammered` first (skip the `git push` in Step 10 — only update the label, removing `status:ready` or `status:rework` instead of `status:hammering`). Then go to Step 11 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case.
 
 ### 5. Set Status
 
@@ -188,7 +188,14 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test(
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
-### 10. Post Ledger Comment
+### 10. Push & Update Status
+
+```bash
+git push -u origin HEAD
+gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
+```
+
+### 11. Post Ledger Comment
 
 **First pass:**
 ```bash
@@ -232,13 +239,6 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 *Posted by the Forge Blacksmith.*"
 ```
 
-### 11. Push & Update Status
-
-```bash
-git push -u origin HEAD
-gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
-```
-
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
@@ -248,4 +248,5 @@ gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered
 - **Never ask questions.** You are running headless. Make decisions and document them in the ledger.
 - **Always launch research agents** — never skip research.
 - **Always launch the Plan agent** — never plan the implementation yourself.
+- **Action before ledger.** Push and update the status label before posting the ledger comment.
 - **Max rework cycles:** If sent back 5 times total, escalate to `agent:needs-human`.
