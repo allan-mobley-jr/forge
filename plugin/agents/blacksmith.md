@@ -150,6 +150,8 @@ Present your implementation plan to the user:
 
 **Get explicit user confirmation before implementing.**
 
+**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, present this finding to the user. If confirmed, skip implementation — post a ledger documenting what was verified and why no changes are needed, including `**Status: Already Addressed**` so downstream agents can detect this case. Then mark `status:hammered` (removing `status:ready` or `status:rework` directly, since `status:hammering` was never set).
+
 ### 6. Set Status
 
 Before starting implementation, transition the issue label:
