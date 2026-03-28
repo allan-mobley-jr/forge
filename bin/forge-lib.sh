@@ -21,15 +21,48 @@ NC="${NC-\033[0m}"
 # --- Output helpers ---
 
 # Agent-specific messages: [ AGENT ]  message
-agent_msg()  { echo -e "[ ${ORANGE}${1}${NC} ]  $2"; }
-agent_ok()   { echo -e "[ ${ORANGE}${1}${NC} ]  $2 ${GREEN}✓${NC}"; }
-agent_fail() { echo -e "[ ${ORANGE}${1}${NC} ]  ${RED}✗${NC} $2"; }
+agent_msg()  { echo -e "[ ${ORANGE}${1}${NC} ]  ${DIM}$2${NC}"; }
+agent_ok()   { echo -e "[ ${ORANGE}${1}${NC} ]  ${GREEN}$2 ✓${NC}"; }
+agent_fail() { echo -e "[ ${ORANGE}${1}${NC} ]  ${RED}✗ $2${NC}"; }
 
 # General messages (no agent name)
-forge_info() { echo -e "${DIM}▸${NC} $1"; }
-forge_ok()   { echo -e "${GREEN}✓${NC} $1"; }
-forge_fail() { echo -e "${RED}✗${NC} $1"; }
-forge_warn() { echo -e "${YELLOW}!${NC} $1"; }
+forge_info() { echo -e "${DIM}▸ $1${NC}"; }
+forge_ok()   { echo -e "${GREEN}✓ $1${NC}"; }
+forge_fail() { echo -e "${RED}✗ $1${NC}"; }
+forge_warn() { echo -e "${YELLOW}! $1${NC}"; }
+
+# --- Spinner ---
+
+_FORGE_SPINNER_PID=""
+
+_forge_spinner_start() {
+    local msg="${1:-Working...}"
+    # Skip spinner if not a terminal or colors are disabled (test mode)
+    if [[ ! -t 1 ]] || [[ -z "${DIM}${NC}" ]]; then
+        _FORGE_SPINNER_PID=""
+        return
+    fi
+    (
+        set +e
+        local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+        local i=0
+        while true; do
+            printf '\r  %b%s %s%b' "$DIM" "${frames[$i]}" "$msg" "$NC"
+            i=$(( (i + 1) % ${#frames[@]} ))
+            sleep 0.1
+        done
+    ) &
+    _FORGE_SPINNER_PID=$!
+}
+
+_forge_spinner_stop() {
+    if [[ -n "${_FORGE_SPINNER_PID:-}" ]]; then
+        kill "$_FORGE_SPINNER_PID" 2>/dev/null || true
+        wait "$_FORGE_SPINNER_PID" 2>/dev/null || true
+        printf '\r\033[K'
+        _FORGE_SPINNER_PID=""
+    fi
+}
 
 # --- Shared helpers ---
 
@@ -173,7 +206,16 @@ run_forge_agent() {
     [ -n "$prompt" ] && cmd+=(-p "$prompt")
     [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
 
-    "${cmd[@]}"
+    # Start spinner for headless agents (those with -p flag)
+    if [ -n "$prompt" ]; then
+        _forge_spinner_start
+    fi
+
+    local exit_code=0
+    "${cmd[@]}" || exit_code=$?
+
+    _forge_spinner_stop
+    return "$exit_code"
 }
 
 # --- Issue query helpers ---
