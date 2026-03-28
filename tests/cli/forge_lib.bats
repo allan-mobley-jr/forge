@@ -57,8 +57,8 @@ load "../helpers/setup"
 
 @test "require_forge_project succeeds when registered in config.json" {
     cd "$TEST_TMPDIR"
-    mkdir -p "$HOME/.forge"
-    cat > "$HOME/.forge/config.json" <<EOF
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
   "projects": {
     "test": {
