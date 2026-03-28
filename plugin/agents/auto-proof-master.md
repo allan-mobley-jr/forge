@@ -70,7 +70,7 @@ If a `status:proved` issue is found, a PR was previously opened but the merge di
 1. Find the PR: `gh pr list --state all --search "Closes #<N>" --json number,state --jq '.[0]'`
 2. If the PR is **merged** — the issue should have auto-closed. Close it now: `gh issue close <N> --reason completed`
 3. If the PR is **open** — resume from Step 15 (Merge). Run the pre-merge gate checks first.
-4. If **no PR exists** — escalate: `gh issue edit <N> --remove-label "status:proved" --add-label "agent:needs-human"`
+4. If **no PR exists** — read the Blacksmith and Temperer ledger comments. If both indicate the issue was already addressed (no code changes needed), verify acceptance criteria one final time against the codebase, post the Proof-Master ledger, and close the issue: `gh issue close <N> --reason completed`. If the ledgers do not indicate already-addressed, escalate: `gh issue edit <N> --remove-label "status:proved" --add-label "agent:needs-human"`
 
 After recovery, exit. Do not continue to the normal workflow.
 
@@ -82,6 +82,8 @@ Find the linked branch:
 ```bash
 gh issue develop <N> --list
 ```
+
+**Already-addressed early exit:** If no branch exists and the Blacksmith and Temperer ledgers both contain `**Status: Already Addressed**`, this issue needs no PR. Verify each acceptance criterion one final time against the codebase, post the Proof-Master ledger (Step 16), remove the `status:tempered` label, close the issue (`gh issue close <N> --reason completed`), and stop. Do not proceed to Step 2.
 
 ### 2. Set Status
 
@@ -189,6 +191,8 @@ gh issue comment <N> --body "**[Proof-Master]** Escalating to human review.
 Then stop — do not proceed.
 
 ### 10. Open PR
+
+**Already-addressed case:** This should have been caught at Step 1 (early exit). If it reaches here, check whether a branch exists (`gh issue develop <N> --list`). If no branch, remove `status:proving`, post the Proof-Master ledger (Step 16), close the issue (`gh issue close <N> --reason completed`), and stop.
 
 ```bash
 gh issue edit <N> --remove-label "status:proving" --add-label "status:proved"

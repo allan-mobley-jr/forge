@@ -131,6 +131,8 @@ Launch a Plan agent with the research findings and issue requirements. The Plan 
 
 Review what the Plan agent returns. You are the Blacksmith — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. The implementation plan must be yours, not a pass-through. Document your decisions in the ledger.
 
+**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 5 through 9 (no `status:hammering`, no branch, no commits). Go directly to Step 10 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case. Then mark `status:hammered` (skip the `git push` in Step 11 — only update the label, removing `status:ready` or `status:rework` instead of `status:hammering`).
+
 ### 5. Set Status
 
 Before starting implementation, transition the issue label:

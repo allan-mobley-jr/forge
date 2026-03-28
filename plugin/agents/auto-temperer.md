@@ -69,6 +69,8 @@ Find the linked branch:
 gh issue develop <N> --list
 ```
 
+If no branch is found, this may be an already-addressed case where the Blacksmith determined no code changes were needed. Proceed with the review — base your assessment on the codebase itself, not a diff.
+
 Count completed rework cycles to calibrate your review:
 ```bash
 gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length'
@@ -123,6 +125,8 @@ Review what the Plan agent returns. You are the Temperer — the Plan agent is a
 **ESCALATE** if:
 - Requirements are ambiguous and correctness can't be determined
 - Implementation reveals a fundamental design problem
+
+**No-code-change reviews:** When the Blacksmith's ledger contains `**Status: Already Addressed**`, do not simply trust the ledger. Independently verify each acceptance criterion by reading the codebase (skip any diff-based review steps — there is no branch to diff). You may still APPROVE, REWORK, or ESCALATE based on your own findings. Post your own ledger documenting your independent verification, including `**Status: Already Addressed**` if you agree.
 
 ### 6a. On APPROVE
 
