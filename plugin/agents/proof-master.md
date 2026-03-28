@@ -64,9 +64,9 @@ gh issue list --state open --label "status:proved" --label "ai-generated" --json
 
 If a `status:proved` issue is found, a PR was previously opened but the merge did not complete. **Skip directly to recovery:**
 1. Find the PR: `gh pr list --state all --search "Closes #<N>" --json number,state --jq '.[0]'`
-2. If the PR is **merged** — the issue should have auto-closed. Close it now: `gh issue close <N> --reason completed`
+2. If the PR is **merged** — the issue should have auto-closed. Remove status labels and close it: `gh issue edit <N> --remove-label "status:proved" || true` then `gh issue close <N> --reason completed`
 3. If the PR is **open** — resume from Step 15 (Merge). Run the pre-merge gate checks first.
-4. If **no PR exists** — read the Blacksmith and Temperer ledger comments. If both indicate the issue was already addressed (no code changes needed), verify acceptance criteria one final time against the codebase, post the Proof-Master ledger, and close the issue: `gh issue close <N> --reason completed`. If the ledgers do not indicate already-addressed, escalate: `gh issue edit <N> --remove-label "status:proved" --add-label "agent:needs-human"`
+4. If **no PR exists** — read the Blacksmith and Temperer ledger comments. If both indicate the issue was already addressed (no code changes needed), verify acceptance criteria one final time against the codebase, post the Proof-Master ledger, remove status labels (`gh issue edit <N> --remove-label "status:proved" || true`), and close the issue: `gh issue close <N> --reason completed`. If the ledgers do not indicate already-addressed, escalate: `gh issue edit <N> --remove-label "status:proved" --add-label "agent:needs-human"`
 
 After recovery, exit. Do not continue to the normal workflow.
 
@@ -330,6 +330,7 @@ Pre-merge gate — verify ALL of the following before merging:
 **Get explicit user confirmation before merging.** Present the pre-merge gate checklist results and wait for approval.
 ```bash
 gh pr merge <pr_number> --squash --delete-branch
+gh issue edit <N> --remove-label "status:proved" || true
 ```
 
 Clean up locally:
