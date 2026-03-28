@@ -47,12 +47,12 @@ Then start building:
 forge smelt                  # describe your app to the Smelter
 forge refine                 # create GitHub issues from the ingot
 forge stoke                  # autonomously implement, review, and PR each issue
-forge cast                   # full autonomous cycle: smelt → refine → stoke → hone
+forge cast                   # full autonomous cycle: smelt → refine → stoke → hone → scribe
 ```
 
 ## How It Works
 
-Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent — handle a specific phase of the development lifecycle. You invoke them one at a time, or let them run autonomously.
+Forge uses a medieval forge metaphor. Seven craftsmen — each a Claude Code agent — handle a specific phase of the development lifecycle. You invoke them one at a time, or let them run autonomously.
 
 ```
    ┌───────────────┐       ┌──────────┐
@@ -63,9 +63,9 @@ Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent
    forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
                         ↑              ↑─── forge stoke ───↑              │
                         │                                                 │
-                   forge hone  ←────────── (app running, issues done) ────┘
+          forge scribe  ←  forge hone  ←── (app running, issues done) ────┘
 
-                   forge cast  =  smelt → refine → stoke → hone (full cycle)
+                   forge cast  =  smelt → refine → stoke → hone → scribe (full cycle)
 ```
 
 ### The Craftsmen
@@ -78,6 +78,7 @@ Forge uses a medieval forge metaphor. Six craftsmen — each a Claude Code agent
 | **Temperer** | `forge temper` | Independently reviews the Blacksmith's work. Approves or sends back for rework. |
 | **Proof-Master** | `forge proof` | Ensures test coverage, writes missing tests, fixes test failures, manages CI, and opens a PR. |
 | **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues or ingots. |
+| **Scribe** | `forge scribe` | Audits documentation and maintains the GitHub Wiki. Files doc issues for the Blacksmith. |
 
 Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent runs headless via `-p` without human interaction.
 

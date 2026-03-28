@@ -125,6 +125,7 @@ FORGE_REQUIRED_LABELS=(
     "scope:data|0e8a16|Database or data model changes"
     "scope:auth|d93f0b|Authentication or authorization"
     "scope:infra|ededed|CI, deploy, or config changes"
+    "scope:docs|0075ca|Documentation updates"
 )
 
 # --- Label management ---

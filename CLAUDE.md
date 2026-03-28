@@ -21,6 +21,8 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-proof-master.md — Auto-Proof-Master: headless testing + PR
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
+    scribe.md        — Scribe: interactive doc audit / wiki
+    auto-scribe.md   — Auto-Scribe: headless doc audit / wiki
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
@@ -51,14 +53,14 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 
 ## Labels
 
-Target projects use these labels (23 total, defined in `forge-lib.sh`):
+Target projects use these labels (24 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`, `agent:needs-human`
 - **Artifact:** `type:ingot`
 - **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:proving`, `status:proved`
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
 - **Priority:** `priority:high`, `priority:medium`, `priority:low`
-- **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`
+- **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`, `scope:docs`
 
 When creating issues or PRs for **this repo**, apply relevant labels:
 
@@ -71,12 +73,12 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
                      ↑                                                    │
                      │                                                    │
-                forge hone  ←─────────── (app running, issues done) ──────┘
+       forge scribe  ←  forge hone  ←── (app running, issues done) ──────┘
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
 `forge stoke` processes the issue queue: dispatches based on the oldest issue's status label.
-`forge cast` runs the full autonomous cycle: smelt → refine → stoke → hone (repeats if new work emerges).
+`forge cast` runs the full autonomous cycle: smelt → refine → stoke → hone → scribe (repeats if new work emerges).
 
 ## Git Workflow
 

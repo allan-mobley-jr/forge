@@ -39,7 +39,7 @@ BANNER
             echo -e "\n  ${BLUE}STOKE${NC}  Stoking the fire — processing the issue queue"
             ;;
         cast)
-            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → refine → stoke → hone"
+            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → refine → stoke → hone → scribe"
             ;;
         init)
             echo -e "\n  ${BLUE}INIT${NC}  Forging a new project"
@@ -64,8 +64,9 @@ show_usage() {
     echo "  temper           Review the current issue's implementation"
     echo "  proof            Validate and open a PR"
     echo "  hone             Audit the codebase for improvements"
+    echo "  scribe           Audit docs and update the GitHub Wiki"
     echo "  stoke            Autonomously process the issue queue"
-    echo "  cast             Full autonomous cycle: smelt → refine → stoke → hone"
+    echo "  cast             Full autonomous cycle: smelt → refine → stoke → hone → scribe"
     echo ""
     echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
     echo ""
@@ -199,6 +200,15 @@ show_command_help() {
             echo "  hone         Interactive — choose to triage a bug or audit the codebase"
             echo "  auto-hone    Autonomous — triages oldest bug first, then audits"
             ;;
+        scribe|auto-scribe)
+            echo "forge scribe — Audit docs and update the GitHub Wiki"
+            echo ""
+            echo "Usage: forge scribe"
+            echo "       forge auto-scribe"
+            echo ""
+            echo "  scribe       Interactive — review docs with the user, get approval before changes"
+            echo "  auto-scribe  Autonomous — audits docs and updates wiki headlessly"
+            ;;
         stoke)
             echo "forge stoke — Autonomously process the issue queue"
             echo ""
@@ -214,9 +224,9 @@ show_command_help() {
             echo "Usage: forge cast"
             echo ""
             echo "Runs the entire pipeline end-to-end:"
-            echo "  smelt → refine → stoke (hammer/temper/proof) → hone"
+            echo "  smelt → refine → stoke (hammer/temper/proof) → hone → scribe"
             echo ""
-            echo "If the Honer produces new work, the cycle repeats."
+            echo "If the Honer or Scribe produces new work, the cycle repeats."
             echo "Exits when no new work is generated."
             ;;
         *)
@@ -614,6 +624,29 @@ case "${1:-}" in
         agent_ok HONER "complete. Run 'forge refine' to create issues from the ingot."
         ;;
 
+    scribe|auto-scribe)
+        FORGE_COMMAND="$1"; shift
+
+        require_forge_project
+        check_auth
+        check_labels
+
+        if [[ "$FORGE_COMMAND" == auto-* ]]; then
+            agent_msg SCRIBE "Starting..."
+            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki."; then
+                agent_fail SCRIBE "failed."
+                exit 1
+            fi
+        else
+            agent_msg SCRIBE "Starting..."
+            if ! run_forge_agent "Scribe" "Greet the user and begin."; then
+                agent_fail SCRIBE "failed."
+                exit 1
+            fi
+        fi
+        agent_ok SCRIBE "complete."
+        ;;
+
     stoke)
         shift
 
@@ -698,15 +731,22 @@ case "${1:-}" in
                 exit 1
             fi
 
-            # Check if hone produced new work
+            # Document the result
+            agent_msg SCRIBE "Scribing..."
+            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki."; then
+                agent_fail SCRIBE "failed. Stopping."
+                exit 1
+            fi
+
+            # Check if hone/scribe produced new work
             next_ingot=$(find_unprocessed_ingots | head -1)
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
             new_ready="${new_ready:-0}"
             if [ -z "$next_ingot" ] && [ "$new_ready" -eq 0 ]; then
-                forge_ok "No new work from honing. Cast complete."
+                forge_ok "Cast complete."
                 break
             fi
-            agent_msg HONER "Produced new work. Continuing cast..."
+            forge_info "New work produced. Continuing cast..."
         done
         ;;
 
