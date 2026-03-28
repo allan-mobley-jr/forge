@@ -372,6 +372,66 @@ gh issue comment <N> --body "**[Proof-Master Ledger]**
 *Posted by the Forge Proof-Master.*"
 ```
 
+### 17. Post-Merge Checks
+
+Two conditional checks after merge. Both may be skipped — they are not always-run.
+
+#### 17a. Vercel Project Setup (one-time)
+
+Check if a Vercel project is connected to this repo:
+```bash
+gh api repos/{owner}/{repo}/deployments --jq 'length'
+```
+
+If deployments exist (count > 0), the project is already set up — skip to 17b.
+
+If no deployments exist, check whether the merged code includes a deployable route (e.g., an `app/page.tsx` or `pages/index.tsx`). If no deployable routes exist yet, skip to 17b.
+
+If deployable routes exist but no Vercel project is connected:
+1. Use the Vercel plugin `list_teams` tool to find the team ID
+2. Use `deploy_to_vercel` to create the project and trigger the first deployment
+3. Verify the deployment succeeds using `list_deployments`
+
+If deployment fails, note it in the issue comment but do not escalate — this is a convenience step, not a gate.
+
+#### 17b. Milestone Release Check
+
+Determine if the just-closed issue belongs to a milestone:
+```bash
+gh api repos/{owner}/{repo}/issues/<N> --jq '.milestone | select(. != null) | {number: .number, title: .title, open_issues: .open_issues}'
+```
+
+If the issue has no milestone, or the milestone still has open issues, stop here.
+
+If the milestone has zero open issues remaining — all work is complete. Proceed autonomously and document your version derivation reasoning in the release comment.
+
+1. Derive the version tag. Check existing tags (`git tag -l --sort=-v:refname`) and the milestone title. Use your judgment to determine the appropriate semver tag.
+
+2. Build a changelog from the milestone's issues:
+   ```bash
+   gh api 'repos/{owner}/{repo}/issues?milestone=<milestone_number>&state=closed&per_page=100' --paginate --jq '.[].title'
+   ```
+
+3. Create the tag and release:
+   ```bash
+   git tag <version>
+   git push origin <version>
+   gh release create <version> --title "<version>" --notes "## <milestone title>
+
+   ### Changes
+   <bullet list of issue titles from the milestone>"
+   ```
+
+4. Close the milestone:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones/<milestone_number> --method PATCH -f state=closed
+   ```
+
+5. Post a comment on each milestone issue noting the release:
+   ```bash
+   gh issue comment <N> --body "**[Proof-Master]** Released in <version>."
+   ```
+
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
