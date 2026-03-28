@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.3] - 2026-03-28
+
+### Added
+- Scribe agent — new craftsman that audits documentation and maintains the GitHub Wiki
+- Proof-Master milestone-gated actions — Vercel project setup and GitHub releases when milestones complete
+- Stoke agents file out-of-scope findings as GitHub issues instead of only noting them in ledgers
+- Refiner applies `scope:*` labels to implementation issues
+- Per-agent bracket/message colors, visual separators between agent passes, status transition lines, contextual spinner, and cast completion summary
+
+### Fixed
+- Consistent label transition ordering (action before ledger) and status label cleanup on issue close
+
 ## [0.1.2] - 2026-03-28
 
 ### Added
@@ -40,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.1.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.3
 [0.1.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.2
 [0.1.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.1
 [0.1.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.0
