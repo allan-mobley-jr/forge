@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-03-28
+
+### Added
+- Colored message text — DIM for in-progress, GREEN for success, RED for failure
+- Braille spinner during headless agent execution showing activity during startup
+- Already-addressed handling codified in all six craftsman agents — when acceptance criteria are already met, the pipeline passes through with ledgers and closes the issue without a PR
+
+### Fixed
+- Test suite no longer clobbers real `~/.forge/config.json` — introduced `FORGE_CONFIG_DIR` for test isolation
+
 ## [0.1.1] - 2026-03-27
 
 ### Added
@@ -30,5 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.1.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.2
 [0.1.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.1
 [0.1.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.0
