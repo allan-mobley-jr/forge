@@ -5,6 +5,9 @@
 # Guard: FORGE_REPO must be set by the caller.
 : "${FORGE_REPO:?FORGE_REPO must be set before sourcing forge-lib.sh}"
 
+# Config directory (override in tests to avoid clobbering real config)
+FORGE_CONFIG_DIR="${FORGE_CONFIG_DIR:-$HOME/.forge}"
+
 # Colors (can be overridden before sourcing; set to "" to disable in tests)
 RED="${RED-\033[0;31m}"
 GREEN="${GREEN-\033[0;32m}"
@@ -37,7 +40,7 @@ forge_version() {
 require_forge_project() {
     local project_path
     project_path=$(pwd)
-    if [ ! -f "$HOME/.forge/config.json" ]; then
+    if [ ! -f "$FORGE_CONFIG_DIR/config.json" ]; then
         echo -e "${RED}Error:${NC} Not a Forge project."
         echo "  Run ${BOLD}forge init${NC} to bootstrap a new project."
         exit 1
@@ -51,7 +54,7 @@ for name, proj in cfg.get('projects', {}).items():
     if proj.get('path') == sys.argv[2]:
         print('yes')
         break
-" "$HOME/.forge/config.json" "$project_path" 2>/dev/null || true)
+" "$FORGE_CONFIG_DIR/config.json" "$project_path" 2>/dev/null || true)
     if [ "$registered" != "yes" ]; then
         echo -e "${RED}Error:${NC} Not a Forge project."
         echo "  Run ${BOLD}forge init${NC} to bootstrap a new project."

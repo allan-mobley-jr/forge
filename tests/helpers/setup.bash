@@ -21,6 +21,9 @@ setup() {
     git -C "$FORGE_REPO" config user.email "forge-test@example.com"
     git -C "$FORGE_REPO" commit --allow-empty -m "init" --quiet
 
+    # Isolate config directory so tests never touch real ~/.forge
+    export FORGE_CONFIG_DIR="$TEST_TMPDIR/.forge"
+
     # Disable colors for cleaner test output
     export RED="" GREEN="" YELLOW="" ORANGE="" BLUE="" BOLD="" DIM="" NC=""
 
