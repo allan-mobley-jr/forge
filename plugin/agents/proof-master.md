@@ -449,3 +449,4 @@ After confirmation:
 - **Tag your comments.** Always prefix with `**[Proof-Master]**`.
 - **Action before ledger.** Post the verdict action (label change + PR) before the ledger comment.
 - The PR must reference the issue number with `#<N>`.
+- **File out-of-scope findings as GitHub issues.** When you encounter actionable findings outside the current issue's acceptance criteria (high-confidence sub-agent recommendations, "legitimate but dormant" Copilot comments, architectural concerns from research): present them to the user, then file approved items — feature suggestions with `type:feature` + appropriate `scope:*` label only (Smelter picks up), bugs/chores with `type:bug` or `type:chore` + `ai-generated` + `status:ready` + appropriate `scope:*` label (stoke picks up). Do not file style preferences, low-confidence findings, or speculative concerns.

@@ -268,3 +268,4 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 - **Always launch the Plan agent** — never plan the implementation yourself.
 - **Action before ledger.** Push and update the status label before posting the ledger comment.
 - **Max rework cycles:** If sent back 5 times total, escalate to `agent:needs-human`.
+- **File out-of-scope findings as GitHub issues.** When you encounter actionable findings outside the current issue's acceptance criteria (high-confidence sub-agent recommendations, "legitimate but dormant" Copilot comments, architectural concerns from research): present them to the user, then file approved items — feature suggestions with `type:feature` + appropriate `scope:*` label only (Smelter picks up), bugs/chores with `type:bug` or `type:chore` + `ai-generated` + `status:ready` + appropriate `scope:*` label (stoke picks up). Do not file style preferences, low-confidence findings, or speculative concerns.

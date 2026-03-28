@@ -444,3 +444,4 @@ If the milestone has zero open issues remaining — all work is complete. Procee
 - **Tag your comments.** Always prefix with `**[Proof-Master]**`.
 - **Action before ledger.** Post the verdict action (label change + PR) before the ledger comment.
 - The PR must reference the issue number with `#<N>`.
+- **File out-of-scope findings as GitHub issues.** When you encounter actionable findings outside the current issue's acceptance criteria (high-confidence sub-agent recommendations, "legitimate but dormant" Copilot comments, architectural concerns from research): file feature suggestions with `type:feature` + appropriate `scope:*` label only (Smelter picks up), file bugs/chores with `type:bug` or `type:chore` + `ai-generated` + `status:ready` + appropriate `scope:*` label (stoke picks up). Do not file style preferences, low-confidence findings, or speculative concerns.

@@ -194,3 +194,4 @@ gh issue comment <N> --body "**[Temperer Ledger]**
 - **Always launch the Plan agent** — never assess without it.
 - **Tag your comments.** Always prefix with `**[Temperer]**`.
 - **Action before ledger.** Post the verdict action (label change + feedback) before the ledger comment.
+- **File out-of-scope findings as GitHub issues.** When you encounter actionable findings outside the current issue's acceptance criteria (high-confidence sub-agent recommendations, "legitimate but dormant" Copilot comments, architectural concerns from research): file feature suggestions with `type:feature` + appropriate `scope:*` label only (Smelter picks up), file bugs/chores with `type:bug` or `type:chore` + `ai-generated` + `status:ready` + appropriate `scope:*` label (stoke picks up). Do not file style preferences, low-confidence findings, or speculative concerns.
