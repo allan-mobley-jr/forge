@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Exit cleanly on CTRL+C (exit code 130 = 128 + SIGINT)
-trap 'echo ""; echo -e "${RED}✗${NC} Interrupted."; exit 130' INT
-
 FORGE_REPO="$HOME/.forge/repo"
 
 if [ ! -d "$FORGE_REPO" ]; then
@@ -16,6 +13,9 @@ fi
 FORGE_LIB_DIR="${FORGE_LIB_DIR:-"$FORGE_REPO/bin"}"
 # shellcheck source=bin/forge-lib.sh
 source "${FORGE_LIB_DIR}/forge-lib.sh"
+
+# Exit cleanly on CTRL+C (exit code 130 = 128 + SIGINT)
+trap '_forge_spinner_stop; echo ""; echo -e "${RED}✗${NC} Interrupted."; exit 130' INT
 
 show_banner() {
     local variant="${1:-main}"
