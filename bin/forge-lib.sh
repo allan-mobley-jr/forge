@@ -14,22 +14,65 @@ GREEN="${GREEN-\033[0;32m}"
 YELLOW="${YELLOW-\033[1;33m}"
 ORANGE="${ORANGE-\033[38;5;208m}"
 BLUE="${BLUE-\033[0;34m}"
+CYAN="${CYAN-\033[0;36m}"
+MAGENTA="${MAGENTA-\033[0;35m}"
 BOLD="${BOLD-\033[1m}"
 DIM="${DIM-\033[2m}"
 NC="${NC-\033[0m}"
 
 # --- Output helpers ---
 
+# Map agent name to its bracket/message color.
+_agent_color() {
+    case "$1" in
+        SMELTER)      echo "$YELLOW" ;;
+        REFINER)      echo "$BLUE" ;;
+        BLACKSMITH)   echo "$YELLOW" ;;
+        TEMPERER)     echo "$GREEN" ;;
+        PROOF-MASTER) echo "$CYAN" ;;
+        HONER)        echo "$RED" ;;
+        SCRIBE)       echo "$MAGENTA" ;;
+        *)            echo "$DIM" ;;
+    esac
+}
+
 # Agent-specific messages: [ AGENT ]  message
-agent_msg()  { echo -e "[ ${ORANGE}${1}${NC} ]  ${DIM}$2${NC}"; }
-agent_ok()   { echo -e "[ ${ORANGE}${1}${NC} ]  ${GREEN}$2 ✓${NC}"; }
-agent_fail() { echo -e "[ ${ORANGE}${1}${NC} ]  ${RED}✗ $2${NC}"; }
+agent_msg() {
+    local _c; _c=$(_agent_color "$1")
+    echo -e "${_c}[${NC} ${ORANGE}${1}${NC} ${_c}]${NC}  ${_c}$2${NC}"
+}
+agent_ok() {
+    local _c; _c=$(_agent_color "$1")
+    echo -e "${_c}[${NC} ${ORANGE}${1}${NC} ${_c}]${NC}  ${GREEN}$2 ✓${NC}"
+}
+agent_fail() {
+    local _c; _c=$(_agent_color "$1")
+    echo -e "${_c}[${NC} ${ORANGE}${1}${NC} ${_c}]${NC}  ${RED}✗ $2${NC}"
+}
 
 # General messages (no agent name)
 forge_info() { echo -e "${DIM}▸ $1${NC}"; }
 forge_ok()   { echo -e "${GREEN}✓ $1${NC}"; }
 forge_fail() { echo -e "${RED}✗ $1${NC}"; }
 forge_warn() { echo -e "${YELLOW}! $1${NC}"; }
+
+# Visual separator and status transition
+forge_separator() { echo -e "\n${DIM}$(printf '%60s' '' | tr ' ' '─')${NC}\n"; }
+forge_status_transition() { echo -e "  ${BOLD}STATUS${NC}  ${BLUE}$1${NC} ${DIM}→${NC} ${BLUE}$2${NC}"; }
+
+# Cast completion summary
+forge_cast_summary() {
+    local start_time="$1"
+    local elapsed=$(( $(date +%s) - start_time ))
+    local mins=$(( elapsed / 60 )) secs=$(( elapsed % 60 ))
+    local closed merged
+    closed=$(gh issue list --state closed --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "?")
+    merged=$(gh pr list --state merged --json number --jq 'length' 2>/dev/null || echo "?")
+    forge_separator
+    echo -e "  ${BOLD}CAST COMPLETE${NC}"
+    echo -e "  Issues closed: ${GREEN}${closed}${NC}  |  PRs merged: ${GREEN}${merged}${NC}  |  Duration: ${DIM}${mins}m ${secs}s${NC}"
+    forge_separator
+}
 
 # --- Spinner ---
 
@@ -186,11 +229,12 @@ check_auth() {
 # --- Agent invocation ---
 
 # run_forge_agent — invoke a Claude Code session with a named agent.
-# Usage: run_forge_agent <agent-name> [prompt]
+# Usage: run_forge_agent <agent-name> [prompt] [spinner-message]
 # Extracts tools from agent frontmatter and passes --allowedTools for auto-approval.
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
+    local spinner_msg="${3:-Working...}"
     local agent_name_lower
     agent_name_lower=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
 
@@ -209,13 +253,14 @@ run_forge_agent() {
 
     # Start spinner for headless agents (those with -p flag)
     if [ -n "$prompt" ]; then
-        _forge_spinner_start
+        _forge_spinner_start "$spinner_msg"
     fi
 
     local exit_code=0
     "${cmd[@]}" || exit_code=$?
 
     _forge_spinner_stop
+    forge_separator
     return "$exit_code"
 }
 
@@ -321,31 +366,35 @@ run_stoke_loop() {
         case "$status" in
             status:ready|status:rework|status:hammering)
                 agent_msg BLACKSMITH "Hammering issue #$issue ($status)..."
-                run_forge_agent "auto-blacksmith" "Implement issue #${issue}." || {
+                run_forge_agent "auto-blacksmith" "Implement issue #${issue}." "Hammering #${issue}..." || {
                     agent_fail BLACKSMITH "failed on issue #$issue. Stopping."
                     return 1
                 }
+                forge_status_transition "$status" "status:hammered"
                 ;;
             status:hammered|status:tempering)
                 agent_msg TEMPERER "Tempering issue #$issue ($status)..."
-                run_forge_agent "auto-temperer" "Review issue #${issue}." || {
+                run_forge_agent "auto-temperer" "Review issue #${issue}." "Tempering #${issue}..." || {
                     agent_fail TEMPERER "failed on issue #$issue. Stopping."
                     return 1
                 }
+                forge_status_transition "$status" "status:tempered"
                 ;;
             status:tempered|status:proving)
                 agent_msg PROOF-MASTER "Proofing issue #$issue ($status)..."
-                run_forge_agent "auto-proof-master" "Validate and open PR for issue #${issue}." || {
+                run_forge_agent "auto-proof-master" "Validate and open PR for issue #${issue}." "Proofing #${issue}..." || {
                     agent_fail PROOF-MASTER "failed on issue #$issue. Stopping."
                     return 1
                 }
+                forge_status_transition "$status" "status:proved"
                 ;;
             status:proved)
                 agent_msg PROOF-MASTER "Issue #$issue proved but still open. Checking PR status..."
-                run_forge_agent "auto-proof-master" "Issue #${issue} has status:proved but is still open. Check the PR status and resolve." || {
+                run_forge_agent "auto-proof-master" "Issue #${issue} has status:proved but is still open. Check the PR status and resolve." "Checking PR for #${issue}..." || {
                     agent_fail PROOF-MASTER "failed on issue #$issue. Stopping."
                     return 1
                 }
+                forge_status_transition "$status" "closed"
                 ;;
             *)
                 forge_fail "Issue #$issue has unknown status '$status'. Stopping."

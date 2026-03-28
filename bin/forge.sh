@@ -673,6 +673,7 @@ case "${1:-}" in
         show_banner cast
         forge_info "Starting full cast..."
 
+        cast_start_time=$(date +%s)
         cast_did_work=false
         while true; do
             # Check queue state — drain existing work before creating new work
@@ -697,7 +698,7 @@ case "${1:-}" in
             if [ -n "$next_ingot" ]; then
                 cast_did_work=true
                 agent_msg REFINER "Refining ingot #$next_ingot..."
-                if ! run_forge_agent "auto-refiner" "Process ingot issue #${next_ingot}."; then
+                if ! run_forge_agent "auto-refiner" "Process ingot issue #${next_ingot}." "Refining #${next_ingot}..."; then
                     agent_fail REFINER "failed. Stopping."
                     exit 1
                 fi
@@ -711,7 +712,7 @@ case "${1:-}" in
             if [ -n "$feature_issue" ]; then
                 cast_did_work=true
                 agent_msg SMELTER "Smelting feature request #$feature_issue..."
-                if ! run_forge_agent "auto-smelter" "Produce an ingot from feature request issue #${feature_issue}."; then
+                if ! run_forge_agent "auto-smelter" "Produce an ingot from feature request issue #${feature_issue}." "Smelting #${feature_issue}..."; then
                     agent_fail SMELTER "failed. Stopping."
                     exit 1
                 fi
@@ -726,14 +727,14 @@ case "${1:-}" in
 
             # All work drained — audit the result
             agent_msg HONER "Honing..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot." "Honing..."; then
                 agent_fail HONER "failed. Stopping."
                 exit 1
             fi
 
             # Document the result
             agent_msg SCRIBE "Scribing..."
-            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki."; then
+            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki." "Scribing..."; then
                 agent_fail SCRIBE "failed. Stopping."
                 exit 1
             fi
@@ -748,6 +749,10 @@ case "${1:-}" in
             fi
             forge_info "New work produced. Continuing cast..."
         done
+
+        if [ "$cast_did_work" = true ]; then
+            forge_cast_summary "$cast_start_time"
+        fi
         ;;
 
     uninstall)
