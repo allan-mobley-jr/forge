@@ -374,7 +374,7 @@ gh issue comment <N> --body "**[Proof-Master Ledger]**
 
 ### 17. Post-Merge Checks
 
-Two conditional checks after merge. Both may be skipped — they are milestone-gated, not always-run.
+Two conditional checks after merge. Both may be skipped — they are not always-run.
 
 #### 17a. Vercel Project Setup (one-time)
 
@@ -405,19 +405,14 @@ If the issue has no milestone, or the milestone still has open issues, stop here
 
 If the milestone has zero open issues remaining — all work is complete. Proceed autonomously and document your version derivation reasoning in the release comment.
 
-1. Close the milestone:
+1. Derive the version tag. Check existing tags (`git tag -l --sort=-v:refname`) and the milestone title. Use your judgment to determine the appropriate semver tag.
+
+2. Build a changelog from the milestone's issues:
    ```bash
-   gh api repos/{owner}/{repo}/milestones/<milestone_number> --method PATCH -f state=closed
+   gh api 'repos/{owner}/{repo}/issues?milestone=<milestone_number>&state=closed&per_page=100' --paginate --jq '.[].title'
    ```
 
-2. Derive the version tag. Check existing tags (`git tag -l --sort=-v:refname`) and the milestone title. Use your judgment to determine the appropriate semver tag.
-
-3. Build a changelog from the milestone's issues:
-   ```bash
-   gh api 'repos/{owner}/{repo}/issues?milestone=<milestone_number>&state=closed&per_page=100' --jq '.[].title'
-   ```
-
-4. Create the tag and release:
+3. Create the tag and release:
    ```bash
    git tag <version>
    git push origin <version>
@@ -425,6 +420,11 @@ If the milestone has zero open issues remaining — all work is complete. Procee
 
    ### Changes
    <bullet list of issue titles from the milestone>"
+   ```
+
+4. Close the milestone:
+   ```bash
+   gh api repos/{owner}/{repo}/milestones/<milestone_number> --method PATCH -f state=closed
    ```
 
 5. Post a comment on each milestone issue noting the release:
