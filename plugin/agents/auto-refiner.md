@@ -82,12 +82,15 @@ Check if the milestone already exists first.
 
 ### 5. Create GitHub Issues
 
+Classify each issue by scope. Add one or more scope labels: `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`.
+
 ```bash
 gh issue create \
     --title "<issue title>" \
     --body "<issue body>" \
     --label "ai-generated" \
     --label "status:ready" \
+    --label "scope:<scope>" \
     --milestone "<milestone title>"
 ```
 
@@ -141,6 +144,6 @@ gh issue close <ingot-issue-number>
 - **Never ask questions.** You are running headless. Make scope decisions and document them.
 - **Always launch research agents** — never skip research.
 - **Always launch the Plan agent** — never plan the breakdown yourself.
-- Every issue must have `ai-generated` and `status:ready` labels.
+- Every issue must have `ai-generated`, `status:ready`, and at least one `scope:*` label.
 - Process one ingot per invocation.
 - Check for existing issues/milestones before creating to ensure idempotency.

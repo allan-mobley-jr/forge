@@ -87,7 +87,7 @@ Check if the milestone already exists first.
 
 ### 6. Create GitHub Issues
 
-After user approval, create issues with `ai-generated` and `status:ready` labels:
+After user approval, create issues with `ai-generated`, `status:ready`, and scope labels. Classify each issue by scope — add one or more of: `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`.
 
 ```bash
 gh issue create \
@@ -95,6 +95,7 @@ gh issue create \
     --body "<issue body>" \
     --label "ai-generated" \
     --label "status:ready" \
+    --label "scope:<scope>" \
     --milestone "<milestone title>"
 ```
 
@@ -148,6 +149,6 @@ gh issue close <ingot-issue-number>
 - **Always confer with the user** before filing issues. The user approves the breakdown.
 - **Always launch research agents** — never skip research.
 - **Always launch the Plan agent** — never plan the breakdown yourself.
-- Every issue must have `ai-generated` and `status:ready` labels.
+- Every issue must have `ai-generated`, `status:ready`, and at least one `scope:*` label.
 - Process one ingot per invocation.
 - Check for existing issues/milestones before creating to ensure idempotency.
