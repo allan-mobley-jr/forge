@@ -138,6 +138,83 @@ for name, proj in cfg.get('projects', {}).items():
     fi
 }
 
+# --- Session management ---
+# Milestone-scoped named sessions stored in config.json per project.
+# Sessions persist across issues within a milestone and are cleared at milestone boundary.
+
+# _forge_project_name — derive the config key for the current project.
+_forge_project_name() {
+    basename "$(pwd)"
+}
+
+# get_session — read session name and milestone for an agent role.
+# Usage: get_session <agent_role>   (e.g., get_session blacksmith)
+# Prints: <session_name>\t<milestone>   or empty if no session.
+get_session() {
+    local role="$1"
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        cfg = json.load(f)
+    s = cfg['projects'][sys.argv[2]]['sessions'][sys.argv[3]]
+    if s and s.get('name'):
+        print(s['name'] + '\t' + (s.get('milestone') or ''))
+except (KeyError, TypeError, FileNotFoundError):
+    pass
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
+}
+
+# set_session — write session name and milestone for an agent role.
+# Usage: set_session <agent_role> <session_name> [milestone]
+set_session() {
+    local role="$1"
+    local session_name="$2"
+    local milestone="${3:-}"
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+cfg_path, proj, role, name, ms = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+with open(cfg_path) as f:
+    cfg = json.load(f)
+cfg['projects'][proj].setdefault('sessions', {})
+cfg['projects'][proj]['sessions'][role] = {'name': name, 'milestone': ms or None}
+with open(cfg_path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+    f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$session_name" "$milestone"
+}
+
+# clear_session — clear session for an agent role.
+# Usage: clear_session <agent_role>
+clear_session() {
+    local role="$1"
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+cfg_path, proj, role = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(cfg_path) as f:
+    cfg = json.load(f)
+sessions = cfg.get('projects', {}).get(proj, {}).get('sessions', {})
+if role in sessions:
+    sessions[role] = None
+    with open(cfg_path, 'w') as f:
+        json.dump(cfg, f, indent=2)
+        f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role"
+}
+
+# clear_all_sessions — clear both blacksmith and temperer sessions.
+# Usage: clear_all_sessions
+clear_all_sessions() {
+    clear_session "blacksmith"
+    clear_session "temperer"
+}
+
 # --- Label definitions ---
 # Single source of truth — used by check_labels, forge doctor, and bootstrap/setup.sh
 FORGE_REQUIRED_LABELS=(
@@ -229,12 +306,27 @@ check_auth() {
 # --- Agent invocation ---
 
 # run_forge_agent — invoke a Claude Code session with a named agent.
-# Usage: run_forge_agent <agent-name> [prompt] [spinner-message]
+# Usage: run_forge_agent <agent-name> [prompt] [spinner-message] [--session-name <name>] [--resume-session <name>]
 # Extracts tools from agent frontmatter and passes --allowedTools for auto-approval.
+# Options (after positional args):
+#   --session-name <name>   Start a new named session (adds -n <name> to claude)
+#   --resume-session <name> Resume an existing named session (adds --resume <name> to claude)
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
     local spinner_msg="${3:-Working...}"
+    shift; shift 2>/dev/null || true; shift 2>/dev/null || true
+
+    # Parse optional flags
+    local session_name="" resume_session=""
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --session-name)  session_name="$2"; shift 2 ;;
+            --resume-session) resume_session="$2"; shift 2 ;;
+            *) shift ;;
+        esac
+    done
+
     local agent_name_lower
     agent_name_lower=$(echo "$agent_name" | tr '[:upper:]' '[:lower:]')
 
@@ -247,9 +339,18 @@ run_forge_agent() {
 }' "$agent_file" | tr '\n' ',' | sed 's/,$//')
     fi
 
-    local cmd=(claude --agent "forge:${agent_name_lower}")
-    [ -n "$prompt" ] && cmd+=(-p "$prompt")
-    [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
+    local cmd=()
+    if [ -n "$resume_session" ]; then
+        # Resume an existing session
+        cmd=(claude --resume "$resume_session")
+        [ -n "$prompt" ] && cmd+=(-p "$prompt")
+    else
+        # Start a new or unnamed session
+        cmd=(claude --agent "forge:${agent_name_lower}")
+        [ -n "$session_name" ] && cmd+=(-n "$session_name")
+        [ -n "$prompt" ] && cmd+=(-p "$prompt")
+        [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
+    fi
 
     # Start spinner for headless agents (those with -p flag)
     if [ -n "$prompt" ]; then
