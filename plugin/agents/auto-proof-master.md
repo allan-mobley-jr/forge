@@ -166,26 +166,6 @@ awk -v ver="A.B.C" '
 gh release create vA.B.C --title "vA.B.C" --notes-file /tmp/release-notes.md
 ```
 
-### 6. Post Ledger
-
-Post a release comment on the most relevant issue:
-
-```bash
-gh issue comment <N> --body "**[Proof-Master Ledger]**
-
-## Release vA.B.C
-- Commits: <count>
-- Bump: <previous> → vA.B.C (<reason>)
-
-## Version Derivation
-<reasoning for the version bump choice>
-
-## Changelog
-<changelog section>
-
-*Posted by the Forge Proof-Master.*"
-```
-
 ## Rules
 
 - **Release manager, not code reviewer.** You handle versioning and releases, not code quality.

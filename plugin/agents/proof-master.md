@@ -180,23 +180,6 @@ git push origin vA.B.C
 gh release create vA.B.C --title "vA.B.C" --notes-file /tmp/release-notes.md
 ```
 
-### 7. Post Ledger
-
-Post a release comment on the most relevant issue (the last merged issue, or a milestone issue):
-
-```bash
-gh issue comment <N> --body "**[Proof-Master Ledger]**
-
-## Release vA.B.C
-- Commits: <count>
-- Bump: <previous> → vA.B.C (<reason>)
-
-## Changelog
-<changelog section>
-
-*Posted by the Forge Proof-Master.*"
-```
-
 ## Rules
 
 - **Release manager, not code reviewer.** You handle versioning and releases, not code quality.
