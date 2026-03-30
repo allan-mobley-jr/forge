@@ -39,7 +39,7 @@ BANNER
             echo -e "\n  ${BLUE}STOKE${NC}  Stoking the fire — processing the issue queue"
             ;;
         cast)
-            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → refine → stoke → hone → scribe"
+            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → stoke → proof → hone → scribe"
             ;;
         init)
             echo -e "\n  ${BLUE}INIT${NC}  Forging a new project"
@@ -58,15 +58,14 @@ show_usage() {
     echo "Usage: forge <command>"
     echo ""
     echo "Pipeline commands:"
-    echo "  smelt            Produce an ingot"
-    echo "  refine           Create GitHub issues from an ingot"
+    echo "  smelt            Plan and create implementation issues"
     echo "  hammer           Implement the current issue"
-    echo "  temper           Review the current issue's implementation"
-    echo "  proof            Validate and open a PR"
+    echo "  temper           Review, open PR, and merge"
+    echo "  proof            Create a GitHub release"
     echo "  hone             Audit the codebase for improvements"
     echo "  scribe           Audit docs and update the GitHub Wiki"
     echo "  stoke            Autonomously process the issue queue"
-    echo "  cast             Full autonomous cycle: smelt → refine → stoke → hone → scribe"
+    echo "  cast             Full autonomous cycle: smelt → stoke → proof → hone → scribe"
     echo ""
     echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
     echo ""
@@ -87,8 +86,7 @@ show_usage() {
     echo "  1. mkdir my-app && cd my-app"
     echo "  2. forge init"
     echo "  3. forge smelt"
-    echo "  4. forge refine"
-    echo "  5. forge stoke          (or forge cast for the full cycle)"
+    echo "  4. forge stoke          (or forge cast for the full cycle)"
 }
 
 show_command_help() {
@@ -147,22 +145,16 @@ show_command_help() {
             echo "shell config files. Does NOT affect existing Forge projects."
             ;;
         smelt|auto-smelt)
-            echo "forge smelt — Produce an ingot"
+            echo "forge smelt — Plan and create implementation issues"
             echo ""
             echo "Usage: forge smelt"
             echo "       forge auto-smelt"
             echo ""
             echo "  smelt        Interactive — describe what you want, confer with the Smelter"
             echo "  auto-smelt   Autonomous — picks up the oldest human-filed type:feature issue"
-            ;;
-        refine|auto-refine)
-            echo "forge refine — Create GitHub issues from an ingot"
             echo ""
-            echo "Usage: forge refine"
-            echo "       forge auto-refine"
-            echo ""
-            echo "The Refiner reads the oldest unprocessed ingot and creates"
-            echo "sequenced GitHub issues with milestones."
+            echo "The Smelter researches, plans, and creates sequenced implementation"
+            echo "issues. On the first run, it also creates the project ingot (INGOT.md)."
             ;;
         hammer|auto-hammer)
             echo "forge hammer — Implement the current issue"
@@ -174,22 +166,22 @@ show_command_help() {
             echo "status:rework) and implements it on a feature branch."
             ;;
         temper|auto-temper)
-            echo "forge temper — Review the current issue's implementation"
+            echo "forge temper — Review, open PR, and merge"
             echo ""
             echo "Usage: forge temper"
             echo "       forge auto-temper"
             echo ""
-            echo "The Temperer independently reviews the Blacksmith's work and"
-            echo "either approves (status:tempered) or sends back (status:rework)."
+            echo "The Temperer independently reviews the Blacksmith's work. If"
+            echo "approved, opens a PR and merges it. If not, sends back for rework."
             ;;
         proof|auto-proof)
-            echo "forge proof — Validate and open a PR for the current issue"
+            echo "forge proof — Create a GitHub release"
             echo ""
             echo "Usage: forge proof"
             echo "       forge auto-proof"
             echo ""
-            echo "The Proof-Master ensures test coverage, writes missing tests,"
-            echo "fixes test failures, manages CI, and opens a PR."
+            echo "The Proof-Master checks for unreleased work on main and creates"
+            echo "a versioned release with changelog."
             ;;
         hone|auto-hone)
             echo "forge hone — Audit the codebase and produce an improvement ingot"
@@ -214,8 +206,8 @@ show_command_help() {
             echo ""
             echo "Usage: forge stoke"
             echo ""
-            echo "Processes one issue at a time: hammer → temper → proof."
-            echo "Handles all issue states including interrupted runs."
+            echo "Processes one issue at a time: hammer → temper."
+            echo "Uses named sessions for crash recovery and context preservation."
             echo "Exits when no actionable issues remain."
             ;;
         cast)
@@ -224,9 +216,9 @@ show_command_help() {
             echo "Usage: forge cast"
             echo ""
             echo "Runs the entire pipeline end-to-end:"
-            echo "  smelt → refine → stoke (hammer/temper/proof) → hone → scribe"
+            echo "  smelt → stoke (hammer/temper) → proof → hone → scribe"
             echo ""
-            echo "If the Honer or Scribe produces new work, the cycle repeats."
+            echo "If the Honer produces new work, the cycle repeats."
             echo "Exits when no new work is generated."
             ;;
         *)
@@ -471,47 +463,29 @@ case "${1:-}" in
                 exit 0
             fi
             agent_msg SMELTER "Starting on issue #$feature_issue..."
-            if ! run_forge_agent "auto-smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
+            if ! run_forge_agent "auto-smelter" "Process the oldest human-filed type:feature issue. Research, plan, and create implementation issues."; then
                 agent_fail SMELTER "failed."
                 exit 1
             fi
         else
+            # Check for resumable session
+            resumed_session=$(pick_session "smelter")
             agent_msg SMELTER "Starting..."
-            if ! run_forge_agent "Smelter" "Greet the user and begin."; then
-                agent_fail SMELTER "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Smelter" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
+            else
+                local session_name="smelter-$(date +%s)"
+                set_session "smelter" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Smelter" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
             fi
         fi
-        agent_ok SMELTER "complete. Run 'forge refine' to create issues from the ingot."
-        ;;
-
-    refine|auto-refine)
-        FORGE_COMMAND="$1"; shift
-
-        require_forge_project
-        check_auth
-        check_labels
-
-        next_ingot=$(find_unprocessed_ingots | head -1)
-        if [ -z "$next_ingot" ]; then
-            forge_info "No open ingot issues. Run this command after the Smelter has produced a type:ingot issue."
-            exit 0
-        fi
-
-        if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg REFINER "Starting..."
-            if ! run_forge_agent "auto-refiner" "Process the oldest open ingot issue."; then
-                agent_fail REFINER "failed."
-                exit 1
-            fi
-        else
-            agent_msg REFINER "Starting..."
-            if ! run_forge_agent "Refiner" "Greet the user and begin."; then
-                agent_fail REFINER "failed."
-                exit 1
-            fi
-        fi
-        agent_ok REFINER "complete. Run 'forge hammer' to start implementing."
+        agent_ok SMELTER "complete. Run 'forge stoke' to start implementing."
         ;;
 
     hammer|auto-hammer)
@@ -534,10 +508,22 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "blacksmith")
             agent_msg BLACKSMITH "Starting on issue #$issue..."
-            if ! run_forge_agent "Blacksmith" "Greet the user and begin."; then
-                agent_fail BLACKSMITH "failed on issue #$issue."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$resumed_session"; then
+                    agent_fail BLACKSMITH "failed on issue #$issue."
+                    exit 1
+                fi
+            else
+                local session_name="blacksmith-$(date +%s)"
+                local issue_milestone
+                issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
+                set_session "blacksmith" "$session_name" "$issue_milestone" 2>/dev/null || true
+                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail BLACKSMITH "failed on issue #$issue."
+                    exit 1
+                fi
             fi
         fi
         agent_ok BLACKSMITH "complete."
@@ -563,10 +549,22 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "temperer")
             agent_msg TEMPERER "Starting on issue #$issue..."
-            if ! run_forge_agent "Temperer" "Greet the user and begin."; then
-                agent_fail TEMPERER "failed on issue #$issue."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Temperer" "Continue where you left off. Review issue #${issue}." "" --resume-session "$resumed_session"; then
+                    agent_fail TEMPERER "failed on issue #$issue."
+                    exit 1
+                fi
+            else
+                local session_name="temperer-$(date +%s)"
+                local issue_milestone
+                issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
+                set_session "temperer" "$session_name" "$issue_milestone" 2>/dev/null || true
+                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail TEMPERER "failed on issue #$issue."
+                    exit 1
+                fi
             fi
         fi
         agent_ok TEMPERER "complete."
@@ -577,25 +575,28 @@ case "${1:-}" in
 
         require_forge_project
         check_auth
-        check_labels
-
-        issue=$(find_issue_for_proof)
-        if [ -z "$issue" ]; then
-            forge_info "No issues ready for proofing."
-            exit 0
-        fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg PROOF-MASTER "Starting on issue #$issue..."
-            if ! run_forge_agent "auto-proof-master" "Validate and open PR for the next tempered issue."; then
-                agent_fail PROOF-MASTER "failed on issue #$issue."
+            agent_msg PROOF-MASTER "Checking for unreleased work..."
+            if ! run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..."; then
+                agent_fail PROOF-MASTER "failed."
                 exit 1
             fi
         else
-            agent_msg PROOF-MASTER "Starting on issue #$issue..."
-            if ! run_forge_agent "Proof-Master" "Greet the user and begin."; then
-                agent_fail PROOF-MASTER "failed on issue #$issue."
-                exit 1
+            resumed_session=$(pick_session "proof-master")
+            agent_msg PROOF-MASTER "Starting..."
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Proof-Master" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail PROOF-MASTER "failed."
+                    exit 1
+                fi
+            else
+                local session_name="proof-master-$(date +%s)"
+                set_session "proof-master" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Proof-Master" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail PROOF-MASTER "failed."
+                    exit 1
+                fi
             fi
         fi
         agent_ok PROOF-MASTER "complete."
@@ -610,18 +611,28 @@ case "${1:-}" in
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             agent_msg HONER "Starting..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. File implementation issues."; then
                 agent_fail HONER "failed."
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "honer")
             agent_msg HONER "Starting..."
-            if ! run_forge_agent "Honer" "Greet the user and begin."; then
-                agent_fail HONER "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Honer" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail HONER "failed."
+                    exit 1
+                fi
+            else
+                local session_name="honer-$(date +%s)"
+                set_session "honer" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Honer" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail HONER "failed."
+                    exit 1
+                fi
             fi
         fi
-        agent_ok HONER "complete. Run 'forge refine' to create issues from the ingot."
+        agent_ok HONER "complete. Run 'forge stoke' to start implementing."
         ;;
 
     scribe|auto-scribe)
@@ -638,10 +649,20 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "scribe")
             agent_msg SCRIBE "Starting..."
-            if ! run_forge_agent "Scribe" "Greet the user and begin."; then
-                agent_fail SCRIBE "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Scribe" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail SCRIBE "failed."
+                    exit 1
+                fi
+            else
+                local session_name="scribe-$(date +%s)"
+                set_session "scribe" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail SCRIBE "failed."
+                    exit 1
+                fi
             fi
         fi
         agent_ok SCRIBE "complete."
@@ -693,46 +714,38 @@ case "${1:-}" in
                 continue
             fi
 
-            # Priority 2: Unprocessed ingots → refine
-            next_ingot=$(find_unprocessed_ingots | head -1)
-            if [ -n "$next_ingot" ]; then
-                cast_did_work=true
-                agent_msg REFINER "Refining ingot #$next_ingot..."
-                if ! run_forge_agent "auto-refiner" "Process ingot issue #${next_ingot}." "Refining #${next_ingot}..."; then
-                    agent_fail REFINER "failed. Stopping."
-                    exit 1
-                fi
-                continue
-            fi
-
-            # Priority 3: Human-filed feature requests → smelt
+            # Priority 2: Human-filed feature requests → smelt (creates issues directly)
             feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
                 [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
             ' 2>/dev/null || true)
             if [ -n "$feature_issue" ]; then
                 cast_did_work=true
                 agent_msg SMELTER "Smelting feature request #$feature_issue..."
-                if ! run_forge_agent "auto-smelter" "Produce an ingot from feature request issue #${feature_issue}." "Smelting #${feature_issue}..."; then
+                if ! run_forge_agent "auto-smelter" "Process feature request issue #${feature_issue}. Research, plan, and create implementation issues." "Smelting #${feature_issue}..."; then
                     agent_fail SMELTER "failed. Stopping."
                     exit 1
                 fi
                 continue
             fi
 
-            # Nothing queued — if no work was ever done, exit early (#204)
+            # Nothing queued — check if work was ever done in this project
             if [ "$cast_did_work" = false ]; then
-                forge_info "Nothing to cast. File a type:feature issue or add code to the project first."
-                break
+                ever_worked=$(gh issue list --state all --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
+                ever_worked="${ever_worked:-0}"
+                if [ "$ever_worked" -eq 0 ]; then
+                    forge_info "Nothing to cast. File a type:feature issue or add code to the project first."
+                    break
+                fi
+                cast_did_work=true
             fi
 
-            # All work drained — audit the result
+            # All work drained — audit, document, then check for new work
             agent_msg HONER "Honing..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot." "Honing..."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase." "Honing..."; then
                 agent_fail HONER "failed. Stopping."
                 exit 1
             fi
 
-            # Document the result
             agent_msg SCRIBE "Scribing..."
             if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki." "Scribing..."; then
                 agent_fail SCRIBE "failed. Stopping."
@@ -740,14 +753,19 @@ case "${1:-}" in
             fi
 
             # Check if hone/scribe produced new work
-            next_ingot=$(find_unprocessed_ingots | head -1)
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
             new_ready="${new_ready:-0}"
-            if [ -z "$next_ingot" ] && [ "$new_ready" -eq 0 ]; then
-                forge_ok "Cast complete."
-                break
+            if [ "$new_ready" -gt 0 ]; then
+                forge_info "New work produced. Continuing cast..."
+                continue
             fi
-            forge_info "New work produced. Continuing cast..."
+
+            # No new work — stamp the release
+            agent_msg PROOF-MASTER "Checking for unreleased work..."
+            run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..." || true
+
+            forge_ok "Cast complete."
+            break
         done
 
         if [ "$cast_did_work" = true ]; then

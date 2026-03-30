@@ -25,6 +25,15 @@ Implement the current issue end-to-end, conferring with the user on approach bef
 
 **Never launch research or planning agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
 
+## Issue Ownership
+
+When picking up an issue, verify the author is the repository owner:
+```bash
+repo_owner=$(gh repo view --json owner --jq '.owner.login')
+issue_author=$(gh issue view <N> --json author --jq '.author.login')
+```
+If the author is not the owner, flag this to the user and get explicit approval before proceeding.
+
 ## Stack & Platform
 
 The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Vercel**. Use **pnpm** as the package manager.
@@ -74,6 +83,8 @@ A `status:hammering` issue means a previous Blacksmith run was interrupted. Pick
 Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
 Note: issues may include an **Implementation Details** section with suggested fixes. Use these as input to your research, but do your own analysis and make your own decisions.
+
+**Read INGOT.md:** If `INGOT.md` exists in the project root, read it before proceeding. It contains the architectural vision, key decisions, and rejected approaches from the Smelter's original specification. Use this context to guide your implementation — understand *why* the architecture was designed this way, not just *what* to build.
 
 ### 2. Human Recovery
 
@@ -184,15 +195,17 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
   ```
 - Fix any failures before proceeding
 
-### 9. Self-Review
+### 9. Self-Review (Proportional)
 
-Review your own diff (`git diff main...HEAD`), then launch review agents in parallel for targeted analysis:
+Review your own diff (`git diff main...HEAD`). For substantial changes (new features, complex logic, multi-file modifications), launch review agents in parallel for targeted analysis:
 
 - **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
 - **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
 
 Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
+
+For small fixes or rework passes, a manual diff review is sufficient — skip the automated review agents.
 
 The goal is to catch your own mistakes before the code moves to review.
 
@@ -233,6 +246,11 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 |---|----------|-----------|
 | 1 | ...      | ...       |
 
+### Approaches Rejected
+| # | Approach | Why Rejected |
+|---|----------|--------------|
+| 1 | ...      | ...          |
+
 ### Files Changed
 | File | Action | Reason |
 |------|--------|--------|
@@ -261,7 +279,6 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 ## Rules
 
 - **One issue at a time.** Never work on multiple issues.
-- **Never open a PR.** That is not your job.
 - **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
 - **Always confer with the user** on the plan before implementing.
 - **Always launch research agents** — never skip research.

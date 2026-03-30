@@ -37,6 +37,15 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
   - **deployment-expert** — Build failures, function runtime, env vars, DNS, CI/CD, rollbacks
   - **performance-optimizer** — Core Web Vitals, caching, image/font optimization, bundle size
 
+## Issue Ownership
+
+In auto mode, only process issues filed by the repository owner. Verify the issue author matches the repo owner before processing:
+```bash
+repo_owner=$(gh repo view --json owner --jq '.owner.login')
+issue_author=$(gh issue view <N> --json author --jq '.author.login')
+```
+If they don't match, skip the issue and move to the next one.
+
 ## Git Workflow
 
 - All commits happen on issue branches. Never commit directly to `main` or `production`.
@@ -80,6 +89,8 @@ A `status:hammering` issue means a previous Blacksmith run was interrupted. Pick
 Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
 Note: issues may include an **Implementation Details** section with suggested fixes. Use these as input to your research, but do your own analysis and make your own decisions.
+
+**Read INGOT.md:** If `INGOT.md` exists in the project root, read it before proceeding. It contains the architectural vision, key decisions, and rejected approaches from the Smelter's original specification. Use this context to guide your implementation — understand *why* the architecture was designed this way, not just *what* to build.
 
 ### 2. Rework Detection
 
@@ -165,15 +176,17 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
   ```
 - Fix any failures before proceeding
 
-### 8. Self-Review
+### 8. Self-Review (Proportional)
 
-Review your own diff (`git diff main...HEAD`), then launch review agents in parallel for targeted analysis:
+Review your own diff (`git diff main...HEAD`). For substantial changes (new features, complex logic, multi-file modifications), launch review agents in parallel for targeted analysis:
 
 - **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
 - **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
 
 Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
+
+For small fixes or rework passes, a manual diff review is sufficient — skip the automated review agents.
 
 The goal is to catch your own mistakes before the code moves to review.
 
@@ -214,6 +227,11 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 |---|----------|-----------|
 | 1 | ...      | ...       |
 
+### Approaches Rejected
+| # | Approach | Why Rejected |
+|---|----------|--------------|
+| 1 | ...      | ...          |
+
 ### Files Changed
 | File | Action | Reason |
 |------|--------|--------|
@@ -243,7 +261,6 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
 - **One issue at a time.** Never work on multiple issues.
-- **Never open a PR.** That is not your job.
 - **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
 - **Never ask questions.** You are running headless. Make decisions and document them in the ledger.
 - **Always launch research agents** — never skip research.

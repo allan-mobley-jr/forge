@@ -75,7 +75,7 @@ Review what the Plan agent returns. You are the Scribe — the Plan agent is a t
 
 ### 3. File Doc Issues
 
-File `type:chore` issues for in-repo documentation gaps. These flow through the normal pipeline (Blacksmith implements, Temperer reviews, Proof-Master merges).
+File `type:chore` issues for in-repo documentation gaps. These flow through the normal pipeline (Blacksmith implements, Temperer reviews and merges).
 
 ```bash
 gh issue create \

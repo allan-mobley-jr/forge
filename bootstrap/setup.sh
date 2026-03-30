@@ -411,7 +411,7 @@ cfg_path = sys.argv[1]
 with open(cfg_path) as f:
     cfg = json.load(f)
 name, path, repo, created = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created}
+cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created, 'sessions': {}}
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
@@ -424,7 +424,8 @@ with open(cfg_path, 'w') as f:
     "$project_name": {
       "path": "$PROJECT_DIR",
       "repo": "$github_repo",
-      "created": "$created_date"
+      "created": "$created_date",
+      "sessions": {}
     }
   }
 }

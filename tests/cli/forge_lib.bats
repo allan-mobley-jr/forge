@@ -329,38 +329,138 @@ EOF
     [[ -z "$output" ]]
 }
 
-# --- find_issue_for_proof ---
+# --- find_issue_for_temper_recovery ---
 
-@test "find_issue_for_proof returns lowest tempered issue" {
+@test "find_issue_for_temper_recovery returns lowest tempered issue" {
     mock_gh_with 'echo "15"'
-    run find_issue_for_proof
+    run find_issue_for_temper_recovery
     [[ "$status" -eq 0 ]]
     [[ "$output" == "15" ]]
 }
 
-@test "find_issue_for_proof returns empty when none" {
+@test "find_issue_for_temper_recovery returns empty when none" {
     mock_gh_with 'echo ""'
-    run find_issue_for_proof
+    run find_issue_for_temper_recovery
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
 }
 
-# --- find_unprocessed_ingots ---
+# --- session management ---
 
-@test "find_unprocessed_ingots returns multiple issues" {
-    mock_gh_with 'printf "1\n2\n3\n"'
-    run find_unprocessed_ingots
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == *"1"* ]]
-    [[ "$output" == *"2"* ]]
-    [[ "$output" == *"3"* ]]
+@test "get_session returns empty when no sessions key" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z"
+    }
+  }
 }
-
-@test "find_unprocessed_ingots returns empty when none" {
-    mock_gh_with 'echo ""'
-    run find_unprocessed_ingots
+EOF
+    cd "$TEST_TMPDIR"
+    run get_session "blacksmith"
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
+}
+
+@test "set_session writes and get_session reads back" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-12345" "Auth System"
+    run get_session "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"bs-12345"* ]]
+    [[ "$output" == *"Auth System"* ]]
+}
+
+@test "clear_session clears active but preserves history" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-12345" "Auth"
+    clear_session "blacksmith"
+    run get_session "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+    # History should still have the entry
+    run list_sessions "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"bs-12345"* ]]
+}
+
+@test "list_sessions returns all sessions with active marker" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-111" "Milestone A"
+    set_session "blacksmith" "bs-222" "Milestone B"
+    run list_sessions "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"bs-111"* ]]
+    [[ "$output" == *"bs-222"* ]]
+    # bs-222 should be active (last set)
+    [[ "$output" == *"bs-222"*"*"* ]]
+}
+
+@test "set_session does not duplicate history entries" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-111" "Auth"
+    set_session "blacksmith" "bs-111" "Auth"
+    run list_sessions "blacksmith"
+    # Should only appear once
+    local count
+    count=$(echo "$output" | grep -c "bs-111")
+    [[ "$count" -eq 1 ]]
 }
 
 # --- run_stoke_loop ---
@@ -374,6 +474,11 @@ _mock_stoke_gh() {
         args=\"\$*\"
         # agent:needs-human check — always empty
         if [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
+            echo ''
+            exit 0
+        fi
+        # issue view for milestone lookup — return empty milestone
+        if [[ \"\$args\" == *\"issue view\"* ]] && [[ \"\$args\" == *\"milestone\"* ]]; then
             echo ''
             exit 0
         fi
@@ -448,26 +553,15 @@ _mock_stoke_gh() {
     [[ "$output" == *"Review issue #10"* ]]
 }
 
-@test "run_stoke_loop dispatches auto-proof-master for status:tempered" {
+@test "run_stoke_loop dispatches auto-temperer for status:tempered" {
     _mock_stoke_gh 10 "status:tempered"
     mock_claude_with 'echo "called: $*"'
-    _create_agent_file "auto-proof-master"
+    _create_agent_file "auto-temperer"
     run run_stoke_loop
     [[ "$status" -eq 0 ]]
-    [[ "$output" == *"Proofing issue #10"* ]]
-    [[ "$output" == *"forge:auto-proof-master"* ]]
-    [[ "$output" == *"Validate and open PR for issue #10"* ]]
-}
-
-@test "run_stoke_loop dispatches auto-proof-master for status:proved" {
-    _mock_stoke_gh 10 "status:proved"
-    mock_claude_with 'echo "called: $*"'
-    _create_agent_file "auto-proof-master"
-    run run_stoke_loop
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == *"proved but still open"* ]]
-    [[ "$output" == *"forge:auto-proof-master"* ]]
-    [[ "$output" == *"Issue #10 has status:proved"* ]]
+    [[ "$output" == *"Tempering issue #10"* ]]
+    [[ "$output" == *"forge:auto-temperer"* ]]
+    [[ "$output" == *"status:tempered"* ]]
 }
 
 @test "run_stoke_loop returns 1 on unknown status" {
