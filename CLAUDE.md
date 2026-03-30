@@ -15,8 +15,8 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
     temperer.md      — Temperer: interactive review + PR + merge
     auto-temperer.md — Auto-Temperer: headless review + PR + merge
-    proof-master.md  — Proof-Master: interactive releases + deploy
-    auto-proof-master.md — Auto-Proof-Master: headless releases + deploy
+    proof-master.md  — Proof-Master: interactive releases + versioning
+    auto-proof-master.md — Auto-Proof-Master: headless releases + versioning
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
     scribe.md        — Scribe: interactive doc audit / wiki
