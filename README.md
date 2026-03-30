@@ -74,7 +74,7 @@ Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Cod
 | **Smelter** | `forge smelt` | Researches, plans, and creates sequenced implementation issues. On first run, produces the project ingot (INGOT.md). |
 | **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. Reads INGOT.md for architectural context. |
 | **Temperer** | `forge temper` | Reviews the Blacksmith's work with E2E tests. Approves and merges, or sends back for rework. |
-| **Proof-Master** | `forge proof` | Checks for unreleased work on main. Creates versioned releases with changelog. Manages Vercel deployment. |
+| **Proof-Master** | `forge proof` | Checks for unreleased work on main. Creates versioned releases with changelog. |
 | **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues for the Blacksmith. |
 | **Scribe** | `forge scribe` | Audits documentation and maintains the GitHub Wiki. Files doc issues for the Blacksmith. |
 
