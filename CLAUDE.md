@@ -9,16 +9,14 @@ Autonomous Next.js development system. See `README.md` for the full specificatio
 plugin/          — Claude Code plugin (only this gets cached)
   .claude-plugin/  — Plugin manifest (plugin.json)
   agents/          — Forge craftsman agents (interactive + auto pairs)
-    smelter.md       — Smelter: interactive ingot creation
-    auto-smelter.md  — Auto-Smelter: ingot from type:feature issue
-    refiner.md       — Refiner: interactive ingot → issues
-    auto-refiner.md  — Auto-Refiner: ingot → issues headless
+    smelter.md       — Smelter: interactive planning + issue creation
+    auto-smelter.md  — Auto-Smelter: plan + create issues from type:feature
     blacksmith.md    — Blacksmith: interactive implementation
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
-    temperer.md      — Temperer: interactive code review
-    auto-temperer.md — Auto-Temperer: headless code review
-    proof-master.md  — Proof-Master: interactive testing + PR
-    auto-proof-master.md — Auto-Proof-Master: headless testing + PR
+    temperer.md      — Temperer: interactive review + PR + merge
+    auto-temperer.md — Auto-Temperer: headless review + PR + merge
+    proof-master.md  — Proof-Master: interactive releases + deploy
+    auto-proof-master.md — Auto-Proof-Master: headless releases + deploy
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
     scribe.md        — Scribe: interactive doc audit / wiki
@@ -34,7 +32,8 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 
 All planning artifacts are stored as GitHub issues and comments — not files on disk:
 
-- **Ingots** — GitHub issues labeled `type:ingot`, created by Smelter and Honer
+- **Ingot** — One-time GitHub issue labeled `type:ingot`, created by the Smelter on first run. The architectural vision and spec for the project.
+- **INGOT.md** — Codebase artifact materialized from the ingot issue by the Blacksmith's first implementation issue. Lives on main after merge.
 - **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
 - **Rework comments** — tagged with `**[Temperer]**`
 
@@ -44,20 +43,22 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 - Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`)
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
-- Every agent follows: research (Explore agents) → plan (Plan agent) → confer/decide → execute → record
+- Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
+- The Temperer uses lean review: reads diff + ledger + INGOT.md + E2E tests (no mandatory Explore/Plan subagents)
 - Domain agents at `~/.claude/agents/` are considered during research
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
 - GitHub labels and issue comments track pipeline state
+- Named sessions persist across issues within a milestone for context preservation
 - Forge targets Next.js + Tailwind CSS + TypeScript on Vercel — this is intentional scope, not a limitation to fix
 
 ## Labels
 
-Target projects use these labels (24 total, defined in `forge-lib.sh`):
+Target projects use these labels (22 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`, `agent:needs-human`
 - **Artifact:** `type:ingot`
-- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:proving`, `status:proved`
+- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
 - **Priority:** `priority:high`, `priority:medium`, `priority:low`
 - **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`, `scope:docs`
@@ -70,15 +71,13 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 ## Pipeline Flow
 
 ```
-forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
-                     ↑                                                    │
-                     │                                                    │
-       forge scribe  ←  forge hone  ←── (app running, issues done) ──────┘
+Core:        forge smelt  →  forge hammer  ⇄  forge temper  (repeat per issue)
+Post-cycle:  forge proof  →  forge hone  →  forge scribe
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
-`forge stoke` processes the issue queue: dispatches based on the oldest issue's status label.
-`forge cast` runs the full autonomous cycle: smelt → refine → stoke → hone → scribe (repeats if new work emerges).
+`forge stoke` processes the issue queue: dispatches Blacksmith or Temperer based on the oldest issue's status label. Uses named sessions with resume for crash recovery.
+`forge cast` runs the full autonomous cycle: smelt → stoke → proof → hone → scribe (repeats if new work emerges).
 
 ## Git Workflow
 
