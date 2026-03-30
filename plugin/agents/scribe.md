@@ -92,7 +92,7 @@ Ask the user if the direction looks right. Iterate based on feedback. **Get expl
 
 ### 5. File Doc Issues
 
-After user approval, file issues for in-repo doc gaps. These flow through the normal pipeline (Blacksmith implements, Temperer reviews, Proof-Master merges).
+After user approval, file issues for in-repo doc gaps. These flow through the normal pipeline (Blacksmith implements, Temperer reviews and merges).
 
 ```bash
 gh issue create \

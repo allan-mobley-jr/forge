@@ -44,15 +44,14 @@ forge init
 Then start building:
 
 ```bash
-forge smelt                  # describe your app to the Smelter
-forge refine                 # create GitHub issues from the ingot
-forge stoke                  # autonomously implement, review, and PR each issue
-forge cast                   # full autonomous cycle: smelt → refine → stoke → hone → scribe
+forge smelt                  # describe your app — the Smelter plans and creates issues
+forge stoke                  # autonomously implement, review, and merge each issue
+forge cast                   # full autonomous cycle: smelt → stoke → proof → hone → scribe
 ```
 
 ## How It Works
 
-Forge uses a medieval forge metaphor. Seven craftsmen — each a Claude Code agent — handle a specific phase of the development lifecycle. You invoke them one at a time, or let them run autonomously.
+Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Code agent — handle the development pipeline. Three post-cycle craftsmen handle releases, auditing, and documentation. You invoke them one at a time, or let them run autonomously.
 
 ```
    ┌───────────────┐       ┌──────────┐
@@ -60,24 +59,23 @@ Forge uses a medieval forge metaphor. Seven craftsmen — each a Claude Code age
    │  (bootstrap)  │       │   repo   │
    └───────────────┘       └──────────┘
 
-   forge smelt  →  forge refine  →  forge hammer  →  forge temper  →  forge proof
-                        ↑              ↑─── forge stoke ───↑              │
-                        │                                                 │
-          forge scribe  ←  forge hone  ←── (app running, issues done) ────┘
+   Core:        forge smelt  →  forge hammer  ⇄  forge temper  (per issue)
+                                ↑─── forge stoke ───↑
 
-                   forge cast  =  smelt → refine → stoke → hone → scribe (full cycle)
+   Post-cycle:  forge proof  →  forge hone  →  forge scribe
+
+                forge cast  =  smelt → stoke → proof → hone → scribe (full cycle)
 ```
 
 ### The Craftsmen
 
 | Craftsman | Command | What it does |
 |-----------|---------|-------------|
-| **Smelter** | `forge smelt` | Works with you to produce a comprehensive ingot (GitHub issue). |
-| **Refiner** | `forge refine` | Takes an ingot and creates sequenced GitHub issues with milestones. |
-| **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. |
-| **Temperer** | `forge temper` | Independently reviews the Blacksmith's work. Approves or sends back for rework. |
-| **Proof-Master** | `forge proof` | Ensures test coverage, writes missing tests, fixes test failures, manages CI, and opens a PR. |
-| **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues or ingots. |
+| **Smelter** | `forge smelt` | Researches, plans, and creates sequenced implementation issues. On first run, produces the project ingot (INGOT.md). |
+| **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. Reads INGOT.md for architectural context. |
+| **Temperer** | `forge temper` | Reviews the Blacksmith's work with E2E tests. Approves and merges, or sends back for rework. |
+| **Proof-Master** | `forge proof` | Checks for unreleased work on main. Creates versioned releases with changelog. Manages Vercel deployment. |
+| **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues for the Blacksmith. |
 | **Scribe** | `forge scribe` | Audits documentation and maintains the GitHub Wiki. Files doc issues for the Blacksmith. |
 
 Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent runs headless via `-p` without human interaction.
@@ -93,30 +91,31 @@ Every agent exists in two variants:
 
 ### Agent Architecture
 
-Every Forge agent follows the same pattern:
+The three core agents follow a structured pattern:
 
-1. **Research** — parallel Explore agents investigate the codebase, context, and domain
-2. **Plan** — a mandatory Plan agent informs the approach (agents own and adjust the output)
-3. **Confer** (interactive) or **Decide** (auto) — user approves or agent decides autonomously
-4. **Execute** — the agent-specific work
-5. **Record** — reasoning posted as a ledger comment on the GitHub issue
+- **Smelter**: research (parallel Explore agents) → plan (mandatory Plan agent) → confer/decide → create issues → record
+- **Blacksmith**: read INGOT.md → research → plan → implement → test → self-review (proportional) → record
+- **Temperer**: read INGOT.md → lean review (diff + ledger + E2E tests) → verdict → PR/merge → record
 
-Agents also check for user-defined domain agents at `~/.claude/agents/` and spawn them as subagents when relevant.
+Agents check for user-defined domain agents at `~/.claude/agents/` and spawn them as subagents when relevant.
+
+### Session Management
+
+Named sessions persist across issues within a milestone. The CLI resumes sessions on crash or relaunch, preserving the agent's full context. Sessions clear at milestone boundaries. Session state is stored in `~/.forge/config.json` per project.
 
 ### Artifacts
 
-All planning artifacts are stored as GitHub issues and comments — not files on disk:
-
-- **Ingots** — comprehensive plans stored as GitHub issues labeled `type:ingot`
-- **Ledger entries** — reasoning records stored as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
-- **Rework comments** — tagged with `**[Temperer]**`, addressed by prepending `✅`
+- **Ingot** — One-time GitHub issue (`type:ingot`) created by the Smelter on first run. The architectural vision and spec.
+- **INGOT.md** — Codebase artifact materialized from the ingot by the Blacksmith's first issue. Lives on main after merge. Contains Key Decisions and Approaches Rejected.
+- **Ledger entries** — Reasoning records as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue. Include Approaches Rejected sections.
+- **Rework comments** — Tagged with `**[Temperer]**`, addressed by prepending `✅`
 
 ### Issue Lifecycle
 
 Issues flow through status labels. Agents own all label transitions.
 
 ```
-status:ready → status:hammering → status:hammered → status:tempering → status:tempered → status:proving → status:proved
+status:ready → status:hammering → status:hammered → status:tempering → status:tempered → merged
                      ↑                                      │
                      └──────────── status:rework ◀──────────┘
 ```
@@ -131,8 +130,6 @@ When the Temperer rejects work:
 3. The Blacksmith marks addressed comments with a `✅` prefix
 4. After 5 total rework cycles, the issue is escalated to `agent:needs-human`
 
-The Proof-Master does not send work back — it fixes test failures itself or escalates to `agent:needs-human`.
-
 ### Bootstrap (`forge init`)
 
 Create a directory and run `forge init`. The bootstrap runs idempotent steps:
@@ -140,8 +137,8 @@ Create a directory and run `forge init`. The bootstrap runs idempotent steps:
 - Tool checks: Node.js >= 24, pnpm >= 9, gh CLI, Vercel CLI, python3
 - Forge plugin verification
 - Git init, GitHub repo, branch protection, production branch
-- Label taxonomy (23 labels)
-- Project registration in `~/.forge/config.json`
+- Label taxonomy (22 labels)
+- Project registration in `~/.forge/config.json` (with session slots)
 
 Every step checks whether it already ran. Resume with `forge init --resume`.
 
@@ -165,20 +162,18 @@ Vercel watches the `production` branch and deploys automatically. The human cont
 
 | Command | Description |
 |---------|-------------|
-| `forge smelt` | Produce an ingot (interactive) |
+| `forge smelt` | Plan and create implementation issues (interactive) |
 | `forge auto-smelt` | Picks up oldest human-filed `type:feature` issue |
-| `forge refine` | Create GitHub issues from an ingot (interactive) |
-| `forge auto-refine` | Same, autonomous |
 | `forge hammer` | Implement the current issue (interactive) |
 | `forge auto-hammer` | Same, autonomous |
-| `forge temper` | Review the current implementation (interactive) |
+| `forge temper` | Review, open PR, and merge (interactive) |
 | `forge auto-temper` | Same, autonomous |
-| `forge proof` | Validate and open a PR (interactive) |
+| `forge proof` | Create a GitHub release (interactive) |
 | `forge auto-proof` | Same, autonomous |
 | `forge hone` | Triage bugs or audit the codebase (interactive) |
 | `forge auto-hone` | Triages oldest bug first, then audits |
 | `forge stoke` | Process the issue queue autonomously |
-| `forge cast` | Full autonomous cycle: smelt → refine → stoke → hone |
+| `forge cast` | Full autonomous cycle: smelt → stoke → proof → hone → scribe |
 
 ### Operations
 
@@ -209,15 +204,13 @@ Target projects use these labels:
 |-------|---------|
 | `ai-generated` | Issue or PR filed by an agent |
 | `agent:needs-human` | Blocked — check comments for the question |
-| `type:ingot` | Ingot from Smelter or Honer |
+| `type:ingot` | Ingot from the Smelter (one-time) |
 | `status:ready` | Ready for the Blacksmith to implement |
 | `status:hammering` | Implementation in progress |
 | `status:hammered` | Implementation complete, awaiting review |
 | `status:tempering` | Review in progress |
-| `status:tempered` | Review passed, awaiting validation |
+| `status:tempered` | Review passed, PR/merge in progress |
 | `status:rework` | Sent back to the Blacksmith |
-| `status:proving` | Validation in progress |
-| `status:proved` | PR opened |
 
 ### Descriptive labels
 
@@ -261,7 +254,7 @@ forge/
 ├── install.sh                          # curl | bash installer
 ├── bin/                                # Forge CLI
 │   ├── forge.sh                        #   Main executable
-│   └── forge-lib.sh                    #   Shared library (labels, helpers, query functions)
+│   └── forge-lib.sh                    #   Shared library (labels, helpers, session management)
 ├── bootstrap/setup.sh                  # Idempotent project setup
 ├── plugin/                             # Claude Code plugin
 │   ├── .claude-plugin/plugin.json      #   Plugin manifest
@@ -274,13 +267,17 @@ forge/
 
 **GitHub is the state machine.** No local workflow state, no database, no coordination server. All project state is encoded in GitHub Issue labels and comments. Clone the repo on a new Mac, run a forge command, and it picks up where it left off.
 
-**Agents own their state.** Each agent sets its own status labels — the CLI is a thin dispatcher that finds issues and launches agents. If an agent crashes mid-run, the in-progress label (`status:hammering`, etc.) persists and `forge stoke` picks it back up.
+**Three core agents, not seven.** Research against Anthropic's harness design articles showed that fewer, more capable agents with richer handoffs outperform a long pipeline. The Smelter (planner), Blacksmith (generator), and Temperer (evaluator) map to Article 1's validated Planner/Generator/Evaluator triad. See `research/harness-design-analysis.md`.
 
-**Agents, not skills.** Each craftsman is a Claude Code agent loaded via `claude --agent`. The CLI handles dispatch; the agent handles the work, including research (parallel Explore agents), planning (mandatory Plan agent), and label transitions.
+**Agents own their state.** Each agent sets its own status labels — the CLI is a thin dispatcher that finds issues and launches agents. If an agent crashes mid-run, the in-progress label (`status:hammering`, etc.) persists and `forge stoke` picks it back up with session resume.
 
-**Ledger for reasoning.** Every craftsman records its decisions as tagged comments on GitHub issues. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
+**INGOT.md for architectural context.** The Smelter's spec (ingot) is materialized into the codebase as `INGOT.md` by the first implementation issue. Every subsequent agent reads it for Key Decisions and Approaches Rejected — eliminating the context loss that plagued the old multi-handoff pipeline.
 
-**Dual artifact model.** The Smelter produces ingots (specifications). The Honer files both ingots (for broad gaps needing architecture) and implementation issues (for concrete fixes that go straight to the Blacksmith). The Refiner breaks ingots into issues regardless of who created them.
+**Named sessions with resume.** Sessions persist across issues within a milestone, preserving the agent's full reasoning context. The CLI resumes on crash or relaunch. Sessions clear at milestone boundaries.
+
+**Lean Temperer.** The Temperer reads the diff, Blacksmith ledger, INGOT.md, and runs E2E tests — no mandatory Explore/Plan subagents. This matches Article 1's recommendation for evaluators that test artifacts directly.
+
+**Ledger for reasoning.** Every craftsman records its decisions as tagged comments on GitHub issues, including an Approaches Rejected section. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
 
 **Opinionated scope.** Next.js, Vercel, one developer. This is not a general-purpose framework — it's a sharp tool for a specific workflow.
 
