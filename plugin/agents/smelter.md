@@ -90,7 +90,43 @@ Present your specification to the user:
 
 Ask the user if the direction looks right. Iterate based on feedback. **Get explicit user confirmation before proceeding.**
 
-### 5. File Ingot (First Run Only)
+### 5. Set Up Vercel Environments (First Run Only)
+
+Check if a Vercel project is already connected:
+```bash
+gh api repos/{owner}/{repo}/deployments --jq 'length'
+```
+
+If deployments already exist (count > 0), skip this step.
+
+If no Vercel project exists and the specification includes deployable functionality:
+
+**Interactive mode:** Ask the user how they want environments configured. Present the default:
+- `production` branch → Vercel **Production** environment
+- `main` branch → Vercel **Staging** (Preview) environment
+
+The user may customize branch-environment mapping or add additional environments.
+
+**Auto mode:** Use the default configuration (production + staging).
+
+**Set up the project** using Vercel plugin skills where available, falling back to the Vercel CLI (`vercel` command) when skills don't cover the operation:
+1. Create the Vercel project and link it to the repo (`vercel link` or plugin `deploy_to_vercel`)
+2. Configure branch-environment mapping (`vercel env` or plugin tools)
+3. Configure environment-specific settings:
+   - **Environment variables and secrets** — create separate values per environment (production vs staging) using `vercel env add` or plugin tools. Document which env vars are needed and their per-environment values.
+   - **Database branching** — if the spec uses Neon (Postgres), configure database branching: production database for the production environment, a branched database for staging. Document the branch strategy.
+4. Trigger initial deployment and verify it succeeds
+
+If setup fails, note it in the ingot but do not block — the Blacksmith can address it as an implementation issue.
+
+**Include the deployment configuration in the ingot** (step 6) under a "Deployment & Environments" section:
+- Vercel project name and team
+- Branch-to-environment mapping
+- Environment variables needed (names, not values) and which differ per environment
+- Database branching strategy (if applicable)
+- Any services that need per-environment configuration
+
+### 6. File Ingot (First Run Only)
 
 Check if this is the first run (no ingot exists for this project):
 ```bash
@@ -101,6 +137,7 @@ gh issue list --state all --label "type:ingot" --label "ai-generated" --json num
 
 - **Key Decisions** table — architectural decisions with rationale
 - **Approaches Rejected** table — alternatives considered and why they were rejected
+- **Deployment & Environments** section — Vercel project, branch-environment mapping, env vars, database branching (from step 5)
 
 ```bash
 gh issue create \
@@ -114,7 +151,7 @@ The ingot body has a 60,000 character limit. Never cut content to fit — post o
 
 **If > 0 (subsequent run):** Skip ingot creation. Proceed directly to issue breakdown.
 
-### 6. Present & Confer — Issue Breakdown
+### 7. Present & Confer — Issue Breakdown
 
 Present your issue breakdown to the user:
 - Proposed milestones and their scope
@@ -124,7 +161,7 @@ Present your issue breakdown to the user:
 
 Iterate based on feedback. **Get explicit user confirmation before filing.**
 
-### 7. Create GitHub Milestones
+### 8. Create GitHub Milestones
 
 For each milestone:
 ```bash
@@ -133,7 +170,7 @@ gh api repos/{owner}/{repo}/milestones --method POST -f title="<milestone title>
 
 Check if the milestone already exists first.
 
-### 8. Create GitHub Issues
+### 9. Create GitHub Issues
 
 After user approval, create issues with `ai-generated`, `status:ready`, and scope labels. Classify each issue by scope — add one or more of: `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`.
 
@@ -171,7 +208,7 @@ gh issue create \
 <list dependency issue titles, or "None">
 ```
 
-### 9. Post Ledger Comment
+### 10. Post Ledger Comment
 
 Post the ledger on the ingot (first run) or on the feature request (subsequent runs):
 
@@ -205,7 +242,7 @@ gh issue comment <issue-number> --body "**[Smelter Ledger]**
 *Posted by the Forge Smelter.*"
 ```
 
-### 10. Close Source Issues
+### 11. Close Source Issues
 
 **If an ingot was created (first run):** Close it after issues are filed:
 ```bash

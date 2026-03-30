@@ -83,7 +83,30 @@ Launch a Plan agent with the research findings and the feature request. The Plan
 
 Review what the Plan agent returns. You are the Smelter — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. Where the feature request is ambiguous, make reasonable assumptions and document them. The specification and issue breakdown you file must be yours, not a pass-through.
 
-### 4. File Ingot (First Run Only)
+### 4. Set Up Vercel Environments (First Run Only)
+
+Check if a Vercel project is already connected:
+```bash
+gh api repos/{owner}/{repo}/deployments --jq 'length'
+```
+
+If deployments already exist (count > 0), skip this step.
+
+If no Vercel project exists and the specification includes deployable functionality, use the default environment configuration:
+- `production` branch → Vercel **Production** environment
+- `main` branch → Vercel **Staging** (Preview) environment
+
+**Set up the project** using Vercel plugin skills where available, falling back to the Vercel CLI (`vercel` command) when skills don't cover the operation:
+1. Create the Vercel project and link it to the repo (`vercel link` or plugin `deploy_to_vercel`)
+2. Configure branch-environment mapping (`vercel env` or plugin tools)
+3. Configure environment-specific settings:
+   - **Environment variables and secrets** — create separate values per environment (production vs staging) using `vercel env add` or plugin tools. Document which env vars are needed and their per-environment values.
+   - **Database branching** — if the spec uses Neon (Postgres), configure database branching: production database for the production environment, a branched database for staging. Document the branch strategy.
+4. Trigger initial deployment and verify it succeeds
+
+If setup fails, note it in the ingot but do not block — the Blacksmith can address it as an implementation issue. Document assumptions about the setup in the ledger.
+
+### 5. File Ingot (First Run Only)
 
 Check if this is the first run (no ingot exists for this project):
 ```bash
@@ -94,6 +117,7 @@ gh issue list --state all --label "type:ingot" --label "ai-generated" --json num
 
 - **Key Decisions** table — architectural decisions with rationale
 - **Approaches Rejected** table — alternatives considered and why they were rejected
+- **Deployment & Environments** section — Vercel project, branch-environment mapping, env vars, database branching (from step 4)
 
 ```bash
 gh issue create \
@@ -107,7 +131,7 @@ The ingot body has a 60,000 character limit. Never cut content to fit — post o
 
 **If > 0 (subsequent run):** Skip ingot creation. Proceed directly to issue creation.
 
-### 5. Create GitHub Milestones
+### 6. Create GitHub Milestones
 
 For each milestone:
 ```bash
@@ -116,7 +140,7 @@ gh api repos/{owner}/{repo}/milestones --method POST -f title="<milestone title>
 
 Check if the milestone already exists first.
 
-### 6. Create GitHub Issues
+### 7. Create GitHub Issues
 
 Classify each issue by scope. Add one or more scope labels: `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`.
 
@@ -154,7 +178,7 @@ gh issue create \
 <list dependency issue titles, or "None">
 ```
 
-### 7. Post Ledger Comment
+### 8. Post Ledger Comment
 
 Post the ledger on the ingot (first run) or on the feature request (subsequent runs):
 
@@ -191,7 +215,7 @@ Produced from feature request #N.
 *Posted by the Forge Smelter.*"
 ```
 
-### 8. Close Source Issues
+### 9. Close Source Issues
 
 **If an ingot was created (first run):** Close it after issues are filed:
 ```bash
