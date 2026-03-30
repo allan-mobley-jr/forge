@@ -468,10 +468,21 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            # Check for resumable session
+            resumed_session=$(pick_session "smelter")
             agent_msg SMELTER "Starting..."
-            if ! run_forge_agent "Smelter" "Greet the user and begin."; then
-                agent_fail SMELTER "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Smelter" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
+            else
+                local session_name="smelter-$(date +%s)"
+                set_session "smelter" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Smelter" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
             fi
         fi
         agent_ok SMELTER "complete. Run 'forge stoke' to start implementing."
@@ -497,10 +508,22 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "blacksmith")
             agent_msg BLACKSMITH "Starting on issue #$issue..."
-            if ! run_forge_agent "Blacksmith" "Greet the user and begin."; then
-                agent_fail BLACKSMITH "failed on issue #$issue."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$resumed_session"; then
+                    agent_fail BLACKSMITH "failed on issue #$issue."
+                    exit 1
+                fi
+            else
+                local session_name="blacksmith-$(date +%s)"
+                local issue_milestone
+                issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
+                set_session "blacksmith" "$session_name" "$issue_milestone" 2>/dev/null || true
+                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail BLACKSMITH "failed on issue #$issue."
+                    exit 1
+                fi
             fi
         fi
         agent_ok BLACKSMITH "complete."
@@ -526,10 +549,22 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "temperer")
             agent_msg TEMPERER "Starting on issue #$issue..."
-            if ! run_forge_agent "Temperer" "Greet the user and begin."; then
-                agent_fail TEMPERER "failed on issue #$issue."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Temperer" "Continue where you left off. Review issue #${issue}." "" --resume-session "$resumed_session"; then
+                    agent_fail TEMPERER "failed on issue #$issue."
+                    exit 1
+                fi
+            else
+                local session_name="temperer-$(date +%s)"
+                local issue_milestone
+                issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
+                set_session "temperer" "$session_name" "$issue_milestone" 2>/dev/null || true
+                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail TEMPERER "failed on issue #$issue."
+                    exit 1
+                fi
             fi
         fi
         agent_ok TEMPERER "complete."
@@ -548,10 +583,20 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "proof-master")
             agent_msg PROOF-MASTER "Starting..."
-            if ! run_forge_agent "Proof-Master" "Greet the user and begin."; then
-                agent_fail PROOF-MASTER "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Proof-Master" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail PROOF-MASTER "failed."
+                    exit 1
+                fi
+            else
+                local session_name="proof-master-$(date +%s)"
+                set_session "proof-master" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Proof-Master" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail PROOF-MASTER "failed."
+                    exit 1
+                fi
             fi
         fi
         agent_ok PROOF-MASTER "complete."
@@ -571,10 +616,20 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "honer")
             agent_msg HONER "Starting..."
-            if ! run_forge_agent "Honer" "Greet the user and begin."; then
-                agent_fail HONER "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Honer" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail HONER "failed."
+                    exit 1
+                fi
+            else
+                local session_name="honer-$(date +%s)"
+                set_session "honer" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Honer" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail HONER "failed."
+                    exit 1
+                fi
             fi
         fi
         agent_ok HONER "complete. Run 'forge stoke' to start implementing."
@@ -594,10 +649,20 @@ case "${1:-}" in
                 exit 1
             fi
         else
+            resumed_session=$(pick_session "scribe")
             agent_msg SCRIBE "Starting..."
-            if ! run_forge_agent "Scribe" "Greet the user and begin."; then
-                agent_fail SCRIBE "failed."
-                exit 1
+            if [ -n "$resumed_session" ]; then
+                if ! run_forge_agent "Scribe" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                    agent_fail SCRIBE "failed."
+                    exit 1
+                fi
+            else
+                local session_name="scribe-$(date +%s)"
+                set_session "scribe" "$session_name" "" 2>/dev/null || true
+                if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-name "$session_name"; then
+                    agent_fail SCRIBE "failed."
+                    exit 1
+                fi
             fi
         fi
         agent_ok SCRIBE "complete."
