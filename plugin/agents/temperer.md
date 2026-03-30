@@ -187,7 +187,9 @@ gh pr list --head "<branch-name>" --json number,state --jq '.[0]'
 
 **If no PR exists**, create one:
 ```bash
-gh pr create \
+pr_url=$(gh pr create \
+    --head "$(git branch --show-current)" \
+    --base main \
     --title "<concise title>" \
     --body "$(cat <<'PREOF'
 ## Summary
@@ -200,12 +202,13 @@ Reviewed by the Forge Temperer. All acceptance criteria verified. E2E tests pass
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 PREOF
-)"
+)")
+pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
 ```
 
-**Merge:**
+**Merge** (use the captured PR number):
 ```bash
-gh pr merge --squash --delete-branch
+gh pr merge "$pr_number" --squash --delete-branch
 ```
 
 **Cleanup locally:**

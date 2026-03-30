@@ -72,12 +72,12 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 
 ```
 Core:        forge smelt  →  forge hammer  ⇄  forge temper  (repeat per issue)
-Post-cycle:  forge proof  →  forge hone  →  forge scribe
+Post-cycle:  forge hone  →  forge scribe  →  forge proof
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
 `forge stoke` processes the issue queue: dispatches Blacksmith or Temperer based on the oldest issue's status label. Uses named sessions with resume for crash recovery.
-`forge cast` runs the full autonomous cycle: smelt → stoke → proof → hone → scribe (repeats if new work emerges).
+`forge cast` runs the full autonomous cycle: smelt → stoke → hone → scribe → proof (repeats if new work emerges).
 
 ## Git Workflow
 

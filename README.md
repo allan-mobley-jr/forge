@@ -62,9 +62,9 @@ Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Cod
    Core:        forge smelt  →  forge hammer  ⇄  forge temper  (per issue)
                                 ↑─── forge stoke ───↑
 
-   Post-cycle:  forge proof  →  forge hone  →  forge scribe
+   Post-cycle:  forge hone  →  forge scribe  →  forge proof
 
-                forge cast  =  smelt → stoke → proof → hone → scribe (full cycle)
+                forge cast  =  smelt → stoke → hone → scribe → proof (full cycle)
 ```
 
 ### The Craftsmen
