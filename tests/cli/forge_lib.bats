@@ -374,7 +374,8 @@ EOF
     "$(basename "$TEST_TMPDIR")": {
       "path": "$TEST_TMPDIR",
       "repo": "https://github.com/test/test",
-      "created": "2026-01-01T00:00:00Z"
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
     }
   }
 }
@@ -387,7 +388,7 @@ EOF
     [[ "$output" == *"Auth System"* ]]
 }
 
-@test "clear_session sets session to null" {
+@test "clear_session clears active but preserves history" {
     mkdir -p "$FORGE_CONFIG_DIR"
     cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
@@ -396,18 +397,70 @@ EOF
       "path": "$TEST_TMPDIR",
       "repo": "https://github.com/test/test",
       "created": "2026-01-01T00:00:00Z",
-      "sessions": {
-        "blacksmith": {"name": "bs-12345", "milestone": "Auth"}
-      }
+      "sessions": {}
     }
   }
 }
 EOF
     cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-12345" "Auth"
     clear_session "blacksmith"
     run get_session "blacksmith"
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
+    # History should still have the entry
+    run list_sessions "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"bs-12345"* ]]
+}
+
+@test "list_sessions returns all sessions with active marker" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-111" "Milestone A"
+    set_session "blacksmith" "bs-222" "Milestone B"
+    run list_sessions "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"bs-111"* ]]
+    [[ "$output" == *"bs-222"* ]]
+    # bs-222 should be active (last set)
+    [[ "$output" == *"bs-222"*"*"* ]]
+}
+
+@test "set_session does not duplicate history entries" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-111" "Auth"
+    set_session "blacksmith" "bs-111" "Auth"
+    run list_sessions "blacksmith"
+    # Should only appear once
+    local count
+    count=$(echo "$output" | grep -c "bs-111")
+    [[ "$count" -eq 1 ]]
 }
 
 # --- run_stoke_loop ---

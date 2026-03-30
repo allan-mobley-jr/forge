@@ -139,17 +139,21 @@ for name, proj in cfg.get('projects', {}).items():
 }
 
 # --- Session management ---
-# Milestone-scoped named sessions stored in config.json per project.
-# Sessions persist across issues within a milestone and are cleared at milestone boundary.
+# Each agent maintains a session history per project.
+# The active session is the most recent. Sessions persist across issues
+# within a milestone and are cleared at milestone boundary.
+# Config structure:
+#   sessions.<role>.active = "session-name" | null
+#   sessions.<role>.history = [ { name, milestone, created }, ... ]
 
 # _forge_project_name — derive the config key for the current project.
 _forge_project_name() {
     basename "$(pwd)"
 }
 
-# get_session — read session name and milestone for an agent role.
+# get_session — read the active session name and milestone for an agent role.
 # Usage: get_session <agent_role>   (e.g., get_session blacksmith)
-# Prints: <session_name>\t<milestone>   or empty if no session.
+# Prints: <session_name>\t<milestone>   or empty if no active session.
 get_session() {
     local role="$1"
     local project_name
@@ -160,7 +164,15 @@ try:
     with open(sys.argv[1]) as f:
         cfg = json.load(f)
     s = cfg['projects'][sys.argv[2]]['sessions'][sys.argv[3]]
-    if s and s.get('name'):
+    active = s.get('active') if isinstance(s, dict) else s
+    if isinstance(s, dict) and active:
+        entry = next((h for h in s.get('history', []) if h['name'] == active), None)
+        if entry:
+            print(entry['name'] + '\t' + (entry.get('milestone') or ''))
+        else:
+            print(active + '\t')
+    elif isinstance(s, dict) and s.get('name'):
+        # Legacy single-slot format
         print(s['name'] + '\t' + (s.get('milestone') or ''))
 except (KeyError, TypeError, FileNotFoundError):
     pass
@@ -168,6 +180,7 @@ except (KeyError, TypeError, FileNotFoundError):
 }
 
 # set_session — write session name and milestone for an agent role.
+# Sets the active session and appends to history.
 # Usage: set_session <agent_role> <session_name> [milestone]
 set_session() {
     local role="$1"
@@ -176,19 +189,27 @@ set_session() {
     local project_name
     project_name=$(_forge_project_name)
     python3 -c "
-import json, sys
+import json, sys, datetime
 cfg_path, proj, role, name, ms = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 with open(cfg_path) as f:
     cfg = json.load(f)
 cfg['projects'][proj].setdefault('sessions', {})
-cfg['projects'][proj]['sessions'][role] = {'name': name, 'milestone': ms or None}
+sess = cfg['projects'][proj]['sessions'].get(role)
+if not isinstance(sess, dict) or 'history' not in sess:
+    sess = {'active': None, 'history': []}
+entry = {'name': name, 'milestone': ms or None, 'created': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
+# Don't duplicate if already in history
+if not any(h['name'] == name for h in sess['history']):
+    sess['history'].append(entry)
+sess['active'] = name
+cfg['projects'][proj]['sessions'][role] = sess
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$session_name" "$milestone"
 }
 
-# clear_session — clear session for an agent role.
+# clear_session — clear the active session for an agent role (history preserved).
 # Usage: clear_session <agent_role>
 clear_session() {
     local role="$1"
@@ -199,20 +220,162 @@ import json, sys
 cfg_path, proj, role = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(cfg_path) as f:
     cfg = json.load(f)
-sessions = cfg.get('projects', {}).get(proj, {}).get('sessions', {})
-if role in sessions:
-    sessions[role] = None
+sess = cfg.get('projects', {}).get(proj, {}).get('sessions', {}).get(role)
+if isinstance(sess, dict):
+    sess['active'] = None
     with open(cfg_path, 'w') as f:
         json.dump(cfg, f, indent=2)
         f.write('\n')
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role"
 }
 
-# clear_all_sessions — clear both blacksmith and temperer sessions.
+# clear_all_sessions — clear active sessions for all core pipeline agents.
 # Usage: clear_all_sessions
 clear_all_sessions() {
     clear_session "blacksmith"
     clear_session "temperer"
+}
+
+# list_sessions — list all sessions in history for an agent role.
+# Usage: list_sessions <agent_role>
+# Prints: one line per session: <name>\t<milestone>\t<created>\t<active>
+# where <active> is "*" if it's the active session, empty otherwise.
+list_sessions() {
+    local role="$1"
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        cfg = json.load(f)
+    sess = cfg['projects'][sys.argv[2]]['sessions'][sys.argv[3]]
+    if not isinstance(sess, dict) or 'history' not in sess:
+        sys.exit(0)
+    active = sess.get('active')
+    for h in sess['history']:
+        marker = '*' if h['name'] == active else ''
+        print(h['name'] + '\t' + (h.get('milestone') or '') + '\t' + (h.get('created') or '') + '\t' + marker)
+except (KeyError, TypeError, FileNotFoundError):
+    pass
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
+}
+
+# pick_session — interactive session picker with arrow keys and number input.
+# Usage: pick_session <agent_role>
+# Prints the chosen session name to stdout. Empty if user chooses "start fresh."
+# Skips the picker and returns empty if no history exists.
+pick_session() {
+    local role="$1"
+    local sessions=()
+    local names=() milestones=() dates=() markers=()
+
+    # Read session history
+    while IFS=$'\t' read -r name ms dt marker; do
+        [ -z "$name" ] && continue
+        sessions+=("$name")
+        names+=("$name")
+        milestones+=("$ms")
+        dates+=("$dt")
+        markers+=("$marker")
+    done < <(list_sessions "$role")
+
+    # No history — return empty (start fresh)
+    if [ ${#sessions[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    # Find the default (active session, or last in list)
+    local selected=0
+    for i in "${!markers[@]}"; do
+        if [ "${markers[$i]}" = "*" ]; then
+            selected=$i
+            break
+        fi
+    done
+
+    local total=${#sessions[@]}
+    local max_idx=$((total))  # total = last index is "Start fresh"
+
+    # Render function
+    _pick_render() {
+        # Move cursor up to overwrite previous render
+        if [ "${_pick_rendered:-0}" -gt 0 ]; then
+            printf '\033[%dA' "$((_pick_rendered))"
+        fi
+        local line_count=0
+        printf "  %s sessions:\n" "$role"
+        line_count=$((line_count + 1))
+        for i in "${!sessions[@]}"; do
+            local prefix="  "
+            local suffix=""
+            if [ "$i" -eq "$selected" ]; then
+                prefix="> "
+            fi
+            if [ -n "${milestones[$i]}" ]; then
+                suffix=" (${milestones[$i]})"
+            fi
+            if [ "${markers[$i]}" = "*" ]; then
+                suffix="${suffix} [active]"
+            fi
+            printf "  %s %d. %s%s\n" "$prefix" "$((i + 1))" "${names[$i]}" "$suffix"
+            line_count=$((line_count + 1))
+        done
+        # "Start fresh" option
+        local fresh_prefix="  "
+        if [ "$selected" -eq "$max_idx" ]; then
+            fresh_prefix="> "
+        fi
+        printf "  %s %d. Start fresh\n" "$fresh_prefix" "$((total + 1))"
+        line_count=$((line_count + 1))
+        printf "\n  Arrow keys to navigate, number to jump, Enter to confirm.\n"
+        line_count=$((line_count + 2))
+        _pick_rendered=$line_count
+    }
+
+    _pick_rendered=0
+    _pick_render
+
+    # Input loop
+    while true; do
+        IFS= read -rsn1 key
+        case "$key" in
+            $'\x1b')
+                # Escape sequence — read the rest
+                read -rsn2 rest
+                case "$rest" in
+                    '[A') # Up arrow
+                        if [ "$selected" -gt 0 ]; then
+                            selected=$((selected - 1))
+                        fi
+                        ;;
+                    '[B') # Down arrow
+                        if [ "$selected" -lt "$max_idx" ]; then
+                            selected=$((selected + 1))
+                        fi
+                        ;;
+                esac
+                _pick_render
+                ;;
+            [1-9])
+                # Number input — jump to that index
+                local num=$((key - 1))
+                if [ "$num" -le "$max_idx" ]; then
+                    selected=$num
+                fi
+                _pick_render
+                ;;
+            "")
+                # Enter — confirm selection
+                if [ "$selected" -eq "$max_idx" ]; then
+                    echo ""  # Start fresh
+                else
+                    echo "${sessions[$selected]}"
+                fi
+                return 0
+                ;;
+        esac
+    done
 }
 
 # --- Label definitions ---
