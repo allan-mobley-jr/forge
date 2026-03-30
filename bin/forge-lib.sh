@@ -25,8 +25,7 @@ NC="${NC-\033[0m}"
 # Map agent name to its bracket/message color.
 _agent_color() {
     case "$1" in
-        SMELTER)      echo "$YELLOW" ;;
-        REFINER)      echo "$BLUE" ;;
+        SMELTER)      echo "$BLUE" ;;
         BLACKSMITH)   echo "$YELLOW" ;;
         TEMPERER)     echo "$GREEN" ;;
         PROOF-MASTER) echo "$CYAN" ;;
@@ -56,9 +55,8 @@ forge_ok()   { echo -e "${GREEN}✓ $1${NC}"; }
 forge_fail() { echo -e "${RED}✗ $1${NC}"; }
 forge_warn() { echo -e "${YELLOW}! $1${NC}"; }
 
-# Visual separator and status transition
+# Visual separator — horizontal divider with space on either side
 forge_separator() { echo -e "\n${DIM}$(printf '%60s' '' | tr ' ' '─')${NC}\n"; }
-forge_status_transition() { echo -e "  ${BOLD}STATUS${NC}  ${BLUE}$1${NC} ${DIM}→${NC} ${BLUE}$2${NC}"; }
 
 # Cast completion summary
 forge_cast_summary() {
@@ -654,7 +652,7 @@ run_stoke_loop() {
                         return 1
                     }
                 fi
-                forge_status_transition "$status" "status:hammered"
+                forge_separator
                 ;;
             status:hammered|status:tempering|status:tempered)
                 # Determine prompt based on status
@@ -691,6 +689,7 @@ run_stoke_loop() {
                         return 1
                     }
                 fi
+                forge_separator
                 ;;
             *)
                 forge_fail "Issue #$issue has unknown status '$status'. Stopping."
