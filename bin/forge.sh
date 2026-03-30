@@ -669,17 +669,13 @@ case "${1:-}" in
                 break
             fi
 
-            # All work drained — release, audit, document
-            agent_msg PROOF-MASTER "Checking for unreleased work..."
-            run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..." || true
-
+            # All work drained — audit, document, then check for new work
             agent_msg HONER "Honing..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot." "Honing..."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase." "Honing..."; then
                 agent_fail HONER "failed. Stopping."
                 exit 1
             fi
 
-            # Document the result
             agent_msg SCRIBE "Scribing..."
             if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki." "Scribing..."; then
                 agent_fail SCRIBE "failed. Stopping."
@@ -689,11 +685,17 @@ case "${1:-}" in
             # Check if hone/scribe produced new work
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
             new_ready="${new_ready:-0}"
-            if [ "$new_ready" -eq 0 ]; then
-                forge_ok "Cast complete."
-                break
+            if [ "$new_ready" -gt 0 ]; then
+                forge_info "New work produced. Continuing cast..."
+                continue
             fi
-            forge_info "New work produced. Continuing cast..."
+
+            # No new work — stamp the release
+            agent_msg PROOF-MASTER "Checking for unreleased work..."
+            run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..." || true
+
+            forge_ok "Cast complete."
+            break
         done
 
         if [ "$cast_did_work" = true ]; then
