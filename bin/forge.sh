@@ -463,7 +463,7 @@ case "${1:-}" in
                 exit 0
             fi
             agent_msg SMELTER "Starting on issue #$feature_issue..."
-            if ! run_forge_agent "auto-smelter" "Produce an ingot from the oldest human-filed type:feature issue."; then
+            if ! run_forge_agent "auto-smelter" "Process the oldest human-filed type:feature issue. Research, plan, and create implementation issues."; then
                 agent_fail SMELTER "failed."
                 exit 1
             fi
@@ -611,7 +611,7 @@ case "${1:-}" in
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             agent_msg HONER "Starting..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. Produce an ingot."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. File implementation issues."; then
                 agent_fail HONER "failed."
                 exit 1
             fi
