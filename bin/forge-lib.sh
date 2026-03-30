@@ -230,8 +230,6 @@ FORGE_REQUIRED_LABELS=(
     "status:tempering|fbca04|Review in progress"
     "status:tempered|0e8a16|Review passed"
     "status:rework|d93f0b|Sent back to Blacksmith"
-    "status:proving|1d76db|Validation in progress"
-    "status:proved|0e8a16|PR opened"
     # Descriptive labels — categorize the work
     "type:bug|d73a4a|Something is broken"
     "type:feature|0075ca|New functionality"
@@ -410,25 +408,21 @@ find_issue_for_temper() {
     ' 2>/dev/null || true
 }
 
-# find_issue_for_proof — find the lowest open issue with status:tempered.
-find_issue_for_proof() {
+# find_issue_for_temper_recovery — find tempered issues needing PR/merge completion.
+find_issue_for_temper_recovery() {
     gh issue list --state open --label "status:tempered" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true
 }
 
-# find_unprocessed_ingots — find open ingot issues (oldest first).
-# Requires both type:ingot and ai-generated labels.
-find_unprocessed_ingots() {
-    gh issue list --state open --label "type:ingot" --label "ai-generated" --json number --jq '
-        sort_by(.number) | .[].number
-    ' 2>/dev/null || true
-}
-
 # --- Stoke loop ---
-# Processes the issue queue: hammer → temper → proof for each issue.
+# Processes the issue queue: hammer → temper for each issue.
+# The Temperer now handles PR/merge after approval.
 # Returns 0 on clean exit (queue empty), 1 on failure or blocked.
 run_stoke_loop() {
+    local project_name
+    project_name=$(_forge_project_name)
+
     while true; do
         # Check if any issue needs human intervention
         local blocked_issue
@@ -452,6 +446,8 @@ run_stoke_loop() {
 
         if [ -z "$issue_line" ]; then
             forge_ok "No actionable issues. Queue complete."
+            # Clear sessions when queue is fully drained
+            clear_all_sessions "$project_name" 2>/dev/null || true
             return 0
         fi
 
@@ -464,38 +460,74 @@ run_stoke_loop() {
             return 1
         fi
 
+        # Determine issue milestone for session scoping
+        local issue_milestone
+        issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
+
         case "$status" in
             status:ready|status:rework|status:hammering)
-                agent_msg BLACKSMITH "Hammering issue #$issue ($status)..."
-                run_forge_agent "auto-blacksmith" "Implement issue #${issue}." "Hammering #${issue}..." || {
-                    agent_fail BLACKSMITH "failed on issue #$issue. Stopping."
-                    return 1
-                }
+                # Determine prompt: fresh sessions read INGOT.md
+                local bs_prompt="Implement issue #${issue}."
+                local bs_session bs_milestone
+                bs_session=$(get_session "blacksmith" | cut -f1)
+                bs_milestone=$(get_session "blacksmith" | cut -f2)
+
+                if [ -n "$bs_session" ] && [ "$bs_milestone" = "$issue_milestone" ]; then
+                    # Resume existing session
+                    agent_msg BLACKSMITH "Resuming on issue #$issue ($status)..."
+                    run_forge_agent "auto-blacksmith" "Continue working. $bs_prompt" "Hammering #${issue}..." \
+                        --resume-session "$bs_session" || {
+                        agent_fail BLACKSMITH "failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                else
+                    # Fresh session — read INGOT.md
+                    local session_name="blacksmith-$(date +%s)"
+                    set_session "blacksmith" "$session_name" "$issue_milestone" 2>/dev/null || true
+                    agent_msg BLACKSMITH "Hammering issue #$issue ($status)..."
+                    run_forge_agent "auto-blacksmith" "Read INGOT.md in the project root for architectural context before starting. $bs_prompt" "Hammering #${issue}..." \
+                        --session-name "$session_name" || {
+                        agent_fail BLACKSMITH "failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                fi
                 forge_status_transition "$status" "status:hammered"
                 ;;
-            status:hammered|status:tempering)
-                agent_msg TEMPERER "Tempering issue #$issue ($status)..."
-                run_forge_agent "auto-temperer" "Review issue #${issue}." "Tempering #${issue}..." || {
-                    agent_fail TEMPERER "failed on issue #$issue. Stopping."
-                    return 1
-                }
-                forge_status_transition "$status" "status:tempered"
-                ;;
-            status:tempered|status:proving)
-                agent_msg PROOF-MASTER "Proofing issue #$issue ($status)..."
-                run_forge_agent "auto-proof-master" "Validate and open PR for issue #${issue}." "Proofing #${issue}..." || {
-                    agent_fail PROOF-MASTER "failed on issue #$issue. Stopping."
-                    return 1
-                }
-                forge_status_transition "$status" "status:proved"
-                ;;
-            status:proved)
-                agent_msg PROOF-MASTER "Issue #$issue proved but still open. Checking PR status..."
-                run_forge_agent "auto-proof-master" "Issue #${issue} has status:proved but is still open. Check the PR status and resolve." "Checking PR for #${issue}..." || {
-                    agent_fail PROOF-MASTER "failed on issue #$issue. Stopping."
-                    return 1
-                }
-                forge_status_transition "$status" "closed"
+            status:hammered|status:tempering|status:tempered)
+                # Determine prompt based on status
+                local tp_prompt
+                case "$status" in
+                    status:tempered)
+                        tp_prompt="Issue #${issue} is status:tempered. Pick up where you left off — check for an existing PR and complete the merge."
+                        ;;
+                    *)
+                        tp_prompt="Review issue #${issue}."
+                        ;;
+                esac
+
+                local tp_session tp_milestone
+                tp_session=$(get_session "temperer" | cut -f1)
+                tp_milestone=$(get_session "temperer" | cut -f2)
+
+                if [ -n "$tp_session" ] && [ "$tp_milestone" = "$issue_milestone" ]; then
+                    # Resume existing session
+                    agent_msg TEMPERER "Resuming on issue #$issue ($status)..."
+                    run_forge_agent "auto-temperer" "Continue working. $tp_prompt" "Tempering #${issue}..." \
+                        --resume-session "$tp_session" || {
+                        agent_fail TEMPERER "failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                else
+                    # Fresh session — read INGOT.md
+                    local session_name="temperer-$(date +%s)"
+                    set_session "temperer" "$session_name" "$issue_milestone" 2>/dev/null || true
+                    agent_msg TEMPERER "Tempering issue #$issue ($status)..."
+                    run_forge_agent "auto-temperer" "Read INGOT.md in the project root for architectural context before starting. $tp_prompt" "Tempering #${issue}..." \
+                        --session-name "$session_name" || {
+                        agent_fail TEMPERER "failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                fi
                 ;;
             *)
                 forge_fail "Issue #$issue has unknown status '$status'. Stopping."
