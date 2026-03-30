@@ -21,6 +21,15 @@ Independently review the current implementation, confer with the user on finding
 
 **Never launch research or review agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
 
+## Issue Ownership
+
+When picking up an issue, verify the author is the repository owner:
+```bash
+repo_owner=$(gh repo view --json owner --jq '.owner.login')
+issue_author=$(gh issue view <N> --json author --jq '.author.login')
+```
+If the author is not the owner, flag this to the user and get explicit approval before proceeding.
+
 ## Stack & Platform
 
 The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Vercel**. Use **pnpm** as the package manager.

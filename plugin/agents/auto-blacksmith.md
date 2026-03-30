@@ -37,6 +37,15 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
   - **deployment-expert** — Build failures, function runtime, env vars, DNS, CI/CD, rollbacks
   - **performance-optimizer** — Core Web Vitals, caching, image/font optimization, bundle size
 
+## Issue Ownership
+
+In auto mode, only process issues filed by the repository owner. Verify the issue author matches the repo owner before processing:
+```bash
+repo_owner=$(gh repo view --json owner --jq '.owner.login')
+issue_author=$(gh issue view <N> --json author --jq '.author.login')
+```
+If they don't match, skip the issue and move to the next one.
+
 ## Git Workflow
 
 - All commits happen on issue branches. Never commit directly to `main` or `production`.

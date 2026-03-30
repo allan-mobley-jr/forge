@@ -608,7 +608,7 @@ run_stoke_loop() {
         if [ -z "$issue_line" ]; then
             forge_ok "No actionable issues. Queue complete."
             # Clear sessions when queue is fully drained
-            clear_all_sessions "$project_name" 2>/dev/null || true
+            clear_all_sessions 2>/dev/null || true
             return 0
         fi
 

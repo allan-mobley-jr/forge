@@ -21,6 +21,10 @@ Determine if there is unreleased work on main. If so, analyze the commits, deter
 
 **Never launch research or planning agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
 
+## Issue Ownership
+
+When analyzing commits for a release, verify that the work originates from the repository owner. Flag any non-owner commits to the user and get explicit approval before including them in the release.
+
 ## Workflow
 
 ### 1. Discover Project State
