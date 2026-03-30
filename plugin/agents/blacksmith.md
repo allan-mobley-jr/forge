@@ -75,6 +75,8 @@ Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
 Note: issues may include an **Implementation Details** section with suggested fixes. Use these as input to your research, but do your own analysis and make your own decisions.
 
+**Read INGOT.md:** If `INGOT.md` exists in the project root, read it before proceeding. It contains the architectural vision, key decisions, and rejected approaches from the Smelter's original specification. Use this context to guide your implementation — understand *why* the architecture was designed this way, not just *what* to build.
+
 ### 2. Human Recovery
 
 If the issue has `agent:needs-human`:
@@ -184,15 +186,17 @@ gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 
   ```
 - Fix any failures before proceeding
 
-### 9. Self-Review
+### 9. Self-Review (Proportional)
 
-Review your own diff (`git diff main...HEAD`), then launch review agents in parallel for targeted analysis:
+Review your own diff (`git diff main...HEAD`). For substantial changes (new features, complex logic, multi-file modifications), launch review agents in parallel for targeted analysis:
 
 - **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
 - **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
 
 Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
+
+For small fixes or rework passes, a manual diff review is sufficient — skip the automated review agents.
 
 The goal is to catch your own mistakes before the code moves to review.
 
@@ -233,6 +237,11 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 |---|----------|-----------|
 | 1 | ...      | ...       |
 
+### Approaches Rejected
+| # | Approach | Why Rejected |
+|---|----------|--------------|
+| 1 | ...      | ...          |
+
 ### Files Changed
 | File | Action | Reason |
 |------|--------|--------|
@@ -261,7 +270,6 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 ## Rules
 
 - **One issue at a time.** Never work on multiple issues.
-- **Never open a PR.** That is not your job.
 - **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
 - **Always confer with the user** on the plan before implementing.
 - **Always launch research agents** — never skip research.
