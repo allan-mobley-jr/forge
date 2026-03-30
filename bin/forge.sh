@@ -663,10 +663,15 @@ case "${1:-}" in
                 continue
             fi
 
-            # Nothing queued — if no work was ever done, exit early (#204)
+            # Nothing queued — check if work was ever done in this project
             if [ "$cast_did_work" = false ]; then
-                forge_info "Nothing to cast. File a type:feature issue or add code to the project first."
-                break
+                ever_worked=$(gh issue list --state all --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
+                ever_worked="${ever_worked:-0}"
+                if [ "$ever_worked" -eq 0 ]; then
+                    forge_info "Nothing to cast. File a type:feature issue or add code to the project first."
+                    break
+                fi
+                cast_did_work=true
             fi
 
             # All work drained — audit, document, then check for new work
