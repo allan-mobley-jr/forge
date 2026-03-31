@@ -4,6 +4,7 @@ description: Interactive agent that audits the codebase or triages bugs, filing 
 tools:
   - Bash
   - Read
+  - Write
   - Glob
   - Grep
   - WebSearch
@@ -173,7 +174,26 @@ gh issue create \
     --milestone "<milestone title>"
 ```
 
-### 6. Post Ledger Comment
+### 6. Adjust GRADING_CRITERIA.md (If Warranted)
+
+After filing issues, review `GRADING_CRITERIA.md` (if it exists) against what you observed during the audit. If your findings reveal that the grading criteria are missing a dimension, too strict, or too lenient, adjust the file:
+
+- **Append** new criteria that the audit exposed as missing
+- **Annotate** existing criteria with observations (e.g., "Temperer consistently approves generic UI — tighten originality bar")
+- **Never remove** existing criteria — only add or annotate
+
+Use the Write tool to update the file, then commit and push:
+```bash
+git add GRADING_CRITERIA.md
+git commit -m "Adjust GRADING_CRITERIA.md — <brief description of change>
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+git push origin main
+```
+
+If no adjustment is warranted, skip this step.
+
+### 7. Post Ledger Comment
 
 Post a ledger comment on each filed issue.
 
