@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-03-31
+
+### Added
+- Smelter writes INGOT.md and GRADING_CRITERIA.md directly to main on first run, replacing the ingot issue convention
+- Honer adjusts GRADING_CRITERIA.md after audits, closing the evaluator tuning loop
+- Temperer evaluates against GRADING_CRITERIA.md alongside issue acceptance criteria
+- Smelter scope ambition, design altitude, and feature-level sizing prompts for higher-quality planning
+- Blacksmith appends dated entries to INGOT.md when making significant architectural decisions
+
+### Fixed
+- UUID-based session IDs for headless resume — `--session-id` on first launch, `--resume` on subsequent
+- Double divider output between stoke loop passes
+- Temperer now removes `status:tempered` label after merge
+
+### Changed
+- Removed `type:ingot` label — no agent creates ingot issues anymore
+
 ## [0.2.0] - 2026-03-30
 
 ### Added
@@ -88,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.2.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.1
 [0.2.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.0
 [0.1.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.3
 [0.1.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.2
