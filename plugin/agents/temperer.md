@@ -211,6 +211,7 @@ pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
 **Merge** (use the captured PR number):
 ```bash
 gh pr merge "$pr_number" --squash --delete-branch
+gh issue edit <N> --remove-label "status:tempered"
 ```
 
 **Cleanup locally:**
