@@ -468,7 +468,7 @@ EOF
 @test "_forge_uuid generates valid UUID v4 format" {
     run _forge_uuid
     [[ "$status" -eq 0 ]]
-    [[ "$output" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
+    [[ "$output" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
 }
 
 @test "get_session returns fields in correct order: session_id, name, milestone" {
