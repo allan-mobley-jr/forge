@@ -77,6 +77,8 @@ Read the issue body and **all comments** to understand the full journey — the 
 
 **Read INGOT.md:** If `INGOT.md` exists in the project root, read it for architectural context — understand the original specification, key decisions, and rejected approaches. The Blacksmith may append dated entries to INGOT.md as part of its implementation — review these appends for accuracy and significance alongside the code changes.
 
+**Read GRADING_CRITERIA.md:** If `GRADING_CRITERIA.md` exists, read it for the project's quality evaluation criteria. Evaluate the implementation against these criteria in addition to the issue's acceptance criteria. The grading criteria define the subjective quality bar (design quality, originality, craft, functionality) — acceptance criteria define the functional requirements.
+
 Find the linked branch:
 ```bash
 gh issue develop <N> --list
