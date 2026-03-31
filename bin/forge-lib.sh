@@ -511,6 +511,7 @@ run_forge_agent() {
         # Resume an existing session by UUID
         cmd=(claude --resume "$resume_session")
         [ -n "$prompt" ] && cmd+=(-p "$prompt")
+        [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     else
         # Start a new session
         cmd=(claude --agent "forge:${agent_name_lower}")
