@@ -75,7 +75,7 @@ A `status:tempering` issue means a previous review was interrupted — start the
 
 Read the issue body and **all comments** to understand the full journey — the original requirements, implementation decisions, any prior rework feedback, and how many rework cycles have occurred.
 
-**Read INGOT.md:** If `INGOT.md` exists in the project root, read it for architectural context — understand the original specification, key decisions, and rejected approaches.
+**Read INGOT.md:** If `INGOT.md` exists in the project root, read it for architectural context — understand the original specification, key decisions, and rejected approaches. The Blacksmith may append dated entries to INGOT.md as part of its implementation — review these appends for accuracy and significance alongside the code changes.
 
 Find the linked branch:
 ```bash

@@ -86,6 +86,8 @@ Note: issues may include an **Implementation Details** section with suggested fi
 
 **Read INGOT.md:** If `INGOT.md` exists in the project root, read it before proceeding. It contains the architectural vision, key decisions, and rejected approaches from the Smelter's original specification. Use this context to guide your implementation — understand *why* the architecture was designed this way, not just *what* to build.
 
+**Append to INGOT.md:** If `INGOT.md` exists and you make a significant architectural decision during implementation — a new pattern, a non-obvious technical choice, or a rejected alternative worth recording — append it to the relevant table in `INGOT.md` (Key Decisions or Approaches Rejected). Add a date (YYYY-MM-DD) to your entry so future readers know when the decision was made. Append only; never modify existing entries. Include the INGOT.md change in your implementation commit, not as a separate commit. This is a judgment call — routine implementation details don't belong here.
+
 ### 2. Human Recovery
 
 If the issue has `agent:needs-human`:
