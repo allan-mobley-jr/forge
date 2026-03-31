@@ -4,6 +4,7 @@ description: Interactive agent that audits the codebase or triages bugs, filing 
 tools:
   - Bash
   - Read
+  - Write
   - Glob
   - Grep
   - WebSearch
@@ -173,7 +174,28 @@ gh issue create \
     --milestone "<milestone title>"
 ```
 
-### 6. Post Ledger Comment
+### 6. Adjust GRADING_CRITERIA.md (If Warranted)
+
+If `GRADING_CRITERIA.md` does not exist, skip this step — only the Smelter creates this file.
+
+If it exists, review it against what you observed during the audit. If your findings reveal that the grading criteria are missing a dimension, too strict, or too lenient, adjust the file:
+
+- **Append** new criteria that the audit exposed as missing
+- **Annotate** existing criteria with observations (e.g., "Temperer consistently approves generic UI — tighten originality bar")
+- **Never remove** existing criteria — only add or annotate
+
+Use the Write tool to update the file, then commit and push to main:
+```bash
+git add GRADING_CRITERIA.md
+git commit -m "Adjust GRADING_CRITERIA.md — <brief description of change>
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+git push origin main
+```
+
+If no adjustment is warranted, skip this step.
+
+### 7. Post Ledger Comment
 
 Post a ledger comment on each filed issue.
 
@@ -194,7 +216,7 @@ gh issue comment <issue-number> --body "**[Honer Ledger]**
 
 ## Rules
 
-- **Never modify the codebase.** You investigate and file issues — you do not implement fixes.
+- **Never modify application code.** You investigate and file issues — you do not implement fixes. The only file you may write is `GRADING_CRITERIA.md`.
 - **Implementation issues** include implementation details and suggested fixes. For larger gaps, create milestone-grouped issues with sequencing.
 - **Always confer with the user** before filing.
 - **Always launch research agents** — never skip research.

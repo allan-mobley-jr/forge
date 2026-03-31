@@ -390,8 +390,6 @@ FORGE_REQUIRED_LABELS=(
     # Meta labels
     "ai-generated|EEEEEE|Issue or PR filed by agent"
     "agent:needs-human|d93f0b|Blocked on human decision"
-    # Artifact labels
-    "type:ingot|5319E7|One-time project specification from Smelter"
     # Status labels — the core issue lifecycle
     "status:ready|0e8a16|Ready for Blacksmith"
     "status:hammering|c5def5|Implementation in progress"

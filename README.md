@@ -105,8 +105,8 @@ Named sessions persist across issues within a milestone. The CLI resumes session
 
 ### Artifacts
 
-- **Ingot** — One-time GitHub issue (`type:ingot`) created by the Smelter on first run. The architectural vision and spec.
-- **INGOT.md** — Codebase artifact materialized from the ingot by the Blacksmith's first issue. Lives on main after merge. Contains Key Decisions and Approaches Rejected.
+- **INGOT.md** — One-time project specification written directly to main by the Smelter on first run. Contains the architectural vision, key decisions, and rejected approaches. The Blacksmith appends dated entries during implementation.
+- **GRADING_CRITERIA.md** — Project-specific quality evaluation criteria written by the Smelter, adjusted by the Honer after audits. The Temperer evaluates against these alongside issue acceptance criteria.
 - **Ledger entries** — Reasoning records as tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue. Include Approaches Rejected sections.
 - **Rework comments** — Tagged with `**[Temperer]**`, addressed by prepending `✅`
 
@@ -204,7 +204,6 @@ Target projects use these labels:
 |-------|---------|
 | `ai-generated` | Issue or PR filed by an agent |
 | `agent:needs-human` | Blocked — check comments for the question |
-| `type:ingot` | Ingot from the Smelter (one-time) |
 | `status:ready` | Ready for the Blacksmith to implement |
 | `status:hammering` | Implementation in progress |
 | `status:hammered` | Implementation complete, awaiting review |
@@ -271,7 +270,9 @@ forge/
 
 **Agents own their state.** Each agent sets its own status labels — the CLI is a thin dispatcher that finds issues and launches agents. If an agent crashes mid-run, the in-progress label (`status:hammering`, etc.) persists and `forge stoke` picks it back up with session resume.
 
-**INGOT.md for architectural context.** The Smelter's spec (ingot) is materialized into the codebase as `INGOT.md` by the first implementation issue. Every subsequent agent reads it for Key Decisions and Approaches Rejected — eliminating the context loss that plagued the old multi-handoff pipeline.
+**INGOT.md for architectural context.** The Smelter writes `INGOT.md` directly to main on first run — no intermediate GitHub issue, no Blacksmith materialization step. Every subsequent agent reads it for Key Decisions and Approaches Rejected, eliminating the context loss that plagued the old multi-handoff pipeline.
+
+**GRADING_CRITERIA.md for quality evaluation.** The Smelter devises project-specific grading criteria informed by Anthropic's four evaluation dimensions (design quality, originality, craft, functionality). The Temperer evaluates against these alongside issue acceptance criteria. The Honer adjusts criteria after audits, closing the evaluator tuning loop.
 
 **Named sessions with resume.** Sessions persist across issues within a milestone, preserving the agent's full reasoning context. The CLI resumes on crash or relaunch. Sessions clear at milestone boundaries.
 

@@ -30,10 +30,10 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 
 ## Artifacts (in target projects)
 
-All planning artifacts are stored as GitHub issues and comments — not files on disk:
+Planning artifacts live in the codebase and on GitHub:
 
-- **Ingot** — One-time GitHub issue labeled `type:ingot`, created by the Smelter on first run. The architectural vision and spec for the project.
-- **INGOT.md** — Codebase artifact materialized from the ingot issue by the Blacksmith's first implementation issue. The Blacksmith appends dated entries when making significant architectural decisions during implementation. Lives on main after merge.
+- **INGOT.md** — One-time project specification written directly to main by the Smelter on first run. Contains the architectural vision, key decisions, and rejected approaches. The Blacksmith appends dated entries when making significant architectural decisions during implementation.
+- **GRADING_CRITERIA.md** — Project-specific quality evaluation criteria written by the Smelter on first run. The Honer adjusts after audits. The Temperer evaluates against these alongside issue acceptance criteria.
 - **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
 - **Rework comments** — tagged with `**[Temperer]**`
 
@@ -44,7 +44,7 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
-- The Temperer uses lean review: reads diff + ledger + INGOT.md + E2E tests (no mandatory Explore/Plan subagents)
+- The Temperer uses lean review: reads diff + ledger + INGOT.md + GRADING_CRITERIA.md + E2E tests (no mandatory Explore/Plan subagents)
 - Domain agents at `~/.claude/agents/` are considered during research
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
@@ -54,10 +54,9 @@ All planning artifacts are stored as GitHub issues and comments — not files on
 
 ## Labels
 
-Target projects use these labels (22 total, defined in `forge-lib.sh`):
+Target projects use these labels (21 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`, `agent:needs-human`
-- **Artifact:** `type:ingot`
 - **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
 - **Priority:** `priority:high`, `priority:medium`, `priority:low`
