@@ -184,7 +184,7 @@ show_command_help() {
             echo "a versioned release with changelog."
             ;;
         hone|auto-hone)
-            echo "forge hone — Audit the codebase and produce an improvement ingot"
+            echo "forge hone — Audit the codebase and file improvement issues"
             echo ""
             echo "Usage: forge hone"
             echo "       forge auto-hone"

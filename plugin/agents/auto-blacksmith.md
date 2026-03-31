@@ -125,14 +125,14 @@ All research agents should leverage the **Vercel plugin** skills for up-to-date 
 
 At minimum:
 - **Code trace:** Trace the code area relevant to the issue. Read source files, callers, data flow, and related modules.
-- **Context:** Find related tests, prior implementations, and the issue's origin (ingot or audit) for project context.
+- **Context:** Find related tests, prior implementations, and the issue's origin (feature request or audit) for project context.
 
 Additional research as needed:
 - **Domain research:** When the issue references external APIs, libraries, or domain concepts, research current documentation.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
-**Historical context:** Research agents should run `git blame` on files being modified to understand why code was written that way. Read `git log` for the affected area to understand prior changes. Trace the issue back to its originating ingot (referenced in the issue body or comments) for architectural context.
+**Historical context:** Research agents should run `git blame` on files being modified to understand why code was written that way. Read `git log` for the affected area to understand prior changes. Read `INGOT.md` for the project's architectural context and key decisions.
 
 After all agents return, synthesize findings.
 

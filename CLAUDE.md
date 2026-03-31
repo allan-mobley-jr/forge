@@ -54,7 +54,7 @@ Planning artifacts live in the codebase and on GitHub:
 
 ## Labels
 
-Target projects use these labels (20 total, defined in `forge-lib.sh`):
+Target projects use these labels (21 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`, `agent:needs-human`
 - **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`

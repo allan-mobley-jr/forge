@@ -135,9 +135,9 @@ The user may customize branch-environment mapping or add additional environments
    - **Database branching** — if the spec uses Neon (Postgres), configure database branching: production database for the production environment, a branched database for staging. Document the branch strategy.
 4. Trigger initial deployment and verify it succeeds
 
-If setup fails, note it in the ingot but do not block — the Blacksmith can address it as an implementation issue.
+If setup fails, note it but do not block — the Blacksmith can address it as an implementation issue.
 
-**Include the deployment configuration in the ingot** (step 6) under a "Deployment & Environments" section:
+**Include the deployment configuration in INGOT.md** (step 6) under a "Deployment & Environments" section:
 - Vercel project name and team
 - Branch-to-environment mapping
 - Environment variables needed (names, not values) and which differ per environment
@@ -148,7 +148,7 @@ If setup fails, note it in the ingot but do not block — the Blacksmith can add
 
 Check if this is the first run:
 ```bash
-test -f INGOT.md && echo "exists" || echo "missing"
+git show main:INGOT.md > /dev/null 2>&1 && echo "exists" || echo "missing"
 ```
 
 **If missing (first run):** Write `INGOT.md` to the project root using the Write tool. The file is the specification from step 4, enriched with:
@@ -157,18 +157,13 @@ test -f INGOT.md && echo "exists" || echo "missing"
 - **Approaches Rejected** table — alternatives considered and why they were rejected (include a Date column)
 - **Deployment & Environments** section — Vercel project, branch-environment mapping, env vars, database branching (from step 5)
 
-Commit and push directly to main:
-Commit and push via a short-lived branch to respect branch protection:
+Commit and push to main:
 ```bash
-git checkout -b forge/ingot
 git add INGOT.md
 git commit -m "Add INGOT.md — project specification
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-git push -u origin forge/ingot
-gh pr create --title "Add INGOT.md" --body "Project specification from the Smelter." --head forge/ingot --base main
-gh pr merge --squash --admin --delete-branch
-git checkout main && git pull origin main
+git push origin main
 ```
 
 **If exists (subsequent run):** Skip. Proceed to grading criteria.
@@ -186,22 +181,16 @@ The criteria should be informed by Anthropic's four evaluation dimensions from [
 
 Adapt these to the project type. A game needs gameplay feel and visual identity criteria. A SaaS app needs UX flow and responsive behavior criteria. An API needs correctness and performance criteria.
 
-Write `GRADING_CRITERIA.md` to the project root using the Write tool. Commit and push via a short-lived branch:
+Write `GRADING_CRITERIA.md` to the project root using the Write tool. Commit and push to main:
 ```bash
-git checkout -b forge/grading-criteria
 git add GRADING_CRITERIA.md
 git commit -m "Add GRADING_CRITERIA.md — project quality evaluation criteria
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-git push -u origin forge/grading-criteria
-gh pr create --title "Add GRADING_CRITERIA.md" --body "Quality evaluation criteria from the Smelter." --head forge/grading-criteria --base main
-gh pr merge --squash --admin --delete-branch
-git checkout main && git pull origin main
+git push origin main
 ```
 
-If `GRADING_CRITERIA.md` already exists, skip.
-
-**If exists (subsequent run):** Skip. Proceed to issue breakdown.
+If `GRADING_CRITERIA.md` already exists, skip this step.
 
 ### 8. Present & Confer — Issue Breakdown
 
@@ -242,7 +231,7 @@ gh issue create \
 
 **Issue body format:**
 ```markdown
-> Origin: <ingot or feature> #N
+> Origin: feature #N
 
 ## Objective
 <what and why — include relevant architectural context>
@@ -307,4 +296,4 @@ gh issue close <source-issue-number> --reason completed \
 - **Always launch the Plan agent** — never plan the architecture yourself.
 - Every implementation issue must have `ai-generated`, `status:ready`, and at least one `scope:*` label.
 - Check for existing issues/milestones before creating to ensure idempotency.
-- The ingot body has a 60,000 character limit. Never cut content to fit — post overflow in additional comments before the ledger. The ledger is always the last comment.
+- The ledger is always the last comment on the source feature request.

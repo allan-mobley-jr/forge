@@ -170,23 +170,21 @@ gh issue create \
 
 ### 5. Adjust GRADING_CRITERIA.md (If Warranted)
 
-After filing issues, review `GRADING_CRITERIA.md` (if it exists) against what you observed during the audit. If your findings reveal that the grading criteria are missing a dimension, too strict, or too lenient, adjust the file:
+If `GRADING_CRITERIA.md` does not exist, skip this step — only the Smelter creates this file.
+
+If it exists, review it against what you observed during the audit. If your findings reveal that the grading criteria are missing a dimension, too strict, or too lenient, adjust the file:
 
 - **Append** new criteria that the audit exposed as missing
 - **Annotate** existing criteria with observations (e.g., "Temperer consistently approves generic UI — tighten originality bar")
 - **Never remove** existing criteria — only add or annotate
 
-Use the Write tool to update the file, then commit and push via a short-lived branch:
+Use the Write tool to update the file, then commit and push to main:
 ```bash
-git checkout -b forge/grading-update
 git add GRADING_CRITERIA.md
 git commit -m "Adjust GRADING_CRITERIA.md — <brief description of change>
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-git push -u origin forge/grading-update
-gh pr create --title "Adjust GRADING_CRITERIA.md" --body "<brief description>" --head forge/grading-update --base main
-gh pr merge --squash --admin --delete-branch
-git checkout main && git pull origin main
+git push origin main
 ```
 
 If no adjustment is warranted, skip this step.
@@ -215,7 +213,7 @@ gh issue comment <issue-number> --body "**[Honer Ledger]**
 
 ## Rules
 
-- **Never modify the codebase.** You investigate and file issues — you do not implement fixes.
+- **Never modify application code.** You investigate and file issues — you do not implement fixes. The only file you may write is `GRADING_CRITERIA.md`.
 - **Never ask questions.** You are running headless. Make decisions and document them.
 - **Implementation issues** include implementation details and suggested fixes. For larger gaps, create milestone-grouped issues with sequencing.
 - **Always launch research agents** — never skip research.
