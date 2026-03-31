@@ -141,17 +141,27 @@ for name, proj in cfg.get('projects', {}).items():
 # The active session is the most recent. Sessions persist across issues
 # within a milestone and are cleared at milestone boundary.
 # Config structure:
-#   sessions.<role>.active = "session-name" | null
-#   sessions.<role>.history = [ { name, milestone, created }, ... ]
+#   sessions.<role>.active = "session-id" | null
+#   sessions.<role>.history = [ { name, session_id, milestone, created }, ... ]
+
+# _forge_uuid — generate a random UUID v4 (cross-platform).
+_forge_uuid() {
+    local uuid
+    uuid=$(python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null) || {
+        echo "Error: Failed to generate UUID — is python3 installed?" >&2
+        return 1
+    }
+    echo "$uuid"
+}
 
 # _forge_project_name — derive the config key for the current project.
 _forge_project_name() {
     basename "$(pwd)"
 }
 
-# get_session — read the active session name and milestone for an agent role.
+# get_session — read the active session for an agent role.
 # Usage: get_session <agent_role>   (e.g., get_session blacksmith)
-# Prints: <session_name>\t<milestone>   or empty if no active session.
+# Prints: <session_id>\t<name>\t<milestone>   or empty if no active session.
 get_session() {
     local role="$1"
     local project_name
@@ -162,16 +172,13 @@ try:
     with open(sys.argv[1]) as f:
         cfg = json.load(f)
     s = cfg['projects'][sys.argv[2]]['sessions'][sys.argv[3]]
-    active = s.get('active') if isinstance(s, dict) else s
-    if isinstance(s, dict) and active:
-        entry = next((h for h in s.get('history', []) if h['name'] == active), None)
+    if not isinstance(s, dict):
+        sys.exit(0)
+    active = s.get('active')
+    if active:
+        entry = next((h for h in s.get('history', []) if h.get('session_id') == active), None)
         if entry:
-            print(entry['name'] + '\t' + (entry.get('milestone') or ''))
-        else:
-            print(active + '\t')
-    elif isinstance(s, dict) and s.get('name'):
-        # Legacy single-slot format
-        print(s['name'] + '\t' + (s.get('milestone') or ''))
+            print(entry['session_id'] + '\t' + entry['name'] + '\t' + (entry.get('milestone') or ''))
 except (KeyError, TypeError, FileNotFoundError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
@@ -179,32 +186,32 @@ except (KeyError, TypeError, FileNotFoundError):
 
 # set_session — write session name and milestone for an agent role.
 # Sets the active session and appends to history.
-# Usage: set_session <agent_role> <session_name> [milestone]
+# Usage: set_session <agent_role> <session_name> <session_id> [milestone]
 set_session() {
     local role="$1"
     local session_name="$2"
-    local milestone="${3:-}"
+    local session_id="$3"
+    local milestone="${4:-}"
     local project_name
     project_name=$(_forge_project_name)
     python3 -c "
 import json, sys, datetime
-cfg_path, proj, role, name, ms = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+cfg_path, proj, role, name, sid, ms = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
 with open(cfg_path) as f:
     cfg = json.load(f)
 cfg['projects'][proj].setdefault('sessions', {})
 sess = cfg['projects'][proj]['sessions'].get(role)
 if not isinstance(sess, dict) or 'history' not in sess:
     sess = {'active': None, 'history': []}
-entry = {'name': name, 'milestone': ms or None, 'created': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
-# Don't duplicate if already in history
-if not any(h['name'] == name for h in sess['history']):
+entry = {'name': name, 'session_id': sid, 'milestone': ms or None, 'created': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
+if not any(h.get('session_id') == sid for h in sess['history']):
     sess['history'].append(entry)
-sess['active'] = name
+sess['active'] = sid
 cfg['projects'][proj]['sessions'][role] = sess
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
-" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$session_name" "$milestone"
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$session_name" "$session_id" "$milestone"
 }
 
 # clear_session — clear the active session for an agent role (history preserved).
@@ -236,7 +243,7 @@ clear_all_sessions() {
 
 # list_sessions — list all sessions in history for an agent role.
 # Usage: list_sessions <agent_role>
-# Prints: one line per session: <name>\t<milestone>\t<created>\t<active>
+# Prints: one line per session: <session_id>\t<name>\t<milestone>\t<created>\t<active>
 # where <active> is "*" if it's the active session, empty otherwise.
 list_sessions() {
     local role="$1"
@@ -252,8 +259,9 @@ try:
         sys.exit(0)
     active = sess.get('active')
     for h in sess['history']:
-        marker = '*' if h['name'] == active else ''
-        print(h['name'] + '\t' + (h.get('milestone') or '') + '\t' + (h.get('created') or '') + '\t' + marker)
+        sid = h.get('session_id', '')
+        marker = '*' if sid == active else ''
+        print(sid + '\t' + h['name'] + '\t' + (h.get('milestone') or '') + '\t' + (h.get('created') or '') + '\t' + marker)
 except (KeyError, TypeError, FileNotFoundError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
@@ -261,7 +269,7 @@ except (KeyError, TypeError, FileNotFoundError):
 
 # pick_session — interactive session picker with arrow keys and number input.
 # Usage: pick_session <agent_role>
-# Prints the chosen session name to stdout. Empty if user chooses "start fresh."
+# Prints the chosen session_id (UUID) to stdout. Empty if user chooses "start fresh."
 # Skips the picker and returns empty if no history exists.
 pick_session() {
     local role="$1"
@@ -269,9 +277,9 @@ pick_session() {
     local names=() milestones=() dates=() markers=()
 
     # Read session history
-    while IFS=$'\t' read -r name ms dt marker; do
-        [ -z "$name" ] && continue
-        sessions+=("$name")
+    while IFS=$'\t' read -r sid name ms dt marker; do
+        [ -z "$sid" ] && continue
+        sessions+=("$sid")
         names+=("$name")
         milestones+=("$ms")
         dates+=("$dt")
@@ -465,11 +473,12 @@ check_auth() {
 # --- Agent invocation ---
 
 # run_forge_agent — invoke a Claude Code session with a named agent.
-# Usage: run_forge_agent <agent-name> [prompt] [spinner-message] [--session-name <name>] [--resume-session <name>]
+# Usage: run_forge_agent <agent-name> [prompt] [spinner-message] [--session-name <name>] [--session-id <uuid>] [--resume-session <uuid>]
 # Extracts tools from agent frontmatter and passes --allowedTools for auto-approval.
 # Options (after positional args):
 #   --session-name <name>   Start a new named session (adds -n <name> to claude)
-#   --resume-session <name> Resume an existing named session (adds --resume <name> to claude)
+#   --session-id <uuid>     Pre-assign a UUID for the session (adds --session-id <uuid> to claude)
+#   --resume-session <uuid>  Resume an existing session by UUID (adds --resume <uuid> to claude)
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
@@ -477,10 +486,11 @@ run_forge_agent() {
     shift; shift 2>/dev/null || true; shift 2>/dev/null || true
 
     # Parse optional flags
-    local session_name="" resume_session=""
+    local session_name="" session_id="" resume_session=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --session-name)  session_name="$2"; shift 2 ;;
+            --session-name)   session_name="$2"; shift 2 ;;
+            --session-id)     session_id="$2"; shift 2 ;;
             --resume-session) resume_session="$2"; shift 2 ;;
             *) shift ;;
         esac
@@ -500,12 +510,13 @@ run_forge_agent() {
 
     local cmd=()
     if [ -n "$resume_session" ]; then
-        # Resume an existing session
+        # Resume an existing session by UUID
         cmd=(claude --resume "$resume_session")
         [ -n "$prompt" ] && cmd+=(-p "$prompt")
     else
-        # Start a new or unnamed session
+        # Start a new session
         cmd=(claude --agent "forge:${agent_name_lower}")
+        [ -n "$session_id" ] && cmd+=(--session-id "$session_id")
         [ -n "$session_name" ] && cmd+=(-n "$session_name")
         [ -n "$prompt" ] && cmd+=(-p "$prompt")
         [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
@@ -520,7 +531,6 @@ run_forge_agent() {
     "${cmd[@]}" || exit_code=$?
 
     _forge_spinner_stop
-    forge_separator
     return "$exit_code"
 }
 
@@ -631,10 +641,10 @@ run_stoke_loop() {
                 local bs_prompt="Implement issue #${issue}."
                 local bs_session bs_milestone
                 bs_session=$(get_session "blacksmith" | cut -f1)
-                bs_milestone=$(get_session "blacksmith" | cut -f2)
+                bs_milestone=$(get_session "blacksmith" | cut -f3)
 
                 if [ -n "$bs_session" ] && [ "$bs_milestone" = "$issue_milestone" ]; then
-                    # Resume existing session
+                    # Resume existing session by UUID
                     agent_msg BLACKSMITH "Resuming on issue #$issue ($status)..."
                     run_forge_agent "auto-blacksmith" "Continue working. $bs_prompt" "Hammering #${issue}..." \
                         --resume-session "$bs_session" || {
@@ -642,12 +652,13 @@ run_stoke_loop() {
                         return 1
                     }
                 else
-                    # Fresh session — read INGOT.md
-                    local session_name="blacksmith-$(date +%s)"
-                    set_session "blacksmith" "$session_name" "$issue_milestone" 2>/dev/null || true
+                    # Fresh session — generate UUID, read INGOT.md
+                    local session_id session_name="blacksmith-$(date +%s)"
+                    session_id=$(_forge_uuid)
+                    set_session "blacksmith" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
                     agent_msg BLACKSMITH "Hammering issue #$issue ($status)..."
                     run_forge_agent "auto-blacksmith" "Read INGOT.md in the project root for architectural context before starting. $bs_prompt" "Hammering #${issue}..." \
-                        --session-name "$session_name" || {
+                        --session-id "$session_id" --session-name "$session_name" || {
                         agent_fail BLACKSMITH "failed on issue #$issue. Stopping."
                         return 1
                     }
@@ -668,10 +679,10 @@ run_stoke_loop() {
 
                 local tp_session tp_milestone
                 tp_session=$(get_session "temperer" | cut -f1)
-                tp_milestone=$(get_session "temperer" | cut -f2)
+                tp_milestone=$(get_session "temperer" | cut -f3)
 
                 if [ -n "$tp_session" ] && [ "$tp_milestone" = "$issue_milestone" ]; then
-                    # Resume existing session
+                    # Resume existing session by UUID
                     agent_msg TEMPERER "Resuming on issue #$issue ($status)..."
                     run_forge_agent "auto-temperer" "Continue working. $tp_prompt" "Tempering #${issue}..." \
                         --resume-session "$tp_session" || {
@@ -679,12 +690,13 @@ run_stoke_loop() {
                         return 1
                     }
                 else
-                    # Fresh session — read INGOT.md
-                    local session_name="temperer-$(date +%s)"
-                    set_session "temperer" "$session_name" "$issue_milestone" 2>/dev/null || true
+                    # Fresh session — generate UUID, read INGOT.md
+                    local session_id session_name="temperer-$(date +%s)"
+                    session_id=$(_forge_uuid)
+                    set_session "temperer" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
                     agent_msg TEMPERER "Tempering issue #$issue ($status)..."
                     run_forge_agent "auto-temperer" "Read INGOT.md in the project root for architectural context before starting. $tp_prompt" "Tempering #${issue}..." \
-                        --session-name "$session_name" || {
+                        --session-id "$session_id" --session-name "$session_name" || {
                         agent_fail TEMPERER "failed on issue #$issue. Stopping."
                         return 1
                     }
