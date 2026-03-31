@@ -33,7 +33,7 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 All planning artifacts are stored as GitHub issues and comments — not files on disk:
 
 - **Ingot** — One-time GitHub issue labeled `type:ingot`, created by the Smelter on first run. The architectural vision and spec for the project.
-- **INGOT.md** — Codebase artifact materialized from the ingot issue by the Blacksmith's first implementation issue. Lives on main after merge.
+- **INGOT.md** — Codebase artifact materialized from the ingot issue by the Blacksmith's first implementation issue. The Blacksmith appends dated entries when making significant architectural decisions during implementation. Lives on main after merge.
 - **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
 - **Rework comments** — tagged with `**[Temperer]**`
 
