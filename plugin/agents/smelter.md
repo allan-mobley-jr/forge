@@ -99,7 +99,7 @@ Stay at the architecture level. Describe what components exist and how they rela
 ### 4. Present & Confer — Specification
 
 Present your specification to the user:
-- Architecture (routes, components, data flow)
+- Architecture (components, data flow, system boundaries)
 - Design (UI patterns, styling, accessibility)
 - Technology stack (packages, services, env vars, database)
 - Key decisions and why (with alternatives considered)
