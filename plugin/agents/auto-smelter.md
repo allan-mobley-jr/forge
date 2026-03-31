@@ -4,6 +4,7 @@ description: Headless agent that plans features and creates implementation issue
 tools:
   - Bash
   - Read
+  - Write
   - Glob
   - Grep
   - WebSearch
@@ -80,7 +81,7 @@ Additional research as needed:
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
-**Historical context:** Research agents should check closed ingots (`gh issue list --state closed --label type:ingot`) to understand what was already planned and built. Read their ledger comments for architectural decisions that inform the current specification.
+**Historical context:** Research agents should read `INGOT.md` (if it exists) to understand the architectural vision and key decisions for the project. Read `GRADING_CRITERIA.md` (if it exists) for the project's quality evaluation criteria.
 
 After all agents return, synthesize findings into a clear picture.
 
@@ -117,34 +118,57 @@ If no Vercel project exists and the specification includes deployable functional
    - **Database branching** — if the spec uses Neon (Postgres), configure database branching: production database for the production environment, a branched database for staging. Document the branch strategy.
 4. Trigger initial deployment and verify it succeeds
 
-If setup fails, note it in the ingot but do not block — the Blacksmith can address it as an implementation issue. Document assumptions about the setup in the ledger.
+If setup fails, note it but do not block — the Blacksmith can address it as an implementation issue. Document assumptions about the setup in the ledger.
 
-### 5. File Ingot (First Run Only)
+### 5. Write INGOT.md (First Run Only)
 
-Check if this is the first run (no ingot exists for this project):
+Check if this is the first run:
 ```bash
-gh issue list --state all --label "type:ingot" --label "ai-generated" --json number --jq 'length'
+test -f INGOT.md && echo "exists" || echo "missing"
 ```
 
-**If 0 (first run):** File the specification as the project's one-time ingot. Include `> Origin: issue #N` at the top to trace back to the feature request. Enrich with:
+**If missing (first run):** Write `INGOT.md` to the project root using the Write tool. The file is the specification from step 3, enriched with:
 
-- **Key Decisions** table — architectural decisions with rationale
-- **Approaches Rejected** table — alternatives considered and why they were rejected
+- **Key Decisions** table — architectural decisions with rationale (include a Date column for future entries)
+- **Approaches Rejected** table — alternatives considered and why they were rejected (include a Date column)
 - **Deployment & Environments** section — Vercel project, branch-environment mapping, env vars, database branching (from step 4)
 
+Commit and push directly to main:
 ```bash
-gh issue create \
-    --title "Ingot: <project name>" \
-    --body "<specification with Key Decisions and Approaches Rejected>" \
-    --label "type:ingot" \
-    --label "ai-generated"
+git add INGOT.md
+git commit -m "Add INGOT.md — project specification
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+git push origin main
 ```
 
-The ingot body has a 60,000 character limit. Never cut content to fit — post overflow in additional comments before the ledger.
+**If exists (subsequent run):** Skip. Proceed to grading criteria.
 
-**If > 0 (subsequent run):** Skip ingot creation. Proceed directly to issue creation.
+### 6. Write GRADING_CRITERIA.md (First Run Only)
 
-### 6. Create GitHub Milestones
+If `GRADING_CRITERIA.md` does not exist, create it now. Spawn a subagent to devise project-specific grading criteria based on the specification.
+
+The criteria should be informed by Anthropic's four evaluation dimensions from ["Harness design for long-running application development"](https://www.anthropic.com/engineering/harness-design-long-running-apps):
+
+1. **Design quality** — "Does the design feel like a coherent whole rather than a collection of parts?"
+2. **Originality** — "Is there evidence of custom decisions, or is this template layouts, library defaults, and AI-generated patterns?"
+3. **Craft** — Technical execution (spacing, hierarchy, contrast, consistency)
+4. **Functionality** — Usability and task completion
+
+Adapt these to the project type. A game needs gameplay feel and visual identity criteria. A SaaS app needs UX flow and responsive behavior criteria. An API needs correctness and performance criteria. Document your reasoning for each criterion.
+
+Write `GRADING_CRITERIA.md` to the project root using the Write tool. Commit and push:
+```bash
+git add GRADING_CRITERIA.md
+git commit -m "Add GRADING_CRITERIA.md — project quality evaluation criteria
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+git push origin main
+```
+
+If `GRADING_CRITERIA.md` already exists, skip.
+
+### 7. Create GitHub Milestones
 
 For each milestone:
 ```bash
@@ -153,17 +177,14 @@ gh api repos/{owner}/{repo}/milestones --method POST -f title="<milestone title>
 
 Check if the milestone already exists first.
 
-### 7. Create GitHub Issues
+### 8. Create GitHub Issues
 
 Classify each issue by scope. Add one or more scope labels: `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`.
 
 **Size issues at the feature level.** Each issue should be a meaningful, self-contained capability — "implement the combat system" not "add damage calculation function." An issue worth filing is worth the Temperer's time to review. Aim for multiple acceptance criteria per issue. The Blacksmith makes atomic commits within a feature-level issue; you do not need to decompose work to the task or function level.
 
-**If first run:** The first issue in the milestone must be "Create INGOT.md" — the Blacksmith will materialize the ingot specification into an `INGOT.md` file in the project root. Include the ingot issue number in the issue body so the Blacksmith knows where to read the spec.
-
 Each issue references its origin:
-- If from an ingot: `> Origin: ingot #<ingot-number>`
-- If from a feature request: `> Origin: feature #<feature-number>`
+`> Origin: feature #<feature-number>`
 
 ```bash
 gh issue create \
@@ -193,9 +214,9 @@ gh issue create \
 <list dependency issue titles, or "None">
 ```
 
-### 8. Post Ledger Comment
+### 9. Post Ledger Comment
 
-Post the ledger on the ingot (first run) or on the feature request (subsequent runs):
+Post the ledger on the source feature request:
 
 ```bash
 gh issue comment <issue-number> --body "**[Smelter Ledger]**
@@ -230,14 +251,8 @@ Produced from feature request #N.
 *Posted by the Forge Smelter.*"
 ```
 
-### 9. Close Source Issues
+### 10. Close Source Feature Request
 
-**If an ingot was created (first run):** Close it after issues are filed:
-```bash
-gh issue close <ingot-issue-number>
-```
-
-**Close the original feature request** to prevent it from being picked up again:
 ```bash
 gh issue close <source-issue-number> --reason completed \
   --comment "Processed into implementation issues. See Smelter Ledger above."
