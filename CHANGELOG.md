@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] - 2026-03-31
+
+### Fixed
+- Resumed sessions now pass `--allowedTools` to prevent infinite permission-denial loops in headless mode
+
 ## [0.2.1] - 2026-03-31
 
 ### Added
@@ -105,6 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.2.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.2
 [0.2.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.1
 [0.2.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.0
 [0.1.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.1.3
