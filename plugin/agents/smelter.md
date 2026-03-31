@@ -158,12 +158,17 @@ test -f INGOT.md && echo "exists" || echo "missing"
 - **Deployment & Environments** section — Vercel project, branch-environment mapping, env vars, database branching (from step 5)
 
 Commit and push directly to main:
+Commit and push via a short-lived branch to respect branch protection:
 ```bash
+git checkout -b forge/ingot
 git add INGOT.md
 git commit -m "Add INGOT.md — project specification
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-git push origin main
+git push -u origin forge/ingot
+gh pr create --title "Add INGOT.md" --body "Project specification from the Smelter." --head forge/ingot --base main
+gh pr merge --squash --admin --delete-branch
+git checkout main && git pull origin main
 ```
 
 **If exists (subsequent run):** Skip. Proceed to grading criteria.
@@ -181,13 +186,17 @@ The criteria should be informed by Anthropic's four evaluation dimensions from [
 
 Adapt these to the project type. A game needs gameplay feel and visual identity criteria. A SaaS app needs UX flow and responsive behavior criteria. An API needs correctness and performance criteria.
 
-Write `GRADING_CRITERIA.md` to the project root using the Write tool. Commit and push:
+Write `GRADING_CRITERIA.md` to the project root using the Write tool. Commit and push via a short-lived branch:
 ```bash
+git checkout -b forge/grading-criteria
 git add GRADING_CRITERIA.md
 git commit -m "Add GRADING_CRITERIA.md — project quality evaluation criteria
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-git push origin main
+git push -u origin forge/grading-criteria
+gh pr create --title "Add GRADING_CRITERIA.md" --body "Quality evaluation criteria from the Smelter." --head forge/grading-criteria --base main
+gh pr merge --squash --admin --delete-branch
+git checkout main && git pull origin main
 ```
 
 If `GRADING_CRITERIA.md` already exists, skip.

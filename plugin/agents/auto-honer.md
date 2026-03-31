@@ -176,13 +176,17 @@ After filing issues, review `GRADING_CRITERIA.md` (if it exists) against what yo
 - **Annotate** existing criteria with observations (e.g., "Temperer consistently approves generic UI — tighten originality bar")
 - **Never remove** existing criteria — only add or annotate
 
-Use the Write tool to update the file, then commit and push:
+Use the Write tool to update the file, then commit and push via a short-lived branch:
 ```bash
+git checkout -b forge/grading-update
 git add GRADING_CRITERIA.md
 git commit -m "Adjust GRADING_CRITERIA.md — <brief description of change>
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
-git push origin main
+git push -u origin forge/grading-update
+gh pr create --title "Adjust GRADING_CRITERIA.md" --body "<brief description>" --head forge/grading-update --base main
+gh pr merge --squash --admin --delete-branch
+git checkout main && git pull origin main
 ```
 
 If no adjustment is warranted, skip this step.
