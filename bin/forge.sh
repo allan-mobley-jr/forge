@@ -477,9 +477,10 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_name="smelter-$(date +%s)"
-                set_session "smelter" "$session_name" "" 2>/dev/null || true
-                if ! run_forge_agent "Smelter" "Greet the user and begin." "" --session-name "$session_name"; then
+                local session_id session_name="smelter-$(date +%s)"
+                session_id=$(_forge_uuid)
+                set_session "smelter" "$session_name" "$session_id" "" 2>/dev/null || true
+                if ! run_forge_agent "Smelter" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail SMELTER "failed."
                     exit 1
                 fi
@@ -516,11 +517,12 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_name="blacksmith-$(date +%s)"
+                local session_id session_name="blacksmith-$(date +%s)"
+                session_id=$(_forge_uuid)
                 local issue_milestone
                 issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
-                set_session "blacksmith" "$session_name" "$issue_milestone" 2>/dev/null || true
-                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-name "$session_name"; then
+                set_session "blacksmith" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
+                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -557,11 +559,12 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_name="temperer-$(date +%s)"
+                local session_id session_name="temperer-$(date +%s)"
+                session_id=$(_forge_uuid)
                 local issue_milestone
                 issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
-                set_session "temperer" "$session_name" "$issue_milestone" 2>/dev/null || true
-                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-name "$session_name"; then
+                set_session "temperer" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
+                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
                 fi
@@ -591,9 +594,10 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_name="proof-master-$(date +%s)"
-                set_session "proof-master" "$session_name" "" 2>/dev/null || true
-                if ! run_forge_agent "Proof-Master" "Greet the user and begin." "" --session-name "$session_name"; then
+                local session_id session_name="proof-master-$(date +%s)"
+                session_id=$(_forge_uuid)
+                set_session "proof-master" "$session_name" "$session_id" "" 2>/dev/null || true
+                if ! run_forge_agent "Proof-Master" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail PROOF-MASTER "failed."
                     exit 1
                 fi
@@ -624,9 +628,10 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_name="honer-$(date +%s)"
-                set_session "honer" "$session_name" "" 2>/dev/null || true
-                if ! run_forge_agent "Honer" "Greet the user and begin." "" --session-name "$session_name"; then
+                local session_id session_name="honer-$(date +%s)"
+                session_id=$(_forge_uuid)
+                set_session "honer" "$session_name" "$session_id" "" 2>/dev/null || true
+                if ! run_forge_agent "Honer" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail HONER "failed."
                     exit 1
                 fi
@@ -657,9 +662,10 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_name="scribe-$(date +%s)"
-                set_session "scribe" "$session_name" "" 2>/dev/null || true
-                if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-name "$session_name"; then
+                local session_id session_name="scribe-$(date +%s)"
+                session_id=$(_forge_uuid)
+                set_session "scribe" "$session_name" "$session_id" "" 2>/dev/null || true
+                if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail SCRIBE "failed."
                     exit 1
                 fi

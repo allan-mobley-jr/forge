@@ -381,9 +381,11 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-12345" "Auth System"
+    set_session "blacksmith" "bs-12345" "deadbeef-1234-5678-9abc-def012345678" "Auth System"
     run get_session "blacksmith"
     [[ "$status" -eq 0 ]]
+    # get_session returns: session_id\tname\tmilestone
+    [[ "$output" == *"deadbeef-1234-5678-9abc-def012345678"* ]]
     [[ "$output" == *"bs-12345"* ]]
     [[ "$output" == *"Auth System"* ]]
 }
@@ -403,7 +405,7 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-12345" "Auth"
+    set_session "blacksmith" "bs-12345" "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" "Auth"
     clear_session "blacksmith"
     run get_session "blacksmith"
     [[ "$status" -eq 0 ]]
@@ -429,14 +431,14 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-111" "Milestone A"
-    set_session "blacksmith" "bs-222" "Milestone B"
+    set_session "blacksmith" "bs-111" "11111111-1111-1111-1111-111111111111" "Milestone A"
+    set_session "blacksmith" "bs-222" "22222222-2222-2222-2222-222222222222" "Milestone B"
     run list_sessions "blacksmith"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"bs-111"* ]]
     [[ "$output" == *"bs-222"* ]]
-    # bs-222 should be active (last set)
-    [[ "$output" == *"bs-222"*"*"* ]]
+    # bs-222's UUID should be active (last set)
+    [[ "$output" == *"22222222-2222-2222-2222-222222222222"*"*"* ]]
 }
 
 @test "set_session does not duplicate history entries" {
@@ -454,13 +456,59 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-111" "Auth"
-    set_session "blacksmith" "bs-111" "Auth"
+    set_session "blacksmith" "bs-111" "aaaaaaaa-1111-2222-3333-444444444444" "Auth"
+    set_session "blacksmith" "bs-111" "aaaaaaaa-1111-2222-3333-444444444444" "Auth"
     run list_sessions "blacksmith"
     # Should only appear once
     local count
-    count=$(echo "$output" | grep -c "bs-111")
+    count=$(echo "$output" | grep -c "aaaaaaaa-1111-2222-3333-444444444444")
     [[ "$count" -eq 1 ]]
+}
+
+@test "_forge_uuid generates valid UUID v4 format" {
+    run _forge_uuid
+    [[ "$status" -eq 0 ]]
+    [[ "$output" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
+}
+
+@test "get_session returns fields in correct order: session_id, name, milestone" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "bs-99" "deadbeef-0000-1111-2222-333344445555" "Sprint 1"
+    local result
+    result=$(get_session "blacksmith")
+    [[ "$(printf '%s' "$result" | cut -f1)" == "deadbeef-0000-1111-2222-333344445555" ]]
+    [[ "$(printf '%s' "$result" | cut -f2)" == "bs-99" ]]
+    [[ "$(printf '%s' "$result" | cut -f3)" == "Sprint 1" ]]
+}
+
+@test "run_forge_agent passes --session-id to claude" {
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "" "" --session-id "aaaaaaaa-1111-2222-3333-444444444444"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--session-id"* ]]
+    [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
+}
+
+@test "run_forge_agent with --resume-session uses claude --resume" {
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "Continue." "" --resume-session "bbbbbbbb-2222-3333-4444-555555555555"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--resume"* ]]
+    [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
+    [[ "$output" != *"--agent"* ]]
 }
 
 # --- run_stoke_loop ---
