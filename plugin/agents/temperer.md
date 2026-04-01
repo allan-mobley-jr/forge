@@ -90,7 +90,7 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test
 ### 2. Set Status
 
 ```bash
-gh issue edit <N> --remove-label "status:hammered" --add-label "status:tempering"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:tempering"
 ```
 
 ### 3. Review
@@ -139,7 +139,7 @@ Iterate based on user feedback. **Get explicit user confirmation on the verdict.
 ### 6a. On APPROVE
 
 ```bash
-gh issue edit <N> --remove-label "status:tempering" --add-label "status:tempered"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:rework" --add-label "status:tempered"
 ```
 
 Proceed to step 7 (PR & Merge).
@@ -148,7 +148,7 @@ Proceed to step 7 (PR & Merge).
 
 Set the label and post a tagged comment:
 ```bash
-gh issue edit <N> --remove-label "status:tempering" --add-label "status:rework"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --add-label "status:rework"
 ```
 ```bash
 gh issue comment <N> --body "**[Temperer]** <summary of findings>
@@ -173,7 +173,7 @@ gh issue comment <N> --body "**[Temperer]** Escalating to human review.
 <describe the ambiguity or design problem>
 
 *Escalated by the Forge Temperer.*"
-gh issue edit <N> --remove-label "status:tempering" --add-label "agent:needs-human"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "agent:needs-human"
 ```
 
 Post the ledger (step 8) and stop. Do not proceed to PR & Merge.
@@ -211,7 +211,7 @@ pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
 **Merge** (use the captured PR number):
 ```bash
 gh pr merge "$pr_number" --squash --delete-branch
-gh issue edit <N> --remove-label "status:tempered"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework"
 ```
 
 **Cleanup locally:**
@@ -257,6 +257,7 @@ gh issue comment <N> --body "**[Temperer Ledger]**
 
 ## Rules
 
+- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **Read-only review.** Never modify the code.
 - **Always confer with the user** on the verdict.
 - **Tag your comments.** Always prefix with `**[Temperer]**`.
