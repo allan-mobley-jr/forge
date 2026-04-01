@@ -229,6 +229,7 @@ show_command_help() {
     esac
 }
 
+main() {
 case "${1:-}" in
     help)
         if [ -n "${2:-}" ]; then
@@ -675,7 +676,8 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
+                local session_id session_name
+                session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
                 session_id=$(_forge_uuid)
                 set_session "scribe" "$session_name" "$session_id" "" 2>/dev/null || true
                 if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
@@ -828,7 +830,8 @@ with open(cfg_path, 'w') as f:
             fi
             clear_session "honer" 2>/dev/null || true
 
-            local scribe_session_id scribe_session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
+            local scribe_session_id scribe_session_name
+            scribe_session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
             scribe_session_id=$(_forge_uuid)
             set_session "scribe" "$scribe_session_name" "$scribe_session_id" "" 2>/dev/null || true
             agent_msg SCRIBE "Scribing..."
@@ -966,3 +969,6 @@ with open(cfg_path, 'w') as f:
         exit 1
         ;;
 esac
+}
+
+main "$@"
