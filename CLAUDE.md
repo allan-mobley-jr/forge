@@ -49,7 +49,7 @@ Planning artifacts live in the codebase and on GitHub:
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
 - GitHub labels and issue comments track pipeline state
-- Named sessions persist across issues within a milestone for context preservation
+- Named sessions are scoped to individual issues; resume on interruption, clear on completion
 - Forge targets Next.js + Tailwind CSS + TypeScript on Vercel — this is intentional scope, not a limitation to fix
 
 ## Labels
