@@ -365,27 +365,36 @@ create_production_branch() {
     ok "$label"
 }
 
+# Resolve Vercel project info — sets VERCEL_REPO and VERCEL_PROJECT_NAME.
+# Returns 1 (with optional warning) if prerequisites are missing.
+_resolve_vercel_info() {
+    local warn_on_fail="${1:-false}"
+    if ! command -v vercel &>/dev/null; then
+        [ "$warn_on_fail" = true ] && add_warning "Vercel CLI not found — skipping Vercel setup."
+        return 1
+    fi
+    VERCEL_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$VERCEL_REPO" ]; then
+        [ "$warn_on_fail" = true ] && add_warning "Could not determine GitHub repo — skipping Vercel setup."
+        return 1
+    fi
+    VERCEL_PROJECT_NAME=$(basename "$VERCEL_REPO")
+}
+
 # Create Vercel project via API (non-critical, no local files)
 setup_vercel_project() {
     local label="Vercel project"
-    if ! command -v vercel &>/dev/null; then
-        add_warning "Vercel CLI not found — skipping Vercel setup."
+    if ! _resolve_vercel_info true; then
         return
     fi
-    local repo
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
-    if [ -z "$repo" ]; then
-        add_warning "Could not determine GitHub repo — skipping Vercel setup."
-        return
-    fi
-    local project_name
-    project_name=$(basename "$repo")
+    local project_name="$VERCEL_PROJECT_NAME"
+    local repo="$VERCEL_REPO"
     # Check if project already exists
-    if vercel api "/v10/projects/$project_name" >/dev/null 2>&1; then
+    if vercel api "/v11/projects/$project_name" >/dev/null 2>&1; then
         skip "$label"
     else
         local create_output
-        create_output=$(vercel api "/v10/projects" -X POST --input <(echo "{\"name\":\"$project_name\",\"gitRepository\":{\"type\":\"github\",\"repo\":\"$repo\"},\"framework\":\"nextjs\"}") 2>&1) || {
+        create_output=$(vercel api "/v11/projects" -X POST --input <(echo "{\"name\":\"$project_name\",\"gitRepository\":{\"type\":\"github\",\"repo\":\"$repo\"},\"framework\":\"nextjs\"}") 2>&1) || {
             add_warning "Vercel project creation failed${create_output:+: $create_output}. Create manually: vercel.com/new"
             return
         }
@@ -395,24 +404,22 @@ setup_vercel_project() {
 
 # Configure Vercel environments (non-critical, no local files)
 configure_vercel_environments() {
-    local label="Vercel environments configured"
-    if ! command -v vercel &>/dev/null; then
+    if ! _resolve_vercel_info; then
         return
     fi
-    local repo
-    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
-    if [ -z "$repo" ]; then
-        return
+    local project_name="$VERCEL_PROJECT_NAME"
+    # Fetch project info once — doubles as existence check
+    local project_json
+    project_json=$(vercel api "/v11/projects/$project_name" 2>/dev/null) || return
+    # Production branch cannot be set via API — check and warn if needed
+    local current_prod_branch
+    current_prod_branch=$(echo "$project_json" \
+        | python3 -c "import json,sys; print(json.load(sys.stdin).get('link',{}).get('productionBranch',''))" 2>/dev/null) || true
+    if [ "$current_prod_branch" = "production" ]; then
+        skip "Production branch"
+    else
+        add_warning "Set Vercel production branch to 'production': Vercel Dashboard > $project_name > Settings > Git > Production Branch"
     fi
-    local project_name
-    project_name=$(basename "$repo")
-    # Verify project exists before configuring
-    if ! vercel api "/v10/projects/$project_name" >/dev/null 2>&1; then
-        return
-    fi
-    local failed=false
-    # Production branch cannot be set via API — warn with dashboard instructions
-    add_warning "Set Vercel production branch to 'production': Vercel Dashboard > $project_name > Settings > Git > Production Branch"
     # Create staging environment for main (skip if already exists)
     local existing_envs
     existing_envs=$(vercel api "/v9/projects/$project_name/custom-environments" 2>/dev/null || true)
@@ -422,7 +429,7 @@ data=json.load(sys.stdin)
 envs=data if isinstance(data,list) else data.get('environments',data.get('customEnvironments',[]))
 exit(0 if any(e.get('slug')=='staging' for e in envs) else 1)
 " 2>/dev/null; then
-        : # Staging already exists
+        skip "Staging environment"
     else
         local staging_output staging_status=0
         staging_output=$(vercel api "/v9/projects/$project_name/custom-environments" -X POST --input <(echo '{"slug":"staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}') 2>&1) || staging_status=$?
@@ -432,11 +439,9 @@ exit(0 if any(e.get('slug')=='staging' for e in envs) else 1)
             else
                 add_warning "Failed to create staging environment. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
             fi
-            failed=true
+        else
+            ok "Staging environment"
         fi
-    fi
-    if [ "$failed" = false ]; then
-        ok "$label"
     fi
 }
 
