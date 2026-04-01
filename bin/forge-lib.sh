@@ -136,6 +136,40 @@ for name, proj in cfg.get('projects', {}).items():
     fi
 }
 
+# get_project_model — read the model setting for the current project.
+get_project_model() {
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        cfg = json.load(f)
+    model = cfg['projects'][sys.argv[2]].get('model', '')
+    if model:
+        print(model)
+except (KeyError, TypeError, FileNotFoundError):
+    pass
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" 2>/dev/null || true
+}
+
+# set_project_model — set the model for the current project.
+# Usage: set_project_model <model>
+set_project_model() {
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+cfg_path, proj, model = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(cfg_path) as f:
+    cfg = json.load(f)
+cfg['projects'][proj]['model'] = model
+with open(cfg_path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+    f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$1"
+}
+
 # --- Session management ---
 # Each agent maintains a session history per project.
 # Sessions are scoped to individual issues (or invocations for non-issue agents).
@@ -541,6 +575,10 @@ run_forge_agent() {
 }' "$agent_file" | tr '\n' ',' | sed 's/,$//')
     fi
 
+    # Read project model setting
+    local project_model
+    project_model=$(get_project_model)
+
     local cmd=()
     if [ -n "$resume_session" ]; then
         # Resume an existing session by UUID
@@ -555,6 +593,7 @@ run_forge_agent() {
         [ -n "$prompt" ] && cmd+=(-p "$prompt")
         [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     fi
+    [ -n "$project_model" ] && cmd+=(--model "$project_model")
 
     # Start spinner for headless agents (those with -p flag)
     if [ -n "$prompt" ]; then

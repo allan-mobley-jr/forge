@@ -77,6 +77,7 @@ show_usage() {
     echo "  init --resume    Resume a failed or interrupted bootstrap"
     echo "  version          Show installed version and check for updates"
     echo "  update           Update Forge to the latest version"
+    echo "  config           View or set project configuration"
     echo "  doctor           Check tool versions and project health"
     echo "  uninstall        Remove Forge from your system"
     echo ""
@@ -104,6 +105,18 @@ show_command_help() {
             echo ""
             echo "Options:"
             echo "  --resume    Resume from where a previous bootstrap stopped"
+            ;;
+        config)
+            echo "forge config — View or set project configuration"
+            echo ""
+            echo "Usage: forge config [key] [value]"
+            echo ""
+            echo "  forge config             Show all configuration"
+            echo "  forge config model       Show current model"
+            echo "  forge config model opus  Set model to opus"
+            echo ""
+            echo "Available keys:"
+            echo "  model    Claude model alias (opus, sonnet, haiku) or full name"
             ;;
         version)
             echo "forge version — Show installed version"
@@ -330,6 +343,55 @@ case "${1:-}" in
             done
         fi
         ;;
+    config)
+        shift
+        require_forge_project
+
+        local config_key="${1:-}"
+        local config_value="${2:-}"
+
+        if [ -z "$config_key" ]; then
+            echo ""
+            echo "Project Configuration"
+            echo "====================="
+            echo ""
+            local current_model
+            current_model=$(get_project_model)
+            echo "  model: ${current_model:-(not set)}"
+            echo ""
+            echo "Usage: forge config model [opus|sonnet|haiku]"
+            echo ""
+            exit 0
+        fi
+
+        case "$config_key" in
+            model)
+                if [ -z "$config_value" ]; then
+                    local current_model
+                    current_model=$(get_project_model)
+                    echo "${current_model:-(not set)}"
+                else
+                    case "$config_value" in
+                        opus|sonnet|haiku) ;;
+                        claude-*) ;;
+                        *)
+                            forge_fail "Unknown model '$config_value'. Use opus, sonnet, or haiku."
+                            exit 1
+                            ;;
+                    esac
+                    set_project_model "$config_value"
+                    forge_ok "Model set to $config_value"
+                fi
+                ;;
+            *)
+                forge_fail "Unknown config key: $config_key"
+                echo ""
+                echo "Available keys: model"
+                exit 1
+                ;;
+        esac
+        ;;
+
     doctor)
         require_forge_project
 
@@ -437,6 +499,18 @@ case "${1:-}" in
             fi
         else
             echo -e "  ${DIM}-${NC} Skipped (GitHub not authenticated)"
+        fi
+
+        echo ""
+        echo "Project:"
+
+        local doctor_model
+        doctor_model=$(get_project_model)
+        if [ -n "$doctor_model" ]; then
+            echo -e "  ${GREEN}✓${NC} Model: $doctor_model"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Model: (not set — using default)"
+            echo "    Pin a model with: forge config model <opus|sonnet|haiku>"
         fi
 
         echo ""
