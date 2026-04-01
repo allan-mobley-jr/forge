@@ -105,7 +105,7 @@ If the issue has `status:rework`:
    ```
    If the count is **5 or more**, do not implement. Escalate instead:
    ```bash
-   gh issue edit <N> --add-label "agent:needs-human" --remove-label "status:rework"
+   gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "agent:needs-human"
    gh issue comment <N> --body "**[Blacksmith Ledger]**
 
    ## Escalation
@@ -144,15 +144,13 @@ Launch a Plan agent with the research findings and issue requirements. The Plan 
 
 Review what the Plan agent returns. You are the Blacksmith — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings. The implementation plan must be yours, not a pass-through. Document your decisions in the ledger.
 
-**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 5 through 9 (no `status:hammering`, no branch, no commits). Mark `status:hammered` first (skip the `git push` in Step 10 — only update the label, removing `status:ready` or `status:rework` instead of `status:hammering`). Then go to Step 11 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case.
+**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 5 through 9 (no `status:hammering`, no branch, no commits). Mark `status:hammered` first (skip `git push` in Step 10 — only update the label, removing all other status labels per the defensive transition rule). Then go to Step 11 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case.
 
 ### 5. Set Status
 
 Before starting implementation, transition the issue label:
 ```bash
-gh issue edit <N> --remove-label "status:ready" --add-label "status:hammering" 2>/dev/null
-# or if rework:
-gh issue edit <N> --remove-label "status:rework" --add-label "status:hammering" 2>/dev/null
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammering"
 ```
 
 ### 6. Implement
@@ -207,7 +205,7 @@ gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <
 
 ```bash
 git push -u origin HEAD
-gh issue edit <N> --remove-label "status:hammering" --add-label "status:hammered"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammered"
 ```
 
 ### 11. Post Ledger Comment
@@ -262,6 +260,7 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
+- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **One issue at a time.** Never work on multiple issues.
 - **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
 - **Never ask questions.** You are running headless. Make decisions and document them in the ledger.
