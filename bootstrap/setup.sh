@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Forge Bootstrap — minimal project setup
-# Creates git repo, GitHub repo, branch protection, labels, and production branch.
+# Creates git repo, GitHub repo, branch protection, Vercel project, labels, and production branch.
 # All app scaffolding and configuration is handled by agents after smelting.
 
 # --- Configuration ---
@@ -365,6 +365,81 @@ create_production_branch() {
     ok "$label"
 }
 
+# Create Vercel project via API (non-critical, no local files)
+setup_vercel_project() {
+    local label="Vercel project"
+    if ! command -v vercel &>/dev/null; then
+        add_warning "Vercel CLI not found — skipping Vercel setup."
+        return
+    fi
+    local repo
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$repo" ]; then
+        add_warning "Could not determine GitHub repo — skipping Vercel setup."
+        return
+    fi
+    local project_name
+    project_name=$(basename "$repo")
+    # Check if project already exists
+    if vercel api "/v10/projects/$project_name" >/dev/null 2>&1; then
+        skip "$label"
+    else
+        local create_output
+        create_output=$(vercel api "/v10/projects" -X POST --input <(echo "{\"name\":\"$project_name\",\"gitRepository\":{\"type\":\"github\",\"repo\":\"$repo\"},\"framework\":\"nextjs\"}") 2>&1) || {
+            add_warning "Vercel project creation failed${create_output:+: $create_output}. Create manually: vercel.com/new"
+            return
+        }
+        ok "$label"
+    fi
+}
+
+# Configure Vercel environments (non-critical, no local files)
+configure_vercel_environments() {
+    local label="Vercel environments configured"
+    if ! command -v vercel &>/dev/null; then
+        return
+    fi
+    local repo
+    repo=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$repo" ]; then
+        return
+    fi
+    local project_name
+    project_name=$(basename "$repo")
+    # Verify project exists before configuring
+    if ! vercel api "/v10/projects/$project_name" >/dev/null 2>&1; then
+        return
+    fi
+    local failed=false
+    # Production branch cannot be set via API — warn with dashboard instructions
+    add_warning "Set Vercel production branch to 'production': Vercel Dashboard > $project_name > Settings > Git > Production Branch"
+    # Create staging environment for main (skip if already exists)
+    local existing_envs
+    existing_envs=$(vercel api "/v9/projects/$project_name/custom-environments" 2>/dev/null || true)
+    if echo "$existing_envs" | python3 -c "
+import json,sys
+data=json.load(sys.stdin)
+envs=data if isinstance(data,list) else data.get('environments',data.get('customEnvironments',[]))
+exit(0 if any(e.get('slug')=='staging' for e in envs) else 1)
+" 2>/dev/null; then
+        : # Staging already exists
+    else
+        local staging_output staging_status=0
+        staging_output=$(vercel api "/v9/projects/$project_name/custom-environments" -X POST --input <(echo '{"slug":"staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}') 2>&1) || staging_status=$?
+        if [ "$staging_status" -ne 0 ]; then
+            if echo "$staging_output" | grep -qi "402\|403\|upgrade"; then
+                add_warning "Staging environment requires Vercel Pro. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
+            else
+                add_warning "Failed to create staging environment. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
+            fi
+            failed=true
+        fi
+    fi
+    if [ "$failed" = false ]; then
+        ok "$label"
+    fi
+}
+
 # Create labels (non-critical, --force makes it idempotent)
 create_labels() {
     local label="GitHub label taxonomy"
@@ -449,6 +524,8 @@ push_to_github
 setup_branch_protection
 configure_repo_settings
 create_production_branch
+setup_vercel_project
+configure_vercel_environments
 create_labels
 cleanup_default_labels
 write_forge_config || add_warning "Forge config write failed. Not critical."
