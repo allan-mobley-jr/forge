@@ -514,6 +514,30 @@ EOF
     ok "$label"
 }
 
+# Select Claude model for this project
+select_model() {
+    local label="Claude model"
+    local existing_model
+    existing_model=$(get_project_model)
+    if [ -n "$existing_model" ]; then
+        skip "$label ($existing_model)"
+        return
+    fi
+    printf "  Claude model (opus/sonnet/haiku) [sonnet]: "
+    read -r model_choice
+    model_choice="${model_choice:-sonnet}"
+    case "$model_choice" in
+        opus|sonnet|haiku) ;;
+        claude-*) ;;
+        *)
+            add_warning "Unknown model '$model_choice' — defaulting to sonnet."
+            model_choice="sonnet"
+            ;;
+    esac
+    set_project_model "$model_choice"
+    ok "$label ($model_choice)"
+}
+
 # ============================================================
 # Run all steps
 # ============================================================
@@ -534,6 +558,7 @@ configure_vercel_environments
 create_labels
 cleanup_default_labels
 write_forge_config || add_warning "Forge config write failed. Not critical."
+select_model || add_warning "Model selection failed. Set later with: forge config model <name>"
 
 # ============================================================
 # Done

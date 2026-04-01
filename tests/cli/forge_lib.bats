@@ -561,6 +561,110 @@ EOF
     [[ "$output" != *"--agent"* ]]
 }
 
+# --- project model ---
+
+@test "get_project_model returns empty when no model set" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    run get_project_model
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+@test "set_project_model writes and get_project_model reads back" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_project_model "opus"
+    run get_project_model
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "opus" ]]
+}
+
+@test "run_forge_agent passes --model when project model is set" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "model": "opus",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "" ""
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--model"* ]]
+    [[ "$output" == *"opus"* ]]
+}
+
+@test "run_forge_agent omits --model when no project model set" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "" ""
+    [[ "$status" -eq 0 ]]
+    [[ "$output" != *"--model"* ]]
+}
+
+@test "run_forge_agent passes --model on resume path" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "model": "sonnet",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "Continue." "" --resume-session "bbbbbbbb-2222-3333-4444-555555555555"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--resume"* ]]
+    [[ "$output" == *"--model"* ]]
+    [[ "$output" == *"sonnet"* ]]
+}
+
 # --- run_stoke_loop ---
 
 # Helper: mock gh that returns an issue on first status query, empty on second.
