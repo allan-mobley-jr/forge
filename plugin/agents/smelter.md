@@ -108,43 +108,7 @@ Present your specification to the user:
 
 Ask the user if the direction looks right. Iterate based on feedback. **Get explicit user confirmation before proceeding.**
 
-### 5. Set Up Vercel Environments (First Run Only)
-
-Check if a Vercel project is already connected:
-```bash
-gh api repos/{owner}/{repo}/deployments --jq 'length'
-```
-
-If deployments already exist (count > 0), skip this step.
-
-If no Vercel project exists and the specification includes deployable functionality:
-
-**Interactive mode:** Ask the user how they want environments configured. Present the default:
-- `production` branch → Vercel **Production** environment
-- `main` branch → Vercel **Staging** (Preview) environment
-
-The user may customize branch-environment mapping or add additional environments.
-
-**Auto mode:** Use the default configuration (production + staging).
-
-**Set up the project** using Vercel plugin skills where available, falling back to the Vercel CLI (`vercel` command) when skills don't cover the operation:
-1. Create the Vercel project and link it to the repo (`vercel link` or plugin `deploy_to_vercel`)
-2. Configure branch-environment mapping (`vercel env` or plugin tools)
-3. Configure environment-specific settings:
-   - **Environment variables and secrets** — create separate values per environment (production vs staging) using `vercel env add` or plugin tools. Document which env vars are needed and their per-environment values.
-   - **Database branching** — if the spec uses Neon (Postgres), configure database branching: production database for the production environment, a branched database for staging. Document the branch strategy.
-4. Trigger initial deployment and verify it succeeds
-
-If setup fails, note it but do not block — the Blacksmith can address it as an implementation issue.
-
-**Include the deployment configuration in INGOT.md** (step 6) under a "Deployment & Environments" section:
-- Vercel project name and team
-- Branch-to-environment mapping
-- Environment variables needed (names, not values) and which differ per environment
-- Database branching strategy (if applicable)
-- Any services that need per-environment configuration
-
-### 6. Write INGOT.md (First Run Only)
+### 5. Write INGOT.md (First Run Only)
 
 Check if this is the first run:
 ```bash
@@ -155,7 +119,7 @@ git show main:INGOT.md > /dev/null 2>&1 && echo "exists" || echo "missing"
 
 - **Key Decisions** table — architectural decisions with rationale (include a Date column for future entries)
 - **Approaches Rejected** table — alternatives considered and why they were rejected (include a Date column)
-- **Deployment & Environments** section — Vercel project, branch-environment mapping, env vars, database branching (from step 5)
+- **Deployment & Environments** section — branch-environment mapping, env vars per environment, database branching strategy if applicable
 
 Commit and push to main:
 ```bash
@@ -168,7 +132,7 @@ git push origin main
 
 **If exists (subsequent run):** Skip. Proceed to grading criteria.
 
-### 7. Write GRADING_CRITERIA.md (First Run Only)
+### 6. Write GRADING_CRITERIA.md (First Run Only)
 
 If `GRADING_CRITERIA.md` does not exist, create it now. Spawn a subagent to devise project-specific grading criteria based on the specification.
 
@@ -192,7 +156,7 @@ git push origin main
 
 If `GRADING_CRITERIA.md` already exists, skip this step.
 
-### 8. Present & Confer — Issue Breakdown
+### 7. Present & Confer — Issue Breakdown
 
 Present your issue breakdown to the user:
 - Proposed milestones and their scope
@@ -201,7 +165,7 @@ Present your issue breakdown to the user:
 
 Iterate based on feedback. **Get explicit user confirmation before filing.**
 
-### 9. Create GitHub Milestones
+### 8. Create GitHub Milestones
 
 For each milestone:
 ```bash
@@ -210,7 +174,7 @@ gh api repos/{owner}/{repo}/milestones --method POST -f title="<milestone title>
 
 Check if the milestone already exists first.
 
-### 10. Create GitHub Issues
+### 9. Create GitHub Issues
 
 After user approval, create issues with `ai-generated`, `status:ready`, and scope labels. Classify each issue by scope — add one or more of: `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`.
 
@@ -247,7 +211,7 @@ gh issue create \
 <list dependency issue titles, or "None">
 ```
 
-### 11. Post Ledger Comment
+### 10. Post Ledger Comment
 
 Post the ledger on the source feature request:
 
@@ -281,7 +245,7 @@ gh issue comment <issue-number> --body "**[Smelter Ledger]**
 *Posted by the Forge Smelter.*"
 ```
 
-### 12. Close Source Feature Request
+### 11. Close Source Feature Request
 
 ```bash
 gh issue close <source-issue-number> --reason completed \

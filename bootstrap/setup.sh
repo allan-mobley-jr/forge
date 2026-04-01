@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Forge Bootstrap — minimal project setup
-# Creates git repo, GitHub repo, branch protection, labels, and production branch.
+# Creates git repo, GitHub repo, branch protection, Vercel project, labels, and production branch.
 # All app scaffolding and configuration is handled by agents after smelting.
 
 # --- Configuration ---
@@ -365,6 +365,86 @@ create_production_branch() {
     ok "$label"
 }
 
+# Resolve Vercel project info — sets VERCEL_REPO and VERCEL_PROJECT_NAME.
+# Returns 1 (with optional warning) if prerequisites are missing.
+_resolve_vercel_info() {
+    local warn_on_fail="${1:-false}"
+    if ! command -v vercel &>/dev/null; then
+        [ "$warn_on_fail" = true ] && add_warning "Vercel CLI not found — skipping Vercel setup."
+        return 1
+    fi
+    VERCEL_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
+    if [ -z "$VERCEL_REPO" ]; then
+        [ "$warn_on_fail" = true ] && add_warning "Could not determine GitHub repo — skipping Vercel setup."
+        return 1
+    fi
+    VERCEL_PROJECT_NAME=$(basename "$VERCEL_REPO")
+}
+
+# Create Vercel project via API (non-critical, no local files)
+setup_vercel_project() {
+    local label="Vercel project"
+    if ! _resolve_vercel_info true; then
+        return
+    fi
+    local project_name="$VERCEL_PROJECT_NAME"
+    local repo="$VERCEL_REPO"
+    # Check if project already exists
+    if vercel api "/v11/projects/$project_name" >/dev/null 2>&1; then
+        skip "$label"
+    else
+        local create_output
+        create_output=$(vercel api "/v11/projects" -X POST --input <(echo "{\"name\":\"$project_name\",\"gitRepository\":{\"type\":\"github\",\"repo\":\"$repo\"},\"framework\":\"nextjs\"}") 2>&1) || {
+            add_warning "Vercel project creation failed${create_output:+: $create_output}. Create manually: vercel.com/new"
+            return
+        }
+        ok "$label"
+    fi
+}
+
+# Configure Vercel environments (non-critical, no local files)
+configure_vercel_environments() {
+    if ! _resolve_vercel_info; then
+        return
+    fi
+    local project_name="$VERCEL_PROJECT_NAME"
+    # Fetch project info once — doubles as existence check
+    local project_json
+    project_json=$(vercel api "/v11/projects/$project_name" 2>/dev/null) || return
+    # Production branch cannot be set via API — check and warn if needed
+    local current_prod_branch
+    current_prod_branch=$(echo "$project_json" \
+        | python3 -c "import json,sys; print(json.load(sys.stdin).get('link',{}).get('productionBranch',''))" 2>/dev/null) || true
+    if [ "$current_prod_branch" = "production" ]; then
+        skip "Production branch"
+    else
+        add_warning "Set Vercel production branch to 'production': Vercel Dashboard > $project_name > Settings > Git > Production Branch"
+    fi
+    # Create staging environment for main (skip if already exists)
+    local existing_envs
+    existing_envs=$(vercel api "/v9/projects/$project_name/custom-environments" 2>/dev/null || true)
+    if echo "$existing_envs" | python3 -c "
+import json,sys
+data=json.load(sys.stdin)
+envs=data if isinstance(data,list) else data.get('environments',data.get('customEnvironments',[]))
+exit(0 if any(e.get('slug')=='staging' for e in envs) else 1)
+" 2>/dev/null; then
+        skip "Staging environment"
+    else
+        local staging_output staging_status=0
+        staging_output=$(vercel api "/v9/projects/$project_name/custom-environments" -X POST --input <(echo '{"slug":"staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}') 2>&1) || staging_status=$?
+        if [ "$staging_status" -ne 0 ]; then
+            if echo "$staging_output" | grep -qi "402\|403\|upgrade"; then
+                add_warning "Staging environment requires Vercel Pro. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
+            else
+                add_warning "Failed to create staging environment. Create manually: Vercel Dashboard > Project Settings > Environments > Create Environment"
+            fi
+        else
+            ok "Staging environment"
+        fi
+    fi
+}
+
 # Create labels (non-critical, --force makes it idempotent)
 create_labels() {
     local label="GitHub label taxonomy"
@@ -449,6 +529,8 @@ push_to_github
 setup_branch_protection
 configure_repo_settings
 create_production_branch
+setup_vercel_project
+configure_vercel_environments
 create_labels
 cleanup_default_labels
 write_forge_config || add_warning "Forge config write failed. Not critical."
