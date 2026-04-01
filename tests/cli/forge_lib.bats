@@ -381,13 +381,13 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-12345" "deadbeef-1234-5678-9abc-def012345678" "Auth System"
+    set_session "blacksmith" "blacksmith-issue-37" "deadbeef-1234-5678-9abc-def012345678" "37"
     run get_session "blacksmith"
     [[ "$status" -eq 0 ]]
-    # get_session returns: session_id\tname\tmilestone
+    # get_session returns: session_id\tname\tissue
     [[ "$output" == *"deadbeef-1234-5678-9abc-def012345678"* ]]
-    [[ "$output" == *"bs-12345"* ]]
-    [[ "$output" == *"Auth System"* ]]
+    [[ "$output" == *"blacksmith-issue-37"* ]]
+    [[ "$output" == *"37"* ]]
 }
 
 @test "clear_session clears active but preserves history" {
@@ -405,7 +405,7 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-12345" "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" "Auth"
+    set_session "blacksmith" "blacksmith-issue-42" "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" "42"
     clear_session "blacksmith"
     run get_session "blacksmith"
     [[ "$status" -eq 0 ]]
@@ -413,7 +413,7 @@ EOF
     # History should still have the entry
     run list_sessions "blacksmith"
     [[ "$status" -eq 0 ]]
-    [[ "$output" == *"bs-12345"* ]]
+    [[ "$output" == *"blacksmith-issue-42"* ]]
 }
 
 @test "list_sessions returns all sessions with active marker" {
@@ -431,13 +431,13 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-111" "11111111-1111-1111-1111-111111111111" "Milestone A"
-    set_session "blacksmith" "bs-222" "22222222-2222-2222-2222-222222222222" "Milestone B"
+    set_session "blacksmith" "blacksmith-issue-10" "11111111-1111-1111-1111-111111111111" "10"
+    set_session "blacksmith" "blacksmith-issue-11" "22222222-2222-2222-2222-222222222222" "11"
     run list_sessions "blacksmith"
     [[ "$status" -eq 0 ]]
-    [[ "$output" == *"bs-111"* ]]
-    [[ "$output" == *"bs-222"* ]]
-    # bs-222's UUID should be active (last set)
+    [[ "$output" == *"blacksmith-issue-10"* ]]
+    [[ "$output" == *"blacksmith-issue-11"* ]]
+    # blacksmith-issue-11's UUID should be active (last set)
     [[ "$output" == *"22222222-2222-2222-2222-222222222222"*"*"* ]]
 }
 
@@ -456,8 +456,8 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-111" "aaaaaaaa-1111-2222-3333-444444444444" "Auth"
-    set_session "blacksmith" "bs-111" "aaaaaaaa-1111-2222-3333-444444444444" "Auth"
+    set_session "blacksmith" "blacksmith-issue-37" "aaaaaaaa-1111-2222-3333-444444444444" "37"
+    set_session "blacksmith" "blacksmith-issue-37" "aaaaaaaa-1111-2222-3333-444444444444" "37"
     run list_sessions "blacksmith"
     # Should only appear once
     local count
@@ -465,13 +465,7 @@ EOF
     [[ "$count" -eq 1 ]]
 }
 
-@test "_forge_uuid generates valid UUID v4 format" {
-    run _forge_uuid
-    [[ "$status" -eq 0 ]]
-    [[ "$output" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
-}
-
-@test "get_session returns fields in correct order: session_id, name, milestone" {
+@test "clear_issue_sessions only clears matching issue" {
     mkdir -p "$FORGE_CONFIG_DIR"
     cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
@@ -484,12 +478,68 @@ EOF
 }
 EOF
     cd "$TEST_TMPDIR"
-    set_session "blacksmith" "bs-99" "deadbeef-0000-1111-2222-333344445555" "Sprint 1"
+    set_session "blacksmith" "blacksmith-issue-37" "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" "37"
+    set_session "temperer" "temperer-issue-37" "bbbbbbbb-cccc-dddd-eeee-ffffffffffff" "37"
+    # Clear for a different issue — should not affect anything
+    clear_issue_sessions "99"
+    run get_session "blacksmith"
+    [[ -n "$output" ]]
+    run get_session "temperer"
+    [[ -n "$output" ]]
+    # Clear for the matching issue — should clear both
+    clear_issue_sessions "37"
+    run get_session "blacksmith"
+    [[ -z "$output" ]]
+    run get_session "temperer"
+    [[ -z "$output" ]]
+}
+
+@test "set_session with empty issue stores null and get_session returns empty field" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "smelter" "smelter-ingot" "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ""
+    local result
+    result=$(get_session "smelter")
+    [[ "$(printf '%s' "$result" | cut -f1)" == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" ]]
+    [[ "$(printf '%s' "$result" | cut -f2)" == "smelter-ingot" ]]
+    [[ "$(printf '%s' "$result" | cut -f3)" == "" ]]
+}
+
+@test "_forge_uuid generates valid UUID v4 format" {
+    run _forge_uuid
+    [[ "$status" -eq 0 ]]
+    [[ "$output" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$ ]]
+}
+
+@test "get_session returns fields in correct order: session_id, name, issue" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-99" "deadbeef-0000-1111-2222-333344445555" "99"
     local result
     result=$(get_session "blacksmith")
     [[ "$(printf '%s' "$result" | cut -f1)" == "deadbeef-0000-1111-2222-333344445555" ]]
-    [[ "$(printf '%s' "$result" | cut -f2)" == "bs-99" ]]
-    [[ "$(printf '%s' "$result" | cut -f3)" == "Sprint 1" ]]
+    [[ "$(printf '%s' "$result" | cut -f2)" == "blacksmith-issue-99" ]]
+    [[ "$(printf '%s' "$result" | cut -f3)" == "99" ]]
 }
 
 @test "run_forge_agent passes --session-id to claude" {
@@ -525,9 +575,9 @@ _mock_stoke_gh() {
             echo ''
             exit 0
         fi
-        # issue view for milestone lookup — return empty milestone
-        if [[ \"\$args\" == *\"issue view\"* ]] && [[ \"\$args\" == *\"milestone\"* ]]; then
-            echo ''
+        # issue view for state check — return OPEN
+        if [[ \"\$args\" == *\"issue view\"* ]] && [[ \"\$args\" == *\"state\"* ]]; then
+            echo 'OPEN'
             exit 0
         fi
         # Status query — use counter to return issue first, then empty
@@ -627,4 +677,57 @@ _mock_stoke_gh() {
     run run_stoke_loop
     [[ "$status" -eq 1 ]]
     [[ "$output" == *"failed"* ]]
+}
+
+@test "run_stoke_loop resumes session when issue matches" {
+    # Pre-set a blacksmith session for issue 10
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-10" "aaaaaaaa-1111-2222-3333-444444444444" "10"
+    _mock_stoke_gh 10 "status:ready"
+    mock_claude_with 'echo "called: $*"'
+    _create_agent_file "auto-blacksmith"
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    # Should resume (--resume) not start fresh (--agent)
+    [[ "$output" == *"Resuming"* ]]
+    [[ "$output" == *"--resume"* ]]
+    [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
+}
+
+@test "run_stoke_loop starts fresh session when issue differs" {
+    # Pre-set a blacksmith session for a DIFFERENT issue
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-99" "bbbbbbbb-2222-3333-4444-555555555555" "99"
+    _mock_stoke_gh 10 "status:ready"
+    mock_claude_with 'echo "called: $*"'
+    _create_agent_file "auto-blacksmith"
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    # Should start fresh (--agent and --session-id), NOT resume
+    [[ "$output" == *"forge:auto-blacksmith"* ]]
+    [[ "$output" == *"--session-id"* ]]
+    [[ "$output" == *"Hammering issue #10"* ]]
+    [[ "$output" != *"--resume"* ]]
 }

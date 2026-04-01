@@ -229,6 +229,7 @@ show_command_help() {
     esac
 }
 
+main() {
 case "${1:-}" in
     help)
         if [ -n "${2:-}" ]; then
@@ -477,7 +478,13 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="smelter-$(date +%s)"
+                local session_id
+                local session_name
+                if [ -f INGOT.md ]; then
+                    session_name="smelter-features"
+                else
+                    session_name="smelter-ingot"
+                fi
                 session_id=$(_forge_uuid)
                 set_session "smelter" "$session_name" "$session_id" "" 2>/dev/null || true
                 if ! run_forge_agent "Smelter" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
@@ -517,11 +524,9 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="blacksmith-$(date +%s)"
+                local session_id session_name="blacksmith-issue-${issue}"
                 session_id=$(_forge_uuid)
-                local issue_milestone
-                issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
-                set_session "blacksmith" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
+                set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
                 if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
@@ -559,11 +564,9 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="temperer-$(date +%s)"
+                local session_id session_name="temperer-issue-${issue}"
                 session_id=$(_forge_uuid)
-                local issue_milestone
-                issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
-                set_session "temperer" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
+                set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
                 if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
@@ -594,7 +597,9 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="proof-master-$(date +%s)"
+                local current_tag
+                current_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "initial")
+                local session_id session_name="proof-master-${current_tag}"
                 session_id=$(_forge_uuid)
                 set_session "proof-master" "$session_name" "$session_id" "" 2>/dev/null || true
                 if ! run_forge_agent "Proof-Master" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
@@ -628,7 +633,16 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="honer-$(date +%s)"
+                local session_id session_name
+                local honer_bug
+                honer_bug=$(gh issue list --state open --label "type:bug" --json number,labels --jq '
+                    [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
+                ' 2>/dev/null || true)
+                if [ -n "$honer_bug" ]; then
+                    session_name="honer-bug-${honer_bug}"
+                else
+                    session_name="honer-audit-$(date -u +'%m-%d-%YT%H-%M')"
+                fi
                 session_id=$(_forge_uuid)
                 set_session "honer" "$session_name" "$session_id" "" 2>/dev/null || true
                 if ! run_forge_agent "Honer" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
@@ -662,7 +676,8 @@ case "${1:-}" in
                     exit 1
                 fi
             else
-                local session_id session_name="scribe-$(date +%s)"
+                local session_id session_name
+                session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
                 session_id=$(_forge_uuid)
                 set_session "scribe" "$session_name" "$session_id" "" 2>/dev/null || true
                 if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
@@ -703,13 +718,57 @@ case "${1:-}" in
         cast_start_time=$(date +%s)
         cast_did_work=false
         while true; do
-            # Check queue state — drain existing work before creating new work
+            # Priority 0: Resume any interrupted agent session
+            local interrupted_role="" interrupted_session=""
+            for _role in smelter honer scribe proof-master; do
+                local _sess
+                _sess=$(get_session "$_role" | cut -f1)
+                if [ -n "$_sess" ]; then
+                    interrupted_role="$_role"
+                    interrupted_session="$_sess"
+                    break
+                fi
+            done
+            if [ -n "$interrupted_session" ]; then
+                cast_did_work=true
+                local _agent_name="auto-${interrupted_role}"
+                local _label
+                _label=$(echo "$interrupted_role" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+                agent_msg "$_label" "Resuming interrupted ${interrupted_role} session..."
+                if ! run_forge_agent "$_agent_name" "Continue where you left off." "Resuming ${interrupted_role}..." \
+                    --resume-session "$interrupted_session"; then
+                    agent_fail "$_label" "failed. Stopping."
+                    exit 1
+                fi
+                if ! clear_session "$interrupted_role" 2>/dev/null; then
+                    forge_warn "Failed to clear session for ${interrupted_role}. Forcing clear."
+                    # Prevent infinite loop — sweep all projects in case project name derivation failed
+                    python3 -c "
+import json, sys
+cfg_path = sys.argv[1]
+with open(cfg_path) as f:
+    cfg = json.load(f)
+for proj in cfg.get('projects', {}).values():
+    sess = proj.get('sessions', {}).get(sys.argv[2])
+    if isinstance(sess, dict):
+        sess['active'] = None
+with open(cfg_path, 'w') as f:
+    json.dump(cfg, f, indent=2)
+    f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$interrupted_role" 2>/dev/null || {
+                        forge_fail "Cannot clear stale session. Remove manually from $FORGE_CONFIG_DIR/config.json"
+                        exit 1
+                    }
+                fi
+                continue
+            fi
+
+            # Priority 1: Implementation issues on the board → stoke
             has_status_issues=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
                 [.[] | select(.labels | map(.name) | any(startswith("status:")))] | length
             ' 2>/dev/null || echo "0")
             has_status_issues="${has_status_issues:-0}"
 
-            # Priority 1: Implementation issues on the board → stoke
             if [ "$has_status_issues" -gt 0 ]; then
                 cast_did_work=true
                 forge_info "Stoking the forge..."
@@ -726,11 +785,16 @@ case "${1:-}" in
             ' 2>/dev/null || true)
             if [ -n "$feature_issue" ]; then
                 cast_did_work=true
+                local smelter_session_id smelter_session_name="smelter-feature-${feature_issue}"
+                smelter_session_id=$(_forge_uuid)
+                set_session "smelter" "$smelter_session_name" "$smelter_session_id" "$feature_issue" 2>/dev/null || true
                 agent_msg SMELTER "Smelting feature request #$feature_issue..."
-                if ! run_forge_agent "auto-smelter" "Process feature request issue #${feature_issue}. Research, plan, and create implementation issues." "Smelting #${feature_issue}..."; then
+                if ! run_forge_agent "auto-smelter" "Process feature request issue #${feature_issue}. Research, plan, and create implementation issues." "Smelting #${feature_issue}..." \
+                    --session-id "$smelter_session_id" --session-name "$smelter_session_name"; then
                     agent_fail SMELTER "failed. Stopping."
                     exit 1
                 fi
+                clear_session "smelter" 2>/dev/null || true
                 continue
             fi
 
@@ -746,17 +810,37 @@ case "${1:-}" in
             fi
 
             # All work drained — audit, document, then check for new work
+            local honer_session_id honer_session_name
+            local honer_bug
+            honer_bug=$(gh issue list --state open --label "type:bug" --json number,labels --jq '
+                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
+            ' 2>/dev/null || true)
+            if [ -n "$honer_bug" ]; then
+                honer_session_name="honer-bug-${honer_bug}"
+            else
+                honer_session_name="honer-audit-$(date -u +'%m-%d-%YT%H-%M')"
+            fi
+            honer_session_id=$(_forge_uuid)
+            set_session "honer" "$honer_session_name" "$honer_session_id" "" 2>/dev/null || true
             agent_msg HONER "Honing..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase." "Honing..."; then
+            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase." "Honing..." \
+                --session-id "$honer_session_id" --session-name "$honer_session_name"; then
                 agent_fail HONER "failed. Stopping."
                 exit 1
             fi
+            clear_session "honer" 2>/dev/null || true
 
+            local scribe_session_id scribe_session_name
+            scribe_session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
+            scribe_session_id=$(_forge_uuid)
+            set_session "scribe" "$scribe_session_name" "$scribe_session_id" "" 2>/dev/null || true
             agent_msg SCRIBE "Scribing..."
-            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki." "Scribing..."; then
+            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki." "Scribing..." \
+                --session-id "$scribe_session_id" --session-name "$scribe_session_name"; then
                 agent_fail SCRIBE "failed. Stopping."
                 exit 1
             fi
+            clear_session "scribe" 2>/dev/null || true
 
             # Check if hone/scribe produced new work
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
@@ -767,8 +851,15 @@ case "${1:-}" in
             fi
 
             # No new work — stamp the release
+            local pm_current_tag pm_session_id pm_session_name
+            pm_current_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "initial")
+            pm_session_name="proof-master-${pm_current_tag}"
+            pm_session_id=$(_forge_uuid)
+            set_session "proof-master" "$pm_session_name" "$pm_session_id" "" 2>/dev/null || true
             agent_msg PROOF-MASTER "Checking for unreleased work..."
-            run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..." || true
+            run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..." \
+                --session-id "$pm_session_id" --session-name "$pm_session_name" || true
+            clear_session "proof-master" 2>/dev/null || true
 
             forge_ok "Cast complete."
             break
@@ -878,3 +969,6 @@ case "${1:-}" in
         exit 1
         ;;
 esac
+}
+
+main "$@"

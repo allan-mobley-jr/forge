@@ -138,11 +138,11 @@ for name, proj in cfg.get('projects', {}).items():
 
 # --- Session management ---
 # Each agent maintains a session history per project.
-# The active session is the most recent. Sessions persist across issues
-# within a milestone and are cleared at milestone boundary.
+# Sessions are scoped to individual issues (or invocations for non-issue agents).
+# Resume on interruption; clear on completion.
 # Config structure:
 #   sessions.<role>.active = "session-id" | null
-#   sessions.<role>.history = [ { name, session_id, milestone, created }, ... ]
+#   sessions.<role>.history = [ { name, session_id, issue, created }, ... ]
 
 # _forge_uuid — generate a random UUID v4 (cross-platform).
 _forge_uuid() {
@@ -161,7 +161,7 @@ _forge_project_name() {
 
 # get_session — read the active session for an agent role.
 # Usage: get_session <agent_role>   (e.g., get_session blacksmith)
-# Prints: <session_id>\t<name>\t<milestone>   or empty if no active session.
+# Prints: <session_id>\t<name>\t<issue>   or empty if no active session.
 get_session() {
     local role="$1"
     local project_name
@@ -178,32 +178,38 @@ try:
     if active:
         entry = next((h for h in s.get('history', []) if h.get('session_id') == active), None)
         if entry:
-            print(entry['session_id'] + '\t' + entry['name'] + '\t' + (entry.get('milestone') or ''))
+            iss = entry.get('issue')
+            print(entry['session_id'] + '\t' + entry['name'] + '\t' + (str(iss) if iss is not None else ''))
 except (KeyError, TypeError, FileNotFoundError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
 }
 
-# set_session — write session name and milestone for an agent role.
+# set_session — write session name and issue number for an agent role.
 # Sets the active session and appends to history.
-# Usage: set_session <agent_role> <session_name> <session_id> [milestone]
+# Usage: set_session <agent_role> <session_name> <session_id> [issue_number]
 set_session() {
     local role="$1"
     local session_name="$2"
     local session_id="$3"
-    local milestone="${4:-}"
+    local issue="${4:-}"
     local project_name
     project_name=$(_forge_project_name)
     python3 -c "
 import json, sys, datetime
-cfg_path, proj, role, name, sid, ms = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+cfg_path, proj, role, name, sid, iss = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
 with open(cfg_path) as f:
     cfg = json.load(f)
 cfg['projects'][proj].setdefault('sessions', {})
 sess = cfg['projects'][proj]['sessions'].get(role)
 if not isinstance(sess, dict) or 'history' not in sess:
     sess = {'active': None, 'history': []}
-entry = {'name': name, 'session_id': sid, 'milestone': ms or None, 'created': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
+try:
+    issue_val = int(iss) if iss else None
+except ValueError:
+    print(f'Error: invalid issue number \"{iss}\" — must be numeric', file=sys.stderr)
+    sys.exit(1)
+entry = {'name': name, 'session_id': sid, 'issue': issue_val, 'created': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')}
 if not any(h.get('session_id') == sid for h in sess['history']):
     sess['history'].append(entry)
 sess['active'] = sid
@@ -211,7 +217,7 @@ cfg['projects'][proj]['sessions'][role] = sess
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
-" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$session_name" "$session_id" "$milestone"
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$session_name" "$session_id" "$issue"
 }
 
 # clear_session — clear the active session for an agent role (history preserved).
@@ -241,9 +247,37 @@ clear_all_sessions() {
     clear_session "temperer"
 }
 
+# clear_issue_sessions — clear active sessions for blacksmith and temperer
+# if their active session is scoped to the given issue number.
+# Usage: clear_issue_sessions <issue_number>
+clear_issue_sessions() {
+    local issue_num="$1"
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+cfg_path, proj, issue = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(cfg_path) as f:
+    cfg = json.load(f)
+changed = False
+for role in ('blacksmith', 'temperer'):
+    sess = cfg.get('projects', {}).get(proj, {}).get('sessions', {}).get(role)
+    if isinstance(sess, dict) and sess.get('active'):
+        entry = next((h for h in sess.get('history', []) if h.get('session_id') == sess['active']), None)
+        stored_issue = entry.get('issue') if entry else None
+        if stored_issue is not None and str(stored_issue) == issue:
+            sess['active'] = None
+            changed = True
+if changed:
+    with open(cfg_path, 'w') as f:
+        json.dump(cfg, f, indent=2)
+        f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$issue_num" 2>/dev/null || true
+}
+
 # list_sessions — list all sessions in history for an agent role.
 # Usage: list_sessions <agent_role>
-# Prints: one line per session: <session_id>\t<name>\t<milestone>\t<created>\t<active>
+# Prints: one line per session: <session_id>\t<name>\t<issue>\t<created>\t<active>
 # where <active> is "*" if it's the active session, empty otherwise.
 list_sessions() {
     local role="$1"
@@ -261,7 +295,8 @@ try:
     for h in sess['history']:
         sid = h.get('session_id', '')
         marker = '*' if sid == active else ''
-        print(sid + '\t' + h['name'] + '\t' + (h.get('milestone') or '') + '\t' + (h.get('created') or '') + '\t' + marker)
+        iss = h.get('issue')
+        print(sid + '\t' + h['name'] + '\t' + (str(iss) if iss is not None else '') + '\t' + (h.get('created') or '') + '\t' + marker)
 except (KeyError, TypeError, FileNotFoundError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
@@ -274,14 +309,14 @@ except (KeyError, TypeError, FileNotFoundError):
 pick_session() {
     local role="$1"
     local sessions=()
-    local names=() milestones=() dates=() markers=()
+    local names=() issues=() dates=() markers=()
 
     # Read session history
-    while IFS=$'\t' read -r sid name ms dt marker; do
+    while IFS=$'\t' read -r sid name iss dt marker; do
         [ -z "$sid" ] && continue
         sessions+=("$sid")
         names+=("$name")
-        milestones+=("$ms")
+        issues+=("$iss")
         dates+=("$dt")
         markers+=("$marker")
     done < <(list_sessions "$role")
@@ -318,8 +353,8 @@ pick_session() {
             if [ "$i" -eq "$selected" ]; then
                 prefix="> "
             fi
-            if [ -n "${milestones[$i]}" ]; then
-                suffix=" (${milestones[$i]})"
+            if [ -n "${issues[$i]}" ]; then
+                suffix=" (#${issues[$i]})"
             fi
             if [ "${markers[$i]}" = "*" ]; then
                 suffix="${suffix} [active]"
@@ -616,8 +651,6 @@ run_stoke_loop() {
 
         if [ -z "$issue_line" ]; then
             forge_ok "No actionable issues. Queue complete."
-            # Clear sessions when queue is fully drained
-            clear_all_sessions 2>/dev/null || true
             return 0
         fi
 
@@ -630,20 +663,16 @@ run_stoke_loop() {
             return 1
         fi
 
-        # Determine issue milestone for session scoping
-        local issue_milestone
-        issue_milestone=$(gh issue view "$issue" --json milestone --jq '.milestone.title // empty' 2>/dev/null || true)
-
         case "$status" in
             status:ready|status:rework|status:hammering)
                 # Determine prompt: fresh sessions read INGOT.md
                 local bs_prompt="Implement issue #${issue}."
-                local bs_session bs_milestone
+                local bs_session bs_issue
                 bs_session=$(get_session "blacksmith" | cut -f1)
-                bs_milestone=$(get_session "blacksmith" | cut -f3)
+                bs_issue=$(get_session "blacksmith" | cut -f3)
 
-                if [ -n "$bs_session" ] && [ "$bs_milestone" = "$issue_milestone" ]; then
-                    # Resume existing session by UUID
+                if [ -n "$bs_session" ] && [ "$bs_issue" = "$issue" ]; then
+                    # Resume existing session — same issue
                     agent_msg BLACKSMITH "Resuming on issue #$issue ($status)..."
                     run_forge_agent "auto-blacksmith" "Continue working. $bs_prompt" "Hammering #${issue}..." \
                         --resume-session "$bs_session" || {
@@ -651,10 +680,10 @@ run_stoke_loop() {
                         return 1
                     }
                 else
-                    # Fresh session — generate UUID, read INGOT.md
-                    local session_id session_name="blacksmith-$(date +%s)"
+                    # Fresh session for this issue
+                    local session_id session_name="blacksmith-issue-${issue}"
                     session_id=$(_forge_uuid)
-                    set_session "blacksmith" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
+                    set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
                     agent_msg BLACKSMITH "Hammering issue #$issue ($status)..."
                     run_forge_agent "auto-blacksmith" "Read INGOT.md in the project root for architectural context before starting. $bs_prompt" "Hammering #${issue}..." \
                         --session-id "$session_id" --session-name "$session_name" || {
@@ -676,12 +705,12 @@ run_stoke_loop() {
                         ;;
                 esac
 
-                local tp_session tp_milestone
+                local tp_session tp_issue
                 tp_session=$(get_session "temperer" | cut -f1)
-                tp_milestone=$(get_session "temperer" | cut -f3)
+                tp_issue=$(get_session "temperer" | cut -f3)
 
-                if [ -n "$tp_session" ] && [ "$tp_milestone" = "$issue_milestone" ]; then
-                    # Resume existing session by UUID
+                if [ -n "$tp_session" ] && [ "$tp_issue" = "$issue" ]; then
+                    # Resume existing session — same issue
                     agent_msg TEMPERER "Resuming on issue #$issue ($status)..."
                     run_forge_agent "auto-temperer" "Continue working. $tp_prompt" "Tempering #${issue}..." \
                         --resume-session "$tp_session" || {
@@ -689,10 +718,10 @@ run_stoke_loop() {
                         return 1
                     }
                 else
-                    # Fresh session — generate UUID, read INGOT.md
-                    local session_id session_name="temperer-$(date +%s)"
+                    # Fresh session for this issue
+                    local session_id session_name="temperer-issue-${issue}"
                     session_id=$(_forge_uuid)
-                    set_session "temperer" "$session_name" "$session_id" "$issue_milestone" 2>/dev/null || true
+                    set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
                     agent_msg TEMPERER "Tempering issue #$issue ($status)..."
                     run_forge_agent "auto-temperer" "Read INGOT.md in the project root for architectural context before starting. $tp_prompt" "Tempering #${issue}..." \
                         --session-id "$session_id" --session-name "$session_name" || {
@@ -707,5 +736,12 @@ run_stoke_loop() {
                 return 1
                 ;;
         esac
+
+        # Clear sessions if issue was closed (e.g., merged after temperer approve)
+        local issue_state
+        issue_state=$(gh issue view "$issue" --json state --jq '.state' 2>/dev/null || true)
+        if [ "$issue_state" = "CLOSED" ]; then
+            clear_issue_sessions "$issue"
+        fi
     done
 }
