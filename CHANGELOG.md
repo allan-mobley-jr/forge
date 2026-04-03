@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Sessions scoped to individual issues instead of milestones
 - Rework cycle limit increased from 5 to 7
 - Branch protection simplified: removed required CI checks and Copilot review (all testing is local)
-- Pipeline reduced from 6 agents to 4: smelt → stoke → hone (releases in Temperer)
+- Pipeline reduced from 6 craftsmen to 4: Smelter, Blacksmith, Temperer, Honer
 - Issue body format simplified to Objective + Acceptance Criteria only (no Technical Notes or Dependencies)
 
 ### Removed
