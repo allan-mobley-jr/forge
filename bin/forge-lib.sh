@@ -186,6 +186,14 @@ _is_empty_project() {
     [ "$count" -eq 0 ]
 }
 
+# _find_oldest_human_feature — print the issue number of the oldest open
+# human-filed type:feature issue (no ai-generated label), or empty.
+_find_oldest_human_feature() {
+    gh issue list --state open --label "type:feature" --json number,labels --jq '
+        [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true
+}
+
 # _is_bootstrap_candidate — returns 0 if there is exactly one issue ever
 # and it is an open type:feature without ai-generated.
 _is_bootstrap_candidate() {
@@ -194,10 +202,30 @@ _is_bootstrap_candidate() {
     total="${total:-0}"
     [ "$total" -eq 1 ] 2>/dev/null || return 1
     local feature
-    feature=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-        [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | .[0].number // empty
-    ' 2>/dev/null || true)
+    feature=$(_find_oldest_human_feature)
     [ -n "$feature" ]
+}
+
+# _resolve_smelter_agent — determine the smelter agent variant from session name.
+# Usage: _resolve_smelter_agent <mode>   (mode = "interactive" or "auto")
+# Prints the agent name based on the active smelter session name prefix.
+_resolve_smelter_agent() {
+    local mode="$1"
+    local sess_name
+    sess_name=$(get_session "smelter" | cut -f2)
+    if [[ "$sess_name" == smelter-feature-* ]]; then
+        if [ "$mode" = "auto" ]; then
+            echo "auto-smelter-feature"
+        else
+            echo "Smelter-Feature"
+        fi
+    else
+        if [ "$mode" = "auto" ]; then
+            echo "auto-smelter"
+        else
+            echo "Smelter"
+        fi
+    fi
 }
 
 # --- Session management ---

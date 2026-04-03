@@ -624,6 +624,19 @@ EOF
     [[ "$status" -ne 0 ]]
 }
 
+@test "_is_bootstrap_candidate returns false when sole issue is not a feature" {
+    mock_gh_with '
+        args="$*"
+        if [[ "$args" == *"--state all"* ]]; then
+            echo "1"
+        elif [[ "$args" == *"type:feature"* ]]; then
+            echo ""
+        fi
+    '
+    run _is_bootstrap_candidate
+    [[ "$status" -ne 0 ]]
+}
+
 # --- project model ---
 
 @test "get_project_model returns empty when no model set" {

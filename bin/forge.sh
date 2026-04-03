@@ -534,9 +534,7 @@ case "${1:-}" in
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             # Auto mode: feature requests only (bootstrap via forge cast)
             local feature_issue
-            feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-            ' 2>/dev/null || true)
+            feature_issue=$(_find_oldest_human_feature)
             if [ -z "$feature_issue" ]; then
                 forge_info "No human-filed type:feature issues found."
                 exit 0
@@ -551,15 +549,8 @@ case "${1:-}" in
             local resumed_session
             resumed_session=$(pick_session "smelter")
             if [ -n "$resumed_session" ]; then
-                # Determine agent variant from session name
                 local smelter_agent
-                local _sess_name
-                _sess_name=$(get_session "smelter" | cut -f2)
-                if [[ "$_sess_name" == smelter-feature-* ]]; then
-                    smelter_agent="Smelter-Feature"
-                else
-                    smelter_agent="Smelter"
-                fi
+                smelter_agent=$(_resolve_smelter_agent "interactive")
                 agent_msg SMELTER "Resuming..."
                 if ! run_forge_agent "$smelter_agent" "Continue where you left off." "" --resume-session "$resumed_session"; then
                     agent_fail SMELTER "failed."
@@ -573,9 +564,7 @@ case "${1:-}" in
                     session_name="smelter-ingot"
                 else
                     local feature_issue
-                    feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-                        [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-                    ' 2>/dev/null || true)
+                    feature_issue=$(_find_oldest_human_feature)
                     if [ -n "$feature_issue" ]; then
                         smelter_agent="Smelter-Feature"
                         session_name="smelter-feature-${feature_issue}"
@@ -835,11 +824,7 @@ case "${1:-}" in
                 local _agent_name="auto-${interrupted_role}"
                 # For smelter, pick the right variant based on session name
                 if [ "$interrupted_role" = "smelter" ]; then
-                    local _sess_name
-                    _sess_name=$(get_session "smelter" | cut -f2)
-                    if [[ "$_sess_name" == smelter-feature-* ]]; then
-                        _agent_name="auto-smelter-feature"
-                    fi
+                    _agent_name=$(_resolve_smelter_agent "auto")
                 fi
                 local _label
                 _label=$(echo "$interrupted_role" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
@@ -890,9 +875,7 @@ with open(cfg_path, 'w') as f:
 
             # Priority 2: Human-filed feature requests → smelt
             local feature_issue
-            feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-            ' 2>/dev/null || true)
+            feature_issue=$(_find_oldest_human_feature)
             if [ -n "$feature_issue" ]; then
                 cast_did_work=true
                 local smelter_agent smelter_session_id smelter_session_name smelter_prompt
