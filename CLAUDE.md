@@ -17,8 +17,10 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
     temperer.md      — Temperer: interactive evaluation + PR + merge + release
     auto-temperer.md — Auto-Temperer: headless evaluation + PR + merge + release
-    honer.md         — Honer: interactive bug triage / audit
-    auto-honer.md    — Auto-Honer: headless bug triage / audit
+    honer.md             — Honer: interactive bug triage
+    honer-audit.md       — Honer-Audit: interactive codebase audit
+    auto-honer.md        — Auto-Honer: headless bug triage
+    auto-honer-audit.md  — Auto-Honer-Audit: headless codebase audit
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
@@ -38,7 +40,7 @@ Planning artifacts live in the codebase and on GitHub:
 ## Conventions
 
 - Agents use YAML frontmatter with `name`, `description`, `tools`
-- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four: bootstrap and feature variants for each mode.
+- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four (bootstrap + feature variants) and the Honer has four (bug triage + audit variants).
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record

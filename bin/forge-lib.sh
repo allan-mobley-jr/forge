@@ -226,6 +226,36 @@ _resolve_smelter_agent() {
     fi
 }
 
+# _find_oldest_human_bug — print the issue number of the oldest open
+# human-filed type:bug issue (no ai-generated label), or empty.
+_find_oldest_human_bug() {
+    gh issue list --state open --label "type:bug" --json number,labels --jq '
+        [.[] | select(.labels | map(.name) | (any(. == "ai-generated") | not) and (any(. == "agent:needs-human") | not))]
+        | sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true
+}
+
+# _resolve_honer_agent — determine the honer agent variant from session name.
+# Usage: _resolve_honer_agent <mode>   (mode = "interactive" or "auto")
+_resolve_honer_agent() {
+    local mode="$1"
+    local sess_name
+    sess_name=$(get_session "honer" | cut -f2)
+    if [[ "$sess_name" == honer-audit-* ]]; then
+        if [ "$mode" = "auto" ]; then
+            echo "auto-honer-audit"
+        else
+            echo "Honer-Audit"
+        fi
+    else
+        if [ "$mode" = "auto" ]; then
+            echo "auto-honer"
+        else
+            echo "Honer"
+        fi
+    fi
+}
+
 # --- Session management ---
 # Each agent maintains a session history per project.
 # Sessions are scoped to individual issues (or invocations for non-issue agents).

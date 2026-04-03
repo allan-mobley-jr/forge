@@ -190,13 +190,16 @@ show_command_help() {
             echo "merges it. After merge, evaluates if a release is warranted."
             ;;
         hone|auto-hone)
-            echo "forge hone — Audit the codebase and file improvement issues"
+            echo "forge hone — Triage bugs or audit the codebase"
             echo ""
             echo "Usage: forge hone"
             echo "       forge auto-hone"
             echo ""
-            echo "  hone         Interactive — choose to triage a bug or audit the codebase"
-            echo "  auto-hone    Autonomous — triages oldest bug first, then audits"
+            echo "The Honer has two roles:"
+            echo "  Bug triage   Has type:bug issues — investigate, validate, refile for Blacksmith"
+            echo "  Audit        No bugs — technical + UX/design audit against GRADING_CRITERIA.md"
+            echo ""
+            echo "The CLI detects which role to use based on project state."
             ;;
         stoke)
             echo "forge stoke — Autonomously process the issue queue"
@@ -708,33 +711,81 @@ case "${1:-}" in
         check_labels
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg HONER "Starting..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase. File implementation issues."; then
-                agent_fail HONER "failed."
-                exit 1
+            # Auto mode: check for interrupted session first
+            local auto_honer_session
+            auto_honer_session=$(get_session "honer" | cut -f1)
+            if [ -n "$auto_honer_session" ]; then
+                local auto_honer_agent
+                auto_honer_agent=$(_resolve_honer_agent "auto")
+                agent_msg HONER "Resuming interrupted session..."
+                if ! run_forge_agent "$auto_honer_agent" "Continue where you left off." "" --resume-session "$auto_honer_session"; then
+                    agent_fail HONER "failed."
+                    exit 1
+                fi
+                clear_session "honer" 2>/dev/null || true
+            else
+                # Detect bug vs audit
+                local honer_bug
+                honer_bug=$(_find_oldest_human_bug)
+                if [ -n "$honer_bug" ]; then
+                    local session_id session_name="honer-bug-${honer_bug}"
+                    session_id=$(_forge_uuid)
+                    set_session "honer" "$session_name" "$session_id" "$honer_bug" 2>/dev/null || true
+                    agent_msg HONER "Triaging bug #$honer_bug..."
+                    if ! run_forge_agent "auto-honer" "Triage bug issue #${honer_bug}. Investigate, validate, and refile as implementation issue(s)." "" \
+                        --session-id "$session_id" --session-name "$session_name"; then
+                        agent_fail HONER "failed."
+                        exit 1
+                    fi
+                else
+                    local session_id session_name
+                    session_name="honer-audit-$(date -u +'%m-%d-%YT%H-%M')"
+                    session_id=$(_forge_uuid)
+                    set_session "honer" "$session_name" "$session_id" "" 2>/dev/null || true
+                    agent_msg HONER "Auditing codebase..."
+                    if ! run_forge_agent "auto-honer-audit" "Audit the codebase. Technical pass first, then UX/design pass." "" \
+                        --session-id "$session_id" --session-name "$session_name"; then
+                        agent_fail HONER "failed."
+                        exit 1
+                    fi
+                fi
+                clear_session "honer" 2>/dev/null || true
             fi
         else
+            # Interactive mode: check for resumable session first
+            local resumed_session
             resumed_session=$(pick_session "honer")
-            agent_msg HONER "Starting..."
             if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Honer" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                local honer_agent
+                honer_agent=$(_resolve_honer_agent "interactive")
+                agent_msg HONER "Resuming..."
+                if ! run_forge_agent "$honer_agent" "Continue where you left off." "" --resume-session "$resumed_session"; then
                     agent_fail HONER "failed."
                     exit 1
                 fi
             else
-                local session_id session_name
+                # Detect bug vs audit
+                local honer_agent session_name
                 local honer_bug
-                honer_bug=$(gh issue list --state open --label "type:bug" --json number,labels --jq '
-                    [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-                ' 2>/dev/null || true)
+                honer_bug=$(_find_oldest_human_bug)
                 if [ -n "$honer_bug" ]; then
+                    honer_agent="Honer"
                     session_name="honer-bug-${honer_bug}"
                 else
+                    honer_agent="Honer-Audit"
                     session_name="honer-audit-$(date -u +'%m-%d-%YT%H-%M')"
                 fi
+                local session_id honer_prompt
                 session_id=$(_forge_uuid)
-                set_session "honer" "$session_name" "$session_id" "" 2>/dev/null || true
-                if ! run_forge_agent "Honer" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
+                if [ -n "$honer_bug" ]; then
+                    honer_prompt="Bug #${honer_bug} is ready for triage. Greet the user and begin."
+                    set_session "honer" "$session_name" "$session_id" "$honer_bug" 2>/dev/null || true
+                else
+                    honer_prompt="Greet the user and begin the audit."
+                    set_session "honer" "$session_name" "$session_id" "" 2>/dev/null || true
+                fi
+                agent_msg HONER "Starting..."
+                if ! run_forge_agent "$honer_agent" "$honer_prompt" "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail HONER "failed."
                     exit 1
                 fi
@@ -786,9 +837,11 @@ case "${1:-}" in
             if [ -n "$interrupted_session" ]; then
                 cast_did_work=true
                 local _agent_name="auto-${interrupted_role}"
-                # For smelter, pick the right variant based on session name
+                # For agents with variants, pick the right one based on session name
                 if [ "$interrupted_role" = "smelter" ]; then
                     _agent_name=$(_resolve_smelter_agent "auto")
+                elif [ "$interrupted_role" = "honer" ]; then
+                    _agent_name=$(_resolve_honer_agent "auto")
                 fi
                 local _label
                 _label=$(echo "$interrupted_role" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
@@ -876,21 +929,23 @@ with open(cfg_path, 'w') as f:
                 cast_did_work=true
             fi
 
-            # All work drained — audit, document, then check for new work
-            local honer_session_id honer_session_name
+            # All work drained — triage bugs or audit
+            local honer_session_id honer_session_name honer_agent honer_prompt
             local honer_bug
-            honer_bug=$(gh issue list --state open --label "type:bug" --json number,labels --jq '
-                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-            ' 2>/dev/null || true)
+            honer_bug=$(_find_oldest_human_bug)
             if [ -n "$honer_bug" ]; then
+                honer_agent="auto-honer"
                 honer_session_name="honer-bug-${honer_bug}"
+                honer_prompt="Triage bug issue #${honer_bug}. Investigate, validate, and refile as implementation issue(s)."
             else
+                honer_agent="auto-honer-audit"
                 honer_session_name="honer-audit-$(date -u +'%m-%d-%YT%H-%M')"
+                honer_prompt="Audit the codebase. Technical pass first, then UX/design pass."
             fi
             honer_session_id=$(_forge_uuid)
-            set_session "honer" "$honer_session_name" "$honer_session_id" "" 2>/dev/null || true
+            set_session "honer" "$honer_session_name" "$honer_session_id" "${honer_bug:-}" 2>/dev/null || true
             agent_msg HONER "Honing..."
-            if ! run_forge_agent "auto-honer" "Check for human-filed bugs first. If none, audit the codebase." "Honing..." \
+            if ! run_forge_agent "$honer_agent" "$honer_prompt" "Honing..." \
                 --session-id "$honer_session_id" --session-name "$honer_session_name"; then
                 agent_fail HONER "failed. Stopping."
                 exit 1

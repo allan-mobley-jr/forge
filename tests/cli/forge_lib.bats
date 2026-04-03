@@ -637,6 +637,62 @@ EOF
     [[ "$status" -ne 0 ]]
 }
 
+# --- honer helpers ---
+
+@test "_find_oldest_human_bug returns bug number when human-filed bugs exist" {
+    mock_gh_with 'echo "42"'
+    run _find_oldest_human_bug
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "42" ]]
+}
+
+@test "_find_oldest_human_bug returns empty when no bugs exist" {
+    mock_gh_with 'echo ""'
+    run _find_oldest_human_bug
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+@test "_resolve_honer_agent returns audit variant for audit session" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "honer" "honer-audit-04-01-2026T14-30" "aaaaaaaa-1111-2222-3333-444444444444" ""
+    run _resolve_honer_agent "auto"
+    [[ "$output" == "auto-honer-audit" ]]
+    run _resolve_honer_agent "interactive"
+    [[ "$output" == "Honer-Audit" ]]
+}
+
+@test "_resolve_honer_agent returns bug variant for bug session" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "honer" "honer-bug-42" "bbbbbbbb-2222-3333-4444-555555555555" "42"
+    run _resolve_honer_agent "auto"
+    [[ "$output" == "auto-honer" ]]
+    run _resolve_honer_agent "interactive"
+    [[ "$output" == "Honer" ]]
+}
+
 # --- project model ---
 
 @test "get_project_model returns empty when no model set" {
