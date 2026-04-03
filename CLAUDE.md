@@ -9,8 +9,10 @@ Autonomous Next.js development system. See `README.md` for the full specificatio
 plugin/          — Claude Code plugin (only this gets cached)
   .claude-plugin/  — Plugin manifest (plugin.json)
   agents/          — Forge craftsman agents (interactive + auto pairs)
-    smelter.md       — Smelter: interactive planning + issue creation
-    auto-smelter.md  — Auto-Smelter: plan + create issues from type:feature
+    smelter.md       — Smelter: interactive bootstrap (scaffold, Vercel, INGOT.md)
+    auto-smelter.md  — Auto-Smelter: headless bootstrap from feature request
+    smelter-feature.md     — Smelter-Feature: interactive feature planning
+    auto-smelter-feature.md — Auto-Smelter-Feature: headless feature planning
     blacksmith.md    — Blacksmith: interactive implementation
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
     temperer.md      — Temperer: interactive review + PR + merge
@@ -32,7 +34,7 @@ research/        — ad-hoc research notes and scratchpad (not committed)
 
 Planning artifacts live in the codebase and on GitHub:
 
-- **INGOT.md** — One-time project specification written directly to main by the Smelter on first run. Contains the architectural vision, key decisions, and rejected approaches. The Blacksmith appends dated entries when making significant architectural decisions during implementation.
+- **INGOT.md** — One-time project specification written directly to main by the bootstrap Smelter. Contains the architectural vision, key decisions, rejected approaches, and design language. The Blacksmith appends dated entries when making significant architectural decisions during implementation.
 - **GRADING_CRITERIA.md** — Project-specific quality evaluation criteria written by the Smelter on first run. The Honer adjusts after audits. The Temperer evaluates against these alongside issue acceptance criteria.
 - **Ledger entries** — tagged comments (e.g., `**[Blacksmith Ledger]**`) on the relevant issue
 - **Rework comments** — tagged with `**[Temperer]**`
@@ -40,7 +42,7 @@ Planning artifacts live in the codebase and on GitHub:
 ## Conventions
 
 - Agents use YAML frontmatter with `name`, `description`, `tools`
-- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`)
+- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four: bootstrap and feature variants for each mode.
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
