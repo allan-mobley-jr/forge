@@ -742,7 +742,7 @@ run_stoke_loop() {
         issue_line=$(gh issue list --state open --label "ai-generated" --json number,labels -L 100 --jq '
             [.[] | {number, status: ([.labels[].name | select(startswith("status:"))] | .[0] // empty)}
              | select(.status)]
-            | sort_by(.number) | .[0] | "\(.number)\t\(.status)" // empty
+            | sort_by(.number) | if length > 0 then .[0] | "\(.number)\t\(.status)" else empty end
         ' 2>/dev/null || true)
 
         if [ -z "$issue_line" ]; then
