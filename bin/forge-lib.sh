@@ -170,6 +170,36 @@ with open(cfg_path, 'w') as f:
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$1"
 }
 
+# --- Project state detection ---
+
+# _is_empty_project — returns 0 if the directory has no source files.
+# Ignores .git, .gitignore, .forge, and other boilerplate.
+_is_empty_project() {
+    local count=0
+    for f in * .[!.]* ..?*; do
+        [ -e "$f" ] || continue
+        case "$f" in
+            .git|.gitignore|.forge|LICENSE|README.md) ;;
+            *) count=$((count + 1)) ;;
+        esac
+    done
+    [ "$count" -eq 0 ]
+}
+
+# _is_bootstrap_candidate — returns 0 if there is exactly one issue ever
+# and it is an open type:feature without ai-generated.
+_is_bootstrap_candidate() {
+    local total
+    total=$(gh issue list --state all --json number -L 500 --jq 'length' 2>/dev/null || echo "0")
+    total="${total:-0}"
+    [ "$total" -eq 1 ] || return 1
+    local feature
+    feature=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
+        [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | .[0].number // empty
+    ' 2>/dev/null || true)
+    [ -n "$feature" ]
+}
+
 # --- Session management ---
 # Each agent maintains a session history per project.
 # Sessions are scoped to individual issues (or invocations for non-issue agents).
