@@ -21,8 +21,6 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-proof-master.md — Auto-Proof-Master: headless releases + versioning
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
-    scribe.md        — Scribe: interactive doc audit / wiki
-    auto-scribe.md   — Auto-Scribe: headless doc audit / wiki
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
 bootstrap/       — setup.sh idempotent project bootstrap
 tests/           — CLI tests (bats framework)
@@ -73,12 +71,12 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 
 ```
 Core:        forge smelt  →  forge hammer  ⇄  forge temper  (repeat per issue)
-Post-cycle:  forge hone  →  forge scribe  →  forge proof
+Post-cycle:  forge hone  →  forge proof
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
 `forge stoke` processes the issue queue: dispatches Blacksmith or Temperer based on the oldest issue's status label. Uses named sessions with resume for crash recovery.
-`forge cast` runs the full autonomous cycle: smelt → stoke → hone → scribe → proof (repeats if new work emerges).
+`forge cast` runs the full autonomous cycle: smelt → stoke → hone → proof (repeats if new work emerges).
 
 ## Git Workflow
 

@@ -30,7 +30,6 @@ _agent_color() {
         TEMPERER)     echo "$GREEN" ;;
         PROOF-MASTER) echo "$CYAN" ;;
         HONER)        echo "$RED" ;;
-        SCRIBE)       echo "$MAGENTA" ;;
         *)            echo "$DIM" ;;
     esac
 }

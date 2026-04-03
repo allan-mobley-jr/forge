@@ -39,7 +39,7 @@ BANNER
             echo -e "\n  ${BLUE}STOKE${NC}  Stoking the fire — processing the issue queue"
             ;;
         cast)
-            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → stoke → proof → hone → scribe"
+            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → stoke → hone → proof"
             ;;
         init)
             echo -e "\n  ${BLUE}INIT${NC}  Forging a new project"
@@ -63,9 +63,8 @@ show_usage() {
     echo "  temper           Review, open PR, and merge"
     echo "  proof            Create a GitHub release"
     echo "  hone             Audit the codebase for improvements"
-    echo "  scribe           Audit docs and update the GitHub Wiki"
     echo "  stoke            Autonomously process the issue queue"
-    echo "  cast             Full autonomous cycle: smelt → stoke → proof → hone → scribe"
+    echo "  cast             Full autonomous cycle: smelt → stoke → hone → proof"
     echo ""
     echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
     echo ""
@@ -208,15 +207,6 @@ show_command_help() {
             echo "  hone         Interactive — choose to triage a bug or audit the codebase"
             echo "  auto-hone    Autonomous — triages oldest bug first, then audits"
             ;;
-        scribe|auto-scribe)
-            echo "forge scribe — Audit docs and update the GitHub Wiki"
-            echo ""
-            echo "Usage: forge scribe"
-            echo "       forge auto-scribe"
-            echo ""
-            echo "  scribe       Interactive — review docs with the user, get approval before changes"
-            echo "  auto-scribe  Autonomous — audits docs and updates wiki headlessly"
-            ;;
         stoke)
             echo "forge stoke — Autonomously process the issue queue"
             echo ""
@@ -232,7 +222,7 @@ show_command_help() {
             echo "Usage: forge cast"
             echo ""
             echo "Runs the entire pipeline end-to-end:"
-            echo "  smelt → stoke (hammer/temper) → proof → hone → scribe"
+            echo "  smelt → stoke (hammer/temper) → hone → proof"
             echo ""
             echo "If the Honer produces new work, the cycle repeats."
             echo "Exits when no new work is generated."
@@ -619,10 +609,27 @@ case "${1:-}" in
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg BLACKSMITH "Starting on issue #$issue..."
-            if ! run_forge_agent "auto-blacksmith" "Implement the next ready issue."; then
-                agent_fail BLACKSMITH "failed on issue #$issue."
-                exit 1
+            # Auto mode: check for interrupted session first
+            local auto_bs_session
+            auto_bs_session=$(get_session "blacksmith" | cut -f1)
+            local auto_bs_issue
+            auto_bs_issue=$(get_session "blacksmith" | cut -f3)
+            if [ -n "$auto_bs_session" ] && [ "$auto_bs_issue" = "$issue" ]; then
+                agent_msg BLACKSMITH "Resuming on issue #$issue..."
+                if ! run_forge_agent "auto-blacksmith" "Continue working. Implement issue #${issue}." "" --resume-session "$auto_bs_session"; then
+                    agent_fail BLACKSMITH "failed on issue #$issue."
+                    exit 1
+                fi
+            else
+                local session_id session_name="blacksmith-issue-${issue}"
+                session_id=$(_forge_uuid)
+                set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
+                agent_msg BLACKSMITH "Starting on issue #$issue..."
+                if ! run_forge_agent "auto-blacksmith" "Read INGOT.md in the project root for architectural context before starting. Implement issue #${issue}." "" \
+                    --session-id "$session_id" --session-name "$session_name"; then
+                    agent_fail BLACKSMITH "failed on issue #$issue."
+                    exit 1
+                fi
             fi
         else
             resumed_session=$(pick_session "blacksmith")
@@ -763,41 +770,6 @@ case "${1:-}" in
         agent_ok HONER "complete. Run 'forge stoke' to start implementing."
         ;;
 
-    scribe|auto-scribe)
-        FORGE_COMMAND="$1"; shift
-
-        require_forge_project
-        check_auth
-        check_labels
-
-        if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg SCRIBE "Starting..."
-            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki."; then
-                agent_fail SCRIBE "failed."
-                exit 1
-            fi
-        else
-            resumed_session=$(pick_session "scribe")
-            agent_msg SCRIBE "Starting..."
-            if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Scribe" "Continue where you left off." "" --resume-session "$resumed_session"; then
-                    agent_fail SCRIBE "failed."
-                    exit 1
-                fi
-            else
-                local session_id session_name
-                session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
-                session_id=$(_forge_uuid)
-                set_session "scribe" "$session_name" "$session_id" "" 2>/dev/null || true
-                if ! run_forge_agent "Scribe" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
-                    agent_fail SCRIBE "failed."
-                    exit 1
-                fi
-            fi
-        fi
-        agent_ok SCRIBE "complete."
-        ;;
-
     stoke)
         shift
 
@@ -829,7 +801,7 @@ case "${1:-}" in
         while true; do
             # Priority 0: Resume any interrupted agent session
             local interrupted_role="" interrupted_session=""
-            for _role in smelter honer scribe proof-master; do
+            for _role in smelter honer proof-master; do
                 local _sess
                 _sess=$(get_session "$_role" | cut -f1)
                 if [ -n "$_sess" ]; then
@@ -952,19 +924,7 @@ with open(cfg_path, 'w') as f:
             fi
             clear_session "honer" 2>/dev/null || true
 
-            local scribe_session_id scribe_session_name
-            scribe_session_name="scribe-$(date -u +'%m-%d-%YT%H-%M')"
-            scribe_session_id=$(_forge_uuid)
-            set_session "scribe" "$scribe_session_name" "$scribe_session_id" "" 2>/dev/null || true
-            agent_msg SCRIBE "Scribing..."
-            if ! run_forge_agent "auto-scribe" "Audit documentation and update the wiki." "Scribing..." \
-                --session-id "$scribe_session_id" --session-name "$scribe_session_name"; then
-                agent_fail SCRIBE "failed. Stopping."
-                exit 1
-            fi
-            clear_session "scribe" 2>/dev/null || true
-
-            # Check if hone/scribe produced new work
+            # Check if hone produced new work
             new_ready=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'length' 2>/dev/null || echo "0")
             new_ready="${new_ready:-0}"
             if [ "$new_ready" -gt 0 ]; then
