@@ -532,17 +532,36 @@ case "${1:-}" in
         check_labels
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            # Auto mode: feature requests only (bootstrap via forge cast)
-            local feature_issue
-            feature_issue=$(_find_oldest_human_feature)
-            if [ -z "$feature_issue" ]; then
-                forge_info "No human-filed type:feature issues found."
-                exit 0
-            fi
-            agent_msg SMELTER "Smelting feature request #$feature_issue..."
-            if ! run_forge_agent "auto-smelter-feature" "Process feature request issue #${feature_issue}. Research the codebase, plan the feature, and create implementation issues."; then
-                agent_fail SMELTER "failed."
-                exit 1
+            # Auto mode: check for interrupted session first
+            local auto_smelter_session
+            auto_smelter_session=$(get_session "smelter" | cut -f1)
+            if [ -n "$auto_smelter_session" ]; then
+                local auto_smelter_agent
+                auto_smelter_agent=$(_resolve_smelter_agent "auto")
+                agent_msg SMELTER "Resuming interrupted session..."
+                if ! run_forge_agent "$auto_smelter_agent" "Continue where you left off." "" --resume-session "$auto_smelter_session"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
+                clear_session "smelter" 2>/dev/null || true
+            else
+                # Feature requests only (bootstrap via forge cast)
+                local feature_issue
+                feature_issue=$(_find_oldest_human_feature)
+                if [ -z "$feature_issue" ]; then
+                    forge_info "No human-filed type:feature issues found."
+                    exit 0
+                fi
+                local session_id session_name="smelter-feature-${feature_issue}"
+                session_id=$(_forge_uuid)
+                set_session "smelter" "$session_name" "$session_id" "$feature_issue" 2>/dev/null || true
+                agent_msg SMELTER "Smelting feature request #$feature_issue..."
+                if ! run_forge_agent "auto-smelter-feature" "Process feature request issue #${feature_issue}. Research the codebase, plan the feature, and create implementation issues." "" \
+                    --session-id "$session_id" --session-name "$session_name"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
+                clear_session "smelter" 2>/dev/null || true
             fi
         else
             # Interactive mode: check for resumable session first
