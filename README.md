@@ -46,12 +46,12 @@ Then start building:
 ```bash
 forge smelt                  # describe your app — the Smelter plans and creates issues
 forge stoke                  # autonomously implement, review, and merge each issue
-forge cast                   # full autonomous cycle: smelt → stoke → proof → hone → scribe
+forge cast                   # full autonomous cycle: smelt → stoke → hone → proof
 ```
 
 ## How It Works
 
-Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Code agent — handle the development pipeline. Three post-cycle craftsmen handle releases, auditing, and documentation. You invoke them one at a time, or let them run autonomously.
+Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Code agent — handle the development pipeline. Two post-cycle craftsmen handle auditing and releases. You invoke them one at a time, or let them run autonomously.
 
 ```
    ┌───────────────┐       ┌──────────┐
@@ -62,9 +62,9 @@ Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Cod
    Core:        forge smelt  →  forge hammer  ⇄  forge temper  (per issue)
                                 ↑─── forge stoke ───↑
 
-   Post-cycle:  forge hone  →  forge scribe  →  forge proof
+   Post-cycle:  forge hone  →  forge proof
 
-                forge cast  =  smelt → stoke → hone → scribe → proof (full cycle)
+                forge cast  =  smelt → stoke → hone → proof (full cycle)
 ```
 
 ### The Craftsmen
@@ -76,7 +76,6 @@ Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Cod
 | **Temperer** | `forge temper` | Reviews the Blacksmith's work with E2E tests. Approves and merges, or sends back for rework. |
 | **Proof-Master** | `forge proof` | Checks for unreleased work on main. Creates versioned releases with changelog. |
 | **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues for the Blacksmith. |
-| **Scribe** | `forge scribe` | Audits documentation and maintains the GitHub Wiki. Files doc issues for the Blacksmith. |
 
 Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent runs headless via `-p` without human interaction.
 
@@ -173,7 +172,7 @@ Vercel watches the `production` branch and deploys automatically. The human cont
 | `forge hone` | Triage bugs or audit the codebase (interactive) |
 | `forge auto-hone` | Triages oldest bug first, then audits |
 | `forge stoke` | Process the issue queue autonomously |
-| `forge cast` | Full autonomous cycle: smelt → stoke → proof → hone → scribe |
+| `forge cast` | Full autonomous cycle: smelt → stoke → hone → proof |
 
 ### Operations
 
