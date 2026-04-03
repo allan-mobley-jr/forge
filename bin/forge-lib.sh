@@ -28,7 +28,6 @@ _agent_color() {
         SMELTER)      echo "$BLUE" ;;
         BLACKSMITH)   echo "$YELLOW" ;;
         TEMPERER)     echo "$GREEN" ;;
-        PROOF-MASTER) echo "$CYAN" ;;
         HONER)        echo "$RED" ;;
         *)            echo "$DIM" ;;
     esac

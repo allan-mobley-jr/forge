@@ -39,7 +39,7 @@ BANNER
             echo -e "\n  ${BLUE}STOKE${NC}  Stoking the fire — processing the issue queue"
             ;;
         cast)
-            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → stoke → hone → proof"
+            echo -e "\n  ${BLUE}CAST${NC}  Full cast — smelt → stoke → hone"
             ;;
         init)
             echo -e "\n  ${BLUE}INIT${NC}  Forging a new project"
@@ -60,11 +60,10 @@ show_usage() {
     echo "Pipeline commands:"
     echo "  smelt            Plan and create implementation issues"
     echo "  hammer           Implement the current issue"
-    echo "  temper           Review, open PR, and merge"
-    echo "  proof            Create a GitHub release"
+    echo "  temper           Evaluate, open PR, merge, and release"
     echo "  hone             Audit the codebase for improvements"
     echo "  stoke            Autonomously process the issue queue"
-    echo "  cast             Full autonomous cycle: smelt → stoke → hone → proof"
+    echo "  cast             Full autonomous cycle: smelt → stoke → hone"
     echo ""
     echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
     echo ""
@@ -181,22 +180,14 @@ show_command_help() {
             echo "status:rework) and implements it on a feature branch."
             ;;
         temper|auto-temper)
-            echo "forge temper — Review, open PR, and merge"
+            echo "forge temper — Evaluate, open PR, merge, and release"
             echo ""
             echo "Usage: forge temper"
             echo "       forge auto-temper"
             echo ""
-            echo "The Temperer independently reviews the Blacksmith's work. If"
-            echo "approved, opens a PR and merges it. If not, sends back for rework."
-            ;;
-        proof|auto-proof)
-            echo "forge proof — Create a GitHub release"
-            echo ""
-            echo "Usage: forge proof"
-            echo "       forge auto-proof"
-            echo ""
-            echo "The Proof-Master checks for unreleased work on main and creates"
-            echo "a versioned release with changelog."
+            echo "The Temperer evaluates the Blacksmith's work against acceptance"
+            echo "criteria and GRADING_CRITERIA.md. If approved, opens a PR and"
+            echo "merges it. After merge, evaluates if a release is warranted."
             ;;
         hone|auto-hone)
             echo "forge hone — Audit the codebase and file improvement issues"
@@ -222,7 +213,7 @@ show_command_help() {
             echo "Usage: forge cast"
             echo ""
             echo "Runs the entire pipeline end-to-end:"
-            echo "  smelt → stoke (hammer/temper) → hone → proof"
+            echo "  smelt → stoke (hammer/temper) → hone"
             echo ""
             echo "If the Honer produces new work, the cycle repeats."
             echo "Exits when no new work is generated."
@@ -666,10 +657,27 @@ case "${1:-}" in
         fi
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg TEMPERER "Starting on issue #$issue..."
-            if ! run_forge_agent "auto-temperer" "Review the next hammered issue."; then
-                agent_fail TEMPERER "failed on issue #$issue."
-                exit 1
+            # Auto mode: check for interrupted session first
+            local auto_tp_session
+            auto_tp_session=$(get_session "temperer" | cut -f1)
+            local auto_tp_issue
+            auto_tp_issue=$(get_session "temperer" | cut -f3)
+            if [ -n "$auto_tp_session" ] && [ "$auto_tp_issue" = "$issue" ]; then
+                agent_msg TEMPERER "Resuming on issue #$issue..."
+                if ! run_forge_agent "auto-temperer" "Continue working. Evaluate issue #${issue}." "" --resume-session "$auto_tp_session"; then
+                    agent_fail TEMPERER "failed on issue #$issue."
+                    exit 1
+                fi
+            else
+                local session_id session_name="temperer-issue-${issue}"
+                session_id=$(_forge_uuid)
+                set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
+                agent_msg TEMPERER "Starting on issue #$issue..."
+                if ! run_forge_agent "auto-temperer" "Read INGOT.md in the project root for architectural context before starting. Evaluate issue #${issue}." "" \
+                    --session-id "$session_id" --session-name "$session_name"; then
+                    agent_fail TEMPERER "failed on issue #$issue."
+                    exit 1
+                fi
             fi
         else
             resumed_session=$(pick_session "temperer")
@@ -690,41 +698,6 @@ case "${1:-}" in
             fi
         fi
         agent_ok TEMPERER "complete."
-        ;;
-
-    proof|auto-proof)
-        FORGE_COMMAND="$1"; shift
-
-        require_forge_project
-        check_auth
-
-        if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            agent_msg PROOF-MASTER "Checking for unreleased work..."
-            if ! run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..."; then
-                agent_fail PROOF-MASTER "failed."
-                exit 1
-            fi
-        else
-            resumed_session=$(pick_session "proof-master")
-            agent_msg PROOF-MASTER "Starting..."
-            if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Proof-Master" "Continue where you left off." "" --resume-session "$resumed_session"; then
-                    agent_fail PROOF-MASTER "failed."
-                    exit 1
-                fi
-            else
-                local current_tag
-                current_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "initial")
-                local session_id session_name="proof-master-${current_tag}"
-                session_id=$(_forge_uuid)
-                set_session "proof-master" "$session_name" "$session_id" "" 2>/dev/null || true
-                if ! run_forge_agent "Proof-Master" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
-                    agent_fail PROOF-MASTER "failed."
-                    exit 1
-                fi
-            fi
-        fi
-        agent_ok PROOF-MASTER "complete."
         ;;
 
     hone|auto-hone)
@@ -801,7 +774,7 @@ case "${1:-}" in
         while true; do
             # Priority 0: Resume any interrupted agent session
             local interrupted_role="" interrupted_session=""
-            for _role in smelter honer proof-master; do
+            for _role in smelter honer; do
                 local _sess
                 _sess=$(get_session "$_role" | cut -f1)
                 if [ -n "$_sess" ]; then
@@ -932,17 +905,7 @@ with open(cfg_path, 'w') as f:
                 continue
             fi
 
-            # No new work — stamp the release
-            local pm_current_tag pm_session_id pm_session_name
-            pm_current_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "initial")
-            pm_session_name="proof-master-${pm_current_tag}"
-            pm_session_id=$(_forge_uuid)
-            set_session "proof-master" "$pm_session_name" "$pm_session_id" "" 2>/dev/null || true
-            agent_msg PROOF-MASTER "Checking for unreleased work..."
-            run_forge_agent "auto-proof-master" "Check for unreleased work on main. If found, create a release." "Releasing..." \
-                --session-id "$pm_session_id" --session-name "$pm_session_name" || true
-            clear_session "proof-master" 2>/dev/null || true
-
+            # No new work — cast is done (releases happen naturally in the Temperer after merges)
             forge_ok "Cast complete."
             break
         done

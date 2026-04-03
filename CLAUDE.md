@@ -15,10 +15,8 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-smelter-feature.md — Auto-Smelter-Feature: headless feature planning
     blacksmith.md    — Blacksmith: interactive implementation
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
-    temperer.md      — Temperer: interactive review + PR + merge
-    auto-temperer.md — Auto-Temperer: headless review + PR + merge
-    proof-master.md  — Proof-Master: interactive releases + versioning
-    auto-proof-master.md — Auto-Proof-Master: headless releases + versioning
+    temperer.md      — Temperer: interactive evaluation + PR + merge + release
+    auto-temperer.md — Auto-Temperer: headless evaluation + PR + merge + release
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
@@ -44,7 +42,7 @@ Planning artifacts live in the codebase and on GitHub:
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
-- The Temperer uses lean review: reads diff + ledger + INGOT.md + GRADING_CRITERIA.md + E2E tests (no mandatory Explore/Plan subagents)
+- The Temperer uses lean evaluation: reads diff + ledger + INGOT.md + GRADING_CRITERIA.md + browses the app as a user (no mandatory subagents). Also manages releases after merges.
 - Domain agents at `~/.claude/agents/` are considered during research
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting
@@ -71,12 +69,12 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 
 ```
 Core:        forge smelt  →  forge hammer  ⇄  forge temper  (repeat per issue)
-Post-cycle:  forge hone  →  forge proof
+Post-cycle:  forge hone
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
 `forge stoke` processes the issue queue: dispatches Blacksmith or Temperer based on the oldest issue's status label. Uses named sessions with resume for crash recovery.
-`forge cast` runs the full autonomous cycle: smelt → stoke → hone → proof (repeats if new work emerges).
+`forge cast` runs the full autonomous cycle: smelt → stoke → hone (repeats if new work emerges). Releases happen naturally in the Temperer after merges.
 
 ## Git Workflow
 
