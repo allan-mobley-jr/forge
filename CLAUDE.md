@@ -42,7 +42,7 @@ Planning artifacts live in the codebase and on GitHub:
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
-- The Temperer uses lean review: reads diff + ledger + INGOT.md + GRADING_CRITERIA.md + E2E tests (no mandatory Explore/Plan subagents)
+- The Temperer uses lean evaluation: reads diff + ledger + INGOT.md + GRADING_CRITERIA.md + browses the app as a user (no mandatory subagents). Also manages releases after merges.
 - Domain agents at `~/.claude/agents/` are considered during research
 - Forge is distributed as a Claude Code plugin (user scope) + CLI (symlinked from ~/.forge/bin)
 - Bootstrap steps are idempotent bash functions — each checks precondition before acting

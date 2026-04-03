@@ -293,6 +293,8 @@ git push origin vA.B.C
 gh release create vA.B.C --title "vA.B.C" --notes "<changelog section>"
 ```
 
+If any release step fails (PR merge, tag push, release creation), stop and document the failure in a `**[Temperer]**` comment with the specific step that failed and the current state. Do not continue past a failed step — partial releases are hard to recover from.
+
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.

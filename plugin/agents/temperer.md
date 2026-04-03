@@ -304,6 +304,8 @@ git push origin vA.B.C
 gh release create vA.B.C --title "vA.B.C" --notes "<changelog section>"
 ```
 
+If any release step fails (PR merge, tag push, release creation), stop and report the failure to the user with the specific step that failed and the current state. Do not continue past a failed step — partial releases are hard to recover from.
+
 ## Rules
 
 - **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.

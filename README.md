@@ -272,7 +272,7 @@ forge/
 
 **Named sessions with resume.** Sessions persist across issues within a milestone, preserving the agent's full reasoning context. The CLI resumes on crash or relaunch. Sessions clear at milestone boundaries.
 
-**Lean Temperer.** The Temperer reads the diff, Blacksmith ledger, INGOT.md, and runs E2E tests — no mandatory Explore/Plan subagents. This matches Article 1's recommendation for evaluators that test artifacts directly.
+**Lean Temperer.** The Temperer reads the diff, Blacksmith ledger, INGOT.md, GRADING_CRITERIA.md, and browses the app as a user — no mandatory subagents. It also manages releases after merges. This matches Article 1's recommendation for evaluators that interact with artifacts directly.
 
 **Ledger for reasoning.** Every craftsman records its decisions as tagged comments on GitHub issues, including an Approaches Rejected section. This creates an audit trail — when the Temperer reviews the Blacksmith's work, it can read *why* decisions were made, not just *what* was done.
 
