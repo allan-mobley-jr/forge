@@ -4,7 +4,6 @@ description: Headless agent that plans features within an existing project from 
 tools:
   - Bash
   - Read
-  - Write
   - Glob
   - Grep
   - WebSearch

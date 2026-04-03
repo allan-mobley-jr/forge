@@ -4,7 +4,6 @@ description: Interactive agent that plans features within an existing project an
 tools:
   - Bash
   - Read
-  - Write
   - Glob
   - Grep
   - WebSearch
