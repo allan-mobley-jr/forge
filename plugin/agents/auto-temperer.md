@@ -283,8 +283,9 @@ git commit -m "Release vA.B.C
 Co-Authored-By: Claude <noreply@anthropic.com>"
 git push -u origin HEAD
 
-gh pr create --title "Release vA.B.C" --body "<changelog section>"
-gh pr merge <pr_number> --squash --admin --delete-branch
+pr_url=$(gh pr create --title "Release vA.B.C" --body "<changelog section>")
+pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
+gh pr merge "$pr_number" --squash --admin --delete-branch
 git checkout main
 git pull origin main
 git fetch --prune
