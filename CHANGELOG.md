@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-04-03
+
+### Added
+- Smelter split into 4 agents: bootstrap (scaffold, Vercel, INGOT.md) and feature (plan within existing architecture), each with interactive and auto variants
+- Honer split into 4 agents: bug triage and audit, each with interactive and auto variants
+- Per-project model pinning via `forge config model` — prevents accidental model drift across pipeline runs
+- Project state detection for automatic agent routing (empty project → bootstrap, has bugs → triage, otherwise → audit/feature)
+- Blacksmith reads GRADING_CRITERIA.md during implementation, runs local E2E tests via Playwright MCP, maintains README
+- Temperer evaluates against GRADING_CRITERIA.md with Quality Assessment in ledger, manages releases after merges
+- Honer two-pass audit: technical (tests, lint, build) + UX/design (browse app as user) against grading criteria
+- Issue-scoped sessions with descriptive names and crash recovery for all agents
+
+### Changed
+- Blacksmith uses code-explorer for codebase research, code-architect as devil's advocate (drafts first, then challenges)
+- Temperer reframed as evaluator — browses the app as a user, no pr-review-toolkit subagents
+- Honer evaluates directly — no pr-review-toolkit subagents, reads previous ledgers before flagging problems
+- All agents: Plan agent role changed to devil's advocate (agent drafts, Plan challenges)
+- Sessions scoped to individual issues instead of milestones
+- Rework cycle limit increased from 5 to 7
+- Branch protection simplified: removed required CI checks and Copilot review (all testing is local)
+- Pipeline reduced from 6 craftsmen to 4: Smelter, Blacksmith, Temperer, Honer
+- Issue body format simplified to Objective + Acceptance Criteria only (no Technical Notes or Dependencies)
+
+### Removed
+- Scribe agent — README maintenance moved to Blacksmith
+- Proof-Master agent — release management absorbed by Temperer
+- `forge proof`, `forge auto-proof`, `forge scribe`, `forge auto-scribe` commands
+
+### Fixed
+- Defensive status label transitions prevent stale label accumulation from interrupted transitions
+- Stoke loop crash with "Issue #null" when all status issues are resolved
+
 ## [0.2.2] - 2026-03-31
 
 ### Fixed
@@ -110,6 +142,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.3.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.3.0
 [0.2.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.2
 [0.2.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.1
 [0.2.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.0
