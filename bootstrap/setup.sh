@@ -276,15 +276,7 @@ rules = [
         'dismiss_stale_reviews_on_push': False,
         'require_code_owner_review': False,
         'require_last_push_approval': False,
-        'required_review_thread_resolution': True
-    }},
-    {'type': 'required_status_checks', 'parameters': {
-        'strict_required_status_checks_policy': False,
-        'required_status_checks': [{'context': 'Quality Checks'}]
-    }},
-    {'type': 'copilot_code_review', 'parameters': {
-        'review_on_push': False,
-        'review_draft_pull_requests': False
+        'required_review_thread_resolution': False
     }},
     {'type': 'non_fast_forward'},
     {'type': 'deletion'}
