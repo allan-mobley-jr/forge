@@ -46,12 +46,12 @@ Then start building:
 ```bash
 forge smelt                  # describe your app — the Smelter plans and creates issues
 forge stoke                  # autonomously implement, review, and merge each issue
-forge cast                   # full autonomous cycle: smelt → stoke → hone → proof
+forge cast                   # full autonomous cycle: smelt → stoke → hone
 ```
 
 ## How It Works
 
-Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Code agent — handle the development pipeline. Two post-cycle craftsmen handle auditing and releases. You invoke them one at a time, or let them run autonomously.
+Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Code agent — handle the development pipeline. One post-cycle craftsman handles auditing. You invoke them one at a time, or let them run autonomously.
 
 ```
    ┌───────────────┐       ┌──────────┐
@@ -62,19 +62,18 @@ Forge uses a medieval forge metaphor. Three core craftsmen — each a Claude Cod
    Core:        forge smelt  →  forge hammer  ⇄  forge temper  (per issue)
                                 ↑─── forge stoke ───↑
 
-   Post-cycle:  forge hone  →  forge proof
+   Post-cycle:  forge hone
 
-                forge cast  =  smelt → stoke → hone → proof (full cycle)
+                forge cast  =  smelt → stoke → hone (full cycle)
 ```
 
 ### The Craftsmen
 
 | Craftsman | Command | What it does |
 |-----------|---------|-------------|
-| **Smelter** | `forge smelt` | Researches, plans, and creates sequenced implementation issues. On first run, produces the project ingot (INGOT.md). |
+| **Smelter** | `forge smelt` | Researches, plans, and creates sequenced implementation issues. On first run, scaffolds the project and produces INGOT.md. |
 | **Blacksmith** | `forge hammer` | Implements the lowest open issue on a feature branch. Reads INGOT.md for architectural context. |
-| **Temperer** | `forge temper` | Reviews the Blacksmith's work with E2E tests. Approves and merges, or sends back for rework. |
-| **Proof-Master** | `forge proof` | Checks for unreleased work on main. Creates versioned releases with changelog. |
+| **Temperer** | `forge temper` | Evaluates the Blacksmith's work against acceptance criteria and quality bar. Approves and merges, or sends back for rework. Manages releases. |
 | **Honer** | `forge hone` | Triages bugs or audits the codebase. Files implementation issues for the Blacksmith. |
 
 Each command has an `auto-` variant for autonomous operation (e.g., `forge auto-smelt`). In auto mode, the agent runs headless via `-p` without human interaction.
@@ -165,14 +164,12 @@ Vercel watches the `production` branch and deploys automatically. The human cont
 | `forge auto-smelt` | Picks up oldest human-filed `type:feature` issue |
 | `forge hammer` | Implement the current issue (interactive) |
 | `forge auto-hammer` | Same, autonomous |
-| `forge temper` | Review, open PR, and merge (interactive) |
+| `forge temper` | Evaluate, open PR, merge, and release (interactive) |
 | `forge auto-temper` | Same, autonomous |
-| `forge proof` | Create a GitHub release (interactive) |
-| `forge auto-proof` | Same, autonomous |
 | `forge hone` | Triage bugs or audit the codebase (interactive) |
 | `forge auto-hone` | Triages oldest bug first, then audits |
 | `forge stoke` | Process the issue queue autonomously |
-| `forge cast` | Full autonomous cycle: smelt → stoke → hone → proof |
+| `forge cast` | Full autonomous cycle: smelt → stoke → hone |
 
 ### Operations
 

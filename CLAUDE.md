@@ -15,10 +15,8 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-smelter-feature.md — Auto-Smelter-Feature: headless feature planning
     blacksmith.md    — Blacksmith: interactive implementation
     auto-blacksmith.md — Auto-Blacksmith: headless implementation
-    temperer.md      — Temperer: interactive review + PR + merge
-    auto-temperer.md — Auto-Temperer: headless review + PR + merge
-    proof-master.md  — Proof-Master: interactive releases + versioning
-    auto-proof-master.md — Auto-Proof-Master: headless releases + versioning
+    temperer.md      — Temperer: interactive evaluation + PR + merge + release
+    auto-temperer.md — Auto-Temperer: headless evaluation + PR + merge + release
     honer.md         — Honer: interactive bug triage / audit
     auto-honer.md    — Auto-Honer: headless bug triage / audit
 bin/             — Forge CLI (forge.sh main executable, forge-lib.sh shared library)
@@ -71,12 +69,12 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 
 ```
 Core:        forge smelt  →  forge hammer  ⇄  forge temper  (repeat per issue)
-Post-cycle:  forge hone  →  forge proof
+Post-cycle:  forge hone
 ```
 
 Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
 `forge stoke` processes the issue queue: dispatches Blacksmith or Temperer based on the oldest issue's status label. Uses named sessions with resume for crash recovery.
-`forge cast` runs the full autonomous cycle: smelt → stoke → hone → proof (repeats if new work emerges).
+`forge cast` runs the full autonomous cycle: smelt → stoke → hone (repeats if new work emerges). Releases happen naturally in the Temperer after merges.
 
 ## Git Workflow
 
