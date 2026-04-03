@@ -561,6 +561,69 @@ EOF
     [[ "$output" != *"--agent"* ]]
 }
 
+# --- project state detection ---
+
+@test "_is_empty_project returns true for empty dir" {
+    local project_dir="$TEST_TMPDIR/empty-project"
+    mkdir -p "$project_dir"
+    git -C "$project_dir" init --quiet
+    cd "$project_dir"
+    run _is_empty_project
+    [[ "$status" -eq 0 ]]
+}
+
+@test "_is_empty_project returns false when source files exist" {
+    local project_dir="$TEST_TMPDIR/nonempty-project"
+    mkdir -p "$project_dir"
+    git -C "$project_dir" init --quiet
+    touch "$project_dir/package.json"
+    cd "$project_dir"
+    run _is_empty_project
+    [[ "$status" -ne 0 ]]
+}
+
+@test "_is_empty_project ignores boilerplate files" {
+    local project_dir="$TEST_TMPDIR/boilerplate-project"
+    mkdir -p "$project_dir/.forge"
+    git -C "$project_dir" init --quiet
+    touch "$project_dir/.gitignore" "$project_dir/LICENSE" "$project_dir/README.md"
+    cd "$project_dir"
+    run _is_empty_project
+    [[ "$status" -eq 0 ]]
+}
+
+@test "_is_bootstrap_candidate returns false when no issues exist" {
+    mock_gh_with 'echo "0"'
+    run _is_bootstrap_candidate
+    [[ "$status" -ne 0 ]]
+}
+
+@test "_is_bootstrap_candidate returns true for sole feature issue" {
+    mock_gh_with '
+        args="$*"
+        if [[ "$args" == *"--state all"* ]]; then
+            echo "1"
+        elif [[ "$args" == *"type:feature"* ]]; then
+            echo "42"
+        fi
+    '
+    run _is_bootstrap_candidate
+    [[ "$status" -eq 0 ]]
+}
+
+@test "_is_bootstrap_candidate returns false when multiple issues exist" {
+    mock_gh_with '
+        args="$*"
+        if [[ "$args" == *"--state all"* ]]; then
+            echo "5"
+        elif [[ "$args" == *"type:feature"* ]]; then
+            echo "1"
+        fi
+    '
+    run _is_bootstrap_candidate
+    [[ "$status" -ne 0 ]]
+}
+
 # --- project model ---
 
 @test "get_project_model returns empty when no model set" {
