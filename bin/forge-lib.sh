@@ -179,7 +179,7 @@ _is_empty_project() {
     for f in * .[!.]* ..?*; do
         [ -e "$f" ] || continue
         case "$f" in
-            .git|.gitignore|.forge|LICENSE|README.md) ;;
+            .git|.gitignore|.forge|.claude|CLAUDE.md|LICENSE|README.md) ;;
             *) count=$((count + 1)) ;;
         esac
     done
@@ -192,7 +192,7 @@ _is_bootstrap_candidate() {
     local total
     total=$(gh issue list --state all --json number -L 500 --jq 'length' 2>/dev/null || echo "0")
     total="${total:-0}"
-    [ "$total" -eq 1 ] || return 1
+    [ "$total" -eq 1 ] 2>/dev/null || return 1
     local feature
     feature=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
         [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | .[0].number // empty

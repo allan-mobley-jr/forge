@@ -547,38 +547,47 @@ case "${1:-}" in
                 exit 1
             fi
         else
-            # Interactive mode: detect bootstrap vs feature
-            local smelter_agent session_name
-            if _is_empty_project; then
-                smelter_agent="Smelter"
-                session_name="smelter-ingot"
-            else
-                local feature_issue
-                feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-                    [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-                ' 2>/dev/null || true)
-                if [ -n "$feature_issue" ]; then
-                    smelter_agent="Smelter-Feature"
-                    session_name="smelter-feature-${feature_issue}"
-                else
-                    forge_info "No feature requests to process. File a type:feature issue or start a new project."
-                    exit 0
-                fi
-            fi
-
-            # Check for resumable session
+            # Interactive mode: check for resumable session first
             local resumed_session
             resumed_session=$(pick_session "smelter")
-            agent_msg SMELTER "Starting..."
             if [ -n "$resumed_session" ]; then
+                # Determine agent variant from session name
+                local smelter_agent
+                local _sess_name
+                _sess_name=$(get_session "smelter" | cut -f2)
+                if [[ "$_sess_name" == smelter-feature-* ]]; then
+                    smelter_agent="Smelter-Feature"
+                else
+                    smelter_agent="Smelter"
+                fi
+                agent_msg SMELTER "Resuming..."
                 if ! run_forge_agent "$smelter_agent" "Continue where you left off." "" --resume-session "$resumed_session"; then
                     agent_fail SMELTER "failed."
                     exit 1
                 fi
             else
+                # Detect bootstrap vs feature
+                local smelter_agent session_name
+                if _is_empty_project; then
+                    smelter_agent="Smelter"
+                    session_name="smelter-ingot"
+                else
+                    local feature_issue
+                    feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
+                        [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
+                    ' 2>/dev/null || true)
+                    if [ -n "$feature_issue" ]; then
+                        smelter_agent="Smelter-Feature"
+                        session_name="smelter-feature-${feature_issue}"
+                    else
+                        forge_info "No feature requests to process. File a type:feature issue or start a new project."
+                        exit 0
+                    fi
+                fi
                 local session_id
                 session_id=$(_forge_uuid)
                 set_session "smelter" "$session_name" "$session_id" "" 2>/dev/null || true
+                agent_msg SMELTER "Starting..."
                 if ! run_forge_agent "$smelter_agent" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail SMELTER "failed."
                     exit 1
