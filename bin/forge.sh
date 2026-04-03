@@ -163,11 +163,14 @@ show_command_help() {
             echo "Usage: forge smelt"
             echo "       forge auto-smelt"
             echo ""
-            echo "  smelt        Interactive — describe what you want, confer with the Smelter"
-            echo "  auto-smelt   Autonomous — picks up the oldest human-filed type:feature issue"
+            echo "  smelt        Interactive — bootstrap a new project or plan a feature"
+            echo "  auto-smelt   Autonomous — processes the oldest human-filed type:feature issue"
             echo ""
-            echo "The Smelter researches, plans, and creates sequenced implementation"
-            echo "issues. On the first run, it also creates the project ingot (INGOT.md)."
+            echo "The Smelter has two roles:"
+            echo "  Bootstrap  Empty project — scaffolds, sets up Vercel, writes INGOT.md"
+            echo "  Feature    Existing project — plans features within the architecture"
+            echo ""
+            echo "The CLI detects which role to use based on project state."
             ;;
         hammer|auto-hammer)
             echo "forge hammer — Implement the current issue"
@@ -529,39 +532,71 @@ case "${1:-}" in
         check_labels
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            # Short-circuit: no human-filed feature issues to smelt
-            feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-            ' 2>/dev/null || true)
-            if [ -z "$feature_issue" ]; then
-                forge_info "No human-filed type:feature issues found."
-                exit 0
-            fi
-            agent_msg SMELTER "Starting on issue #$feature_issue..."
-            if ! run_forge_agent "auto-smelter" "Process the oldest human-filed type:feature issue. Research, plan, and create implementation issues."; then
-                agent_fail SMELTER "failed."
-                exit 1
+            # Auto mode: check for interrupted session first
+            local auto_smelter_session
+            auto_smelter_session=$(get_session "smelter" | cut -f1)
+            if [ -n "$auto_smelter_session" ]; then
+                local auto_smelter_agent
+                auto_smelter_agent=$(_resolve_smelter_agent "auto")
+                agent_msg SMELTER "Resuming interrupted session..."
+                if ! run_forge_agent "$auto_smelter_agent" "Continue where you left off." "" --resume-session "$auto_smelter_session"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
+                clear_session "smelter" 2>/dev/null || true
+            else
+                # Feature requests only (bootstrap via forge cast)
+                local feature_issue
+                feature_issue=$(_find_oldest_human_feature)
+                if [ -z "$feature_issue" ]; then
+                    forge_info "No human-filed type:feature issues found."
+                    exit 0
+                fi
+                local session_id session_name="smelter-feature-${feature_issue}"
+                session_id=$(_forge_uuid)
+                set_session "smelter" "$session_name" "$session_id" "$feature_issue" 2>/dev/null || true
+                agent_msg SMELTER "Smelting feature request #$feature_issue..."
+                if ! run_forge_agent "auto-smelter-feature" "Process feature request issue #${feature_issue}. Research the codebase, plan the feature, and create implementation issues." "" \
+                    --session-id "$session_id" --session-name "$session_name"; then
+                    agent_fail SMELTER "failed."
+                    exit 1
+                fi
+                clear_session "smelter" 2>/dev/null || true
             fi
         else
-            # Check for resumable session
+            # Interactive mode: check for resumable session first
+            local resumed_session
             resumed_session=$(pick_session "smelter")
-            agent_msg SMELTER "Starting..."
             if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Smelter" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                local smelter_agent
+                smelter_agent=$(_resolve_smelter_agent "interactive")
+                agent_msg SMELTER "Resuming..."
+                if ! run_forge_agent "$smelter_agent" "Continue where you left off." "" --resume-session "$resumed_session"; then
                     agent_fail SMELTER "failed."
                     exit 1
                 fi
             else
-                local session_id
-                local session_name
-                if [ -f INGOT.md ]; then
-                    session_name="smelter-features"
-                else
+                # Detect bootstrap vs feature
+                local smelter_agent session_name
+                if _is_empty_project; then
+                    smelter_agent="Smelter"
                     session_name="smelter-ingot"
+                else
+                    local feature_issue
+                    feature_issue=$(_find_oldest_human_feature)
+                    if [ -n "$feature_issue" ]; then
+                        smelter_agent="Smelter-Feature"
+                        session_name="smelter-feature-${feature_issue}"
+                    else
+                        forge_info "No feature requests to process. File a type:feature issue or start a new project."
+                        exit 0
+                    fi
                 fi
+                local session_id
                 session_id=$(_forge_uuid)
                 set_session "smelter" "$session_name" "$session_id" "" 2>/dev/null || true
-                if ! run_forge_agent "Smelter" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
+                agent_msg SMELTER "Starting..."
+                if ! run_forge_agent "$smelter_agent" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail SMELTER "failed."
                     exit 1
                 fi
@@ -806,6 +841,10 @@ case "${1:-}" in
             if [ -n "$interrupted_session" ]; then
                 cast_did_work=true
                 local _agent_name="auto-${interrupted_role}"
+                # For smelter, pick the right variant based on session name
+                if [ "$interrupted_role" = "smelter" ]; then
+                    _agent_name=$(_resolve_smelter_agent "auto")
+                fi
                 local _label
                 _label=$(echo "$interrupted_role" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
                 agent_msg "$_label" "Resuming interrupted ${interrupted_role} session..."
@@ -853,17 +892,26 @@ with open(cfg_path, 'w') as f:
                 continue
             fi
 
-            # Priority 2: Human-filed feature requests → smelt (creates issues directly)
-            feature_issue=$(gh issue list --state open --label "type:feature" --json number,labels --jq '
-                [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
-            ' 2>/dev/null || true)
+            # Priority 2: Human-filed feature requests → smelt
+            local feature_issue
+            feature_issue=$(_find_oldest_human_feature)
             if [ -n "$feature_issue" ]; then
                 cast_did_work=true
-                local smelter_session_id smelter_session_name="smelter-feature-${feature_issue}"
+                local smelter_agent smelter_session_id smelter_session_name smelter_prompt
+                # Bootstrap if this is the sole and only issue ever created
+                if _is_bootstrap_candidate; then
+                    smelter_agent="auto-smelter"
+                    smelter_session_name="smelter-ingot"
+                    smelter_prompt="Bootstrap the project from feature request issue #${feature_issue}. Research, scaffold, set up Vercel, write INGOT.md and GRADING_CRITERIA.md, and create implementation issues."
+                else
+                    smelter_agent="auto-smelter-feature"
+                    smelter_session_name="smelter-feature-${feature_issue}"
+                    smelter_prompt="Process feature request issue #${feature_issue}. Research the codebase, plan the feature, and create implementation issues."
+                fi
                 smelter_session_id=$(_forge_uuid)
                 set_session "smelter" "$smelter_session_name" "$smelter_session_id" "$feature_issue" 2>/dev/null || true
                 agent_msg SMELTER "Smelting feature request #$feature_issue..."
-                if ! run_forge_agent "auto-smelter" "Process feature request issue #${feature_issue}. Research, plan, and create implementation issues." "Smelting #${feature_issue}..." \
+                if ! run_forge_agent "$smelter_agent" "$smelter_prompt" "Smelting #${feature_issue}..." \
                     --session-id "$smelter_session_id" --session-name "$smelter_session_name"; then
                     agent_fail SMELTER "failed. Stopping."
                     exit 1

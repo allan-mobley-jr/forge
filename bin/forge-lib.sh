@@ -170,6 +170,64 @@ with open(cfg_path, 'w') as f:
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$1"
 }
 
+# --- Project state detection ---
+
+# _is_empty_project — returns 0 if the directory has no source files.
+# Ignores .git, .gitignore, .forge, and other boilerplate.
+_is_empty_project() {
+    local count=0
+    for f in * .[!.]* ..?*; do
+        [ -e "$f" ] || continue
+        case "$f" in
+            .git|.gitignore|.forge|.claude|CLAUDE.md|LICENSE|README.md) ;;
+            *) count=$((count + 1)) ;;
+        esac
+    done
+    [ "$count" -eq 0 ]
+}
+
+# _find_oldest_human_feature — print the issue number of the oldest open
+# human-filed type:feature issue (no ai-generated label), or empty.
+_find_oldest_human_feature() {
+    gh issue list --state open --label "type:feature" --json number,labels --jq '
+        [.[] | select(.labels | map(.name) | any(. == "ai-generated") | not)] | sort_by(.number) | .[0].number // empty
+    ' 2>/dev/null || true
+}
+
+# _is_bootstrap_candidate — returns 0 if there is exactly one issue ever
+# and it is an open type:feature without ai-generated.
+_is_bootstrap_candidate() {
+    local total
+    total=$(gh issue list --state all --json number -L 500 --jq 'length' 2>/dev/null || echo "0")
+    total="${total:-0}"
+    [ "$total" -eq 1 ] 2>/dev/null || return 1
+    local feature
+    feature=$(_find_oldest_human_feature)
+    [ -n "$feature" ]
+}
+
+# _resolve_smelter_agent — determine the smelter agent variant from session name.
+# Usage: _resolve_smelter_agent <mode>   (mode = "interactive" or "auto")
+# Prints the agent name based on the active smelter session name prefix.
+_resolve_smelter_agent() {
+    local mode="$1"
+    local sess_name
+    sess_name=$(get_session "smelter" | cut -f2)
+    if [[ "$sess_name" == smelter-feature-* ]]; then
+        if [ "$mode" = "auto" ]; then
+            echo "auto-smelter-feature"
+        else
+            echo "Smelter-Feature"
+        fi
+    else
+        if [ "$mode" = "auto" ]; then
+            echo "auto-smelter"
+        else
+            echo "Smelter"
+        fi
+    fi
+}
+
 # --- Session management ---
 # Each agent maintains a session history per project.
 # Sessions are scoped to individual issues (or invocations for non-issue agents).
