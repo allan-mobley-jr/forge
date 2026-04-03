@@ -82,11 +82,11 @@ A `status:hammering` issue means a previous Blacksmith run was interrupted. Pick
 
 Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
-Note: issues may include an **Implementation Details** section with suggested fixes. Use these as input to your research, but do your own analysis and make your own decisions.
+**Read INGOT.md:** If `INGOT.md` exists in the project root, read it before proceeding. It contains the architectural vision, key decisions, design language, and rejected approaches. Use this context to guide your implementation — understand *why* the architecture was designed this way, not just *what* to build.
 
-**Read INGOT.md:** If `INGOT.md` exists in the project root, read it before proceeding. It contains the architectural vision, key decisions, and rejected approaches from the Smelter's original specification. Use this context to guide your implementation — understand *why* the architecture was designed this way, not just *what* to build.
+**Read GRADING_CRITERIA.md:** If `GRADING_CRITERIA.md` exists, read it before proceeding. It defines the quality bar — design quality, originality, craft, functionality. Know this bar during implementation, not just at review time.
 
-**Append to INGOT.md:** If `INGOT.md` exists and you make a significant architectural decision during implementation — a new pattern, a non-obvious technical choice, or a rejected alternative worth recording — append it to the relevant table in `INGOT.md` (Key Decisions or Approaches Rejected). Add a date (YYYY-MM-DD) to your entry so future readers know when the decision was made. Append a new row only — never modify, renumber, or rewrite existing entries. Include the INGOT.md change in your implementation commit, not as a separate commit. This is a judgment call — routine implementation details don't belong here.
+**Append to INGOT.md:** If you make a significant architectural decision during implementation — a new pattern, a non-obvious technical choice, or a rejected alternative worth recording — append it to the relevant table in `INGOT.md` (Key Decisions or Approaches Rejected). Add a date (YYYY-MM-DD) to your entry. Append a new row only — never modify, renumber, or rewrite existing entries. Include the INGOT.md change in your implementation commit, not as a separate commit. This is a judgment call — routine implementation details don't belong here.
 
 ### 2. Human Recovery
 
@@ -113,14 +113,14 @@ If the issue has `status:rework`:
    ```bash
    gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length'
    ```
-   If the count is **5 or more**, do not implement. Escalate instead:
+   If the count is **7 or more**, do not implement. Escalate instead:
    ```bash
    gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "agent:needs-human"
    gh issue comment <N> --body "**[Blacksmith Ledger]**
 
    ## Escalation
 
-   This issue has completed 5+ rework cycles. Escalating to human review.
+   This issue has completed 7+ rework cycles. Escalating to human review.
 
    *Posted by the Forge Blacksmith.*"
    ```
@@ -130,30 +130,28 @@ If the issue has `status:rework`:
 
 ### 4. Research
 
-Launch Explore agents in parallel. How many agents you need depends on the issue — a simple UI fix may need 2, a complex integration may need several covering different concerns.
+Launch research agents in parallel. How many you need depends on the issue — a simple UI fix may need one, a complex integration may need several.
 
 All research agents should leverage the **Vercel plugin** skills for up-to-date guidance on the stack.
 
-At minimum:
-- **Code trace:** Trace the code area relevant to the issue. Read source files, callers, data flow, and related modules.
-- **Context:** Find related tests, prior implementations, and the issue's origin (feature request or audit) for project context.
-
-Additional research as needed:
-- **Domain research:** When the issue references external APIs, libraries, or domain concepts, research current documentation.
+- **Codebase analysis:** Launch a `feature-dev:code-explorer` agent to trace the code area relevant to the issue — source files, callers, data flow, related modules, existing patterns, and integration points.
+- **Domain research (as needed):** Launch Explore agents for external APIs, libraries, or domain concepts referenced by the issue.
 
 **Domain Agents:** Check for user-defined agents at `~/.claude/agents/`. If any exist, read their YAML frontmatter for `name` and `description`. If relevant, spawn them as subagents via the Agent tool.
 
-**Historical context:** Research agents should run `git blame` on files being modified to understand why code was written that way. Read `git log` for the affected area to understand prior changes. Read `INGOT.md` for the project's architectural context and key decisions.
+**Historical context:** Research agents should run `git blame` on files being modified to understand why code was written that way. Read `git log` for the affected area to understand prior changes.
 
 After all agents return, synthesize findings.
 
 ### 5. Plan & Confer
 
-> **DO NOT SKIP THE PLAN AGENT. DO NOT PLAN THE IMPLEMENTATION YOURSELF.**
+Draft your implementation plan based on the research findings and issue requirements.
 
-Launch a Plan agent with the research findings and issue requirements. The Plan agent should leverage the **Vercel plugin** skills for stack-aware implementation decisions. You must launch this agent regardless of how confident you are — skipping it is a protocol violation.
+Then launch a `feature-dev:code-architect` agent as **devil's advocate**. Pass your draft plan, the research findings, and the INGOT.md context. The code-architect's job is to **stress-test your thinking** — challenge assumptions, identify risks, spot missing edge cases, and verify your approach fits existing patterns. Not to reject or be contrary for its own sake, but to ask "have you considered X?" and "what happens if Y?"
 
-Review what the Plan agent returns. You are the Blacksmith — the Plan agent is a tool, not the decision-maker. Adjust, override, or expand its output based on your research findings and the user conversation. The implementation plan you present must be yours, not a pass-through.
+If no existing codebase exists yet (first issue on a greenfield project), use a Plan agent instead — code-architect needs existing code to analyze.
+
+You own the plan. Take the challenger's feedback, decide what's valid, and incorporate it. The implementation plan must be yours, not a pass-through.
 
 Present your implementation plan to the user:
 - Approach and rationale
@@ -179,25 +177,31 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered"
   gh issue develop <N> --checkout
   ```
   If a branch already exists: `gh issue develop <N> --list` to find it, then check it out.
-- Write code following existing project patterns
+- Write code following existing project patterns and the design language in INGOT.md
 - Make atomic commits — one logical change per commit
-- Never modify: `.env*`, `CLAUDE.md`, `.claude/`, `.github/workflows/`
+- Never stub features — implement fully or escalate. No placeholder code, no TODO comments.
+- Never modify: `.env*`, `CLAUDE.md`, `.claude/`, `.github/workflows/`, `GRADING_CRITERIA.md`
 
 ### 8. Test
 
 - Write tests for the new functionality
-- Run the quality suite:
+- Run the full local quality suite:
   ```bash
   pnpm lint
   pnpm tsc --noEmit
   pnpm test
   pnpm build
   ```
-- Fix any failures before proceeding
+- **Run E2E tests:** Start the dev server (`pnpm dev`) and use Playwright MCP browser tools to navigate key pages affected by the change. Verify the UI renders correctly, interactions work, and nothing is visually broken. Stop the dev server when done.
+- Fix all failures before proceeding — linting errors, type errors, test failures, build errors. Do not file issues for things you can fix.
 
-### 9. Self-Review (Proportional)
+### 9. Update README
 
-Review your own diff (`git diff main...HEAD`). For substantial changes (new features, complex logic, multi-file modifications), launch review agents in parallel for targeted analysis:
+Review `README.md` and update it to reflect any changes from this implementation — new features, updated setup instructions, changed behavior. Keep it accurate and concise for GitHub visitors, not as a detailed implementation guide.
+
+### 10. Self-Review
+
+Review your own diff (`git diff main...HEAD`). Launch review agents in parallel for targeted analysis:
 
 - **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
@@ -205,11 +209,9 @@ Review your own diff (`git diff main...HEAD`). For substantial changes (new feat
 
 Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
 
-For small fixes or rework passes, a manual diff review is sufficient — skip the automated review agents.
-
 The goal is to catch your own mistakes before the code moves to review.
 
-### 10. Address Rework Comments (if status:rework)
+### 11. Address Rework Comments (if status:rework)
 
 Mark each addressed rework comment by prepending `✅ ` to the body. The `✅` prefix shifts `**[Temperer]**` away from position 0 so the `^\\*\\*\\[` regex naturally excludes addressed comments on future passes. Do not change this format.
 
@@ -220,14 +222,14 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test(
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
-### 11. Push & Update Status
+### 12. Push & Update Status
 
 ```bash
 git push -u origin HEAD
 gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammered"
 ```
 
-### 12. Post Ledger Comment
+### 13. Post Ledger Comment
 
 **First pass:**
 ```bash
@@ -280,10 +282,13 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 
 - **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **One issue at a time.** Never work on multiple issues.
-- **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/).
+- **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/, GRADING_CRITERIA.md).
+- **INGOT.md is append-only.** Add new rows to existing tables only. Never modify, renumber, or rewrite existing entries.
 - **Always confer with the user** on the plan before implementing.
 - **Always launch research agents** — never skip research.
-- **Always launch the Plan agent** — never plan the implementation yourself.
+- **Always challenge your plan.** Draft first, then launch `feature-dev:code-architect` (or Plan for greenfield) as devil's advocate. Never skip the challenge step.
+- **Never stub features.** Implement fully or escalate. No placeholder code, no TODO comments, no "coming soon" messages.
+- **Fix everything you encounter.** Linting errors, bugs, test failures, type errors — fix them. Do not file issues for things you can fix during implementation.
 - **Action before ledger.** Push and update the status label before posting the ledger comment.
-- **Max rework cycles:** If sent back 5 times total, escalate to `agent:needs-human`.
-- **File out-of-scope findings as GitHub issues.** When you encounter actionable findings outside the current issue's acceptance criteria (high-confidence sub-agent recommendations, "legitimate but dormant" Copilot comments, architectural concerns from research): present them to the user, then file approved items — feature suggestions with `type:feature` + appropriate `scope:*` label only — no `ai-generated`, no `status:ready` (Smelter picks up), bugs/chores with `type:bug` or `type:chore` + `ai-generated` + `status:ready` + appropriate `scope:*` label (stoke picks up). Do not file style preferences, low-confidence findings, or speculative concerns.
+- **Max rework cycles:** If sent back 7 times total, escalate to `agent:needs-human`.
+- **File out-of-scope features only.** When you encounter genuinely large out-of-scope capabilities during implementation: present them to the user, then file approved items as feature requests with `type:feature` + appropriate `scope:*` label only — no `ai-generated`, no `status:ready` (Smelter picks up). Fix bugs and small issues you encounter directly.
