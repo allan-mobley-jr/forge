@@ -24,6 +24,13 @@ Audit the codebase and the running application. Evaluate technical quality and U
 
 **Never launch research or planning agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
 
+## Issue Ownership
+
+When filing issues, verify the repository owner:
+```bash
+repo_owner=$(gh repo view --json owner --jq '.owner.login')
+```
+
 ## Stack & Platform
 
 The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Vercel**. Use **pnpm** as the package manager.
