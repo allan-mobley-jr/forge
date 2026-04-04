@@ -120,13 +120,22 @@ require_forge_project() {
     local registered
     registered=$(python3 -c "
 import json, sys
-with open(sys.argv[1]) as f:
-    cfg = json.load(f)
+try:
+    with open(sys.argv[1]) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError:
+    sys.exit(2)
 for name, proj in cfg.get('projects', {}).items():
     if proj.get('path') == sys.argv[2]:
         print('yes')
         break
-" "$FORGE_CONFIG_DIR/config.json" "$project_path" 2>/dev/null || true)
+" "$FORGE_CONFIG_DIR/config.json" "$project_path" 2>/dev/null)
+    local py_exit=$?
+    if [ "$py_exit" -eq 2 ]; then
+        echo -e "${RED}Error:${NC} $FORGE_CONFIG_DIR/config.json is corrupted."
+        echo "  Back up the file and re-run ${BOLD}forge init${NC}."
+        exit 1
+    fi
     if [ "$registered" != "yes" ]; then
         echo -e "${RED}Error:${NC} Not a Forge project."
         echo "  Run ${BOLD}forge init${NC} to bootstrap a new project."
@@ -146,7 +155,7 @@ try:
     model = cfg['projects'][sys.argv[2]].get('model', '')
     if model:
         print(model)
-except (KeyError, TypeError, FileNotFoundError):
+except (KeyError, TypeError, FileNotFoundError, json.JSONDecodeError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" 2>/dev/null || true
 }
@@ -159,8 +168,12 @@ set_project_model() {
     python3 -c "
 import json, sys
 cfg_path, proj, model = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(cfg_path) as f:
-    cfg = json.load(f)
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}', file=sys.stderr)
+    sys.exit(1)
 cfg['projects'][proj]['model'] = model
 with open(cfg_path, 'w') as f:
     json.dump(cfg, f, indent=2)
@@ -300,7 +313,7 @@ try:
         if entry:
             iss = entry.get('issue')
             print(entry['session_id'] + '\t' + entry['name'] + '\t' + (str(iss) if iss is not None else ''))
-except (KeyError, TypeError, FileNotFoundError):
+except (KeyError, TypeError, FileNotFoundError, json.JSONDecodeError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
 }
@@ -318,8 +331,12 @@ set_session() {
     python3 -c "
 import json, sys, datetime
 cfg_path, proj, role, name, sid, iss = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
-with open(cfg_path) as f:
-    cfg = json.load(f)
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}', file=sys.stderr)
+    sys.exit(1)
 cfg['projects'][proj].setdefault('sessions', {})
 sess = cfg['projects'][proj]['sessions'].get(role)
 if not isinstance(sess, dict) or 'history' not in sess:
@@ -349,8 +366,12 @@ clear_session() {
     python3 -c "
 import json, sys
 cfg_path, proj, role = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(cfg_path) as f:
-    cfg = json.load(f)
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}', file=sys.stderr)
+    sys.exit(1)
 sess = cfg.get('projects', {}).get(proj, {}).get('sessions', {}).get(role)
 if isinstance(sess, dict):
     sess['active'] = None
@@ -377,8 +398,12 @@ clear_issue_sessions() {
     python3 -c "
 import json, sys
 cfg_path, proj, issue = sys.argv[1], sys.argv[2], sys.argv[3]
-with open(cfg_path) as f:
-    cfg = json.load(f)
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}', file=sys.stderr)
+    sys.exit(1)
 changed = False
 for role in ('blacksmith', 'temperer'):
     sess = cfg.get('projects', {}).get(proj, {}).get('sessions', {}).get(role)
@@ -392,7 +417,7 @@ if changed:
     with open(cfg_path, 'w') as f:
         json.dump(cfg, f, indent=2)
         f.write('\n')
-" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$issue_num" 2>/dev/null || true
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$issue_num"
 }
 
 # list_sessions — list all sessions in history for an agent role.
@@ -417,7 +442,7 @@ try:
         marker = '*' if sid == active else ''
         iss = h.get('issue')
         print(sid + '\t' + h['name'] + '\t' + (str(iss) if iss is not None else '') + '\t' + (h.get('created') or '') + '\t' + marker)
-except (KeyError, TypeError, FileNotFoundError):
+except (KeyError, TypeError, FileNotFoundError, json.JSONDecodeError):
     pass
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
 }
@@ -734,13 +759,6 @@ find_issue_for_hammer() {
 # find_issue_for_temper — find the lowest open issue with status:hammered.
 find_issue_for_temper() {
     gh issue list --state open --label "status:hammered" --label "ai-generated" --json number --jq '
-        sort_by(.number) | .[0].number // empty
-    ' 2>/dev/null || true
-}
-
-# find_issue_for_temper_recovery — find tempered issues needing PR/merge completion.
-find_issue_for_temper_recovery() {
-    gh issue list --state open --label "status:tempered" --label "ai-generated" --json number --jq '
         sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true
 }

@@ -126,7 +126,7 @@ When the Temperer rejects work:
 1. It sets `status:rework` and posts a tagged comment (`**[Temperer]**`)
 2. The Blacksmith reads the feedback and fixes the issues
 3. The Blacksmith marks addressed comments with a `✅` prefix
-4. After 5 total rework cycles, the issue is escalated to `agent:needs-human`
+4. After 7 total rework cycles, the issue is escalated to `agent:needs-human`
 
 ### Bootstrap (`forge init`)
 
@@ -135,7 +135,7 @@ Create a directory and run `forge init`. The bootstrap runs idempotent steps:
 - Tool checks: Node.js >= 24, pnpm >= 9, gh CLI, Vercel CLI, python3
 - Forge plugin verification
 - Git init, GitHub repo, branch protection, production branch
-- Label taxonomy (22 labels)
+- Label taxonomy (21 labels)
 - Project registration in `~/.forge/config.json` (with session slots)
 
 Every step checks whether it already ran. Resume with `forge init --resume`.
@@ -239,7 +239,7 @@ Human-filed issues (without `ai-generated`) are what trigger the auto-smelter an
 | "This directory is already a git repository" | Run `forge init --resume`. |
 | SSH key or GitHub auth failures | `gh auth login --web --git-protocol ssh` |
 | Agent gets stuck | Check for `agent:needs-human` label. Answer the question in the comments. |
-| PR quality checks keep failing | After 5 rework cycles, the issue is escalated to `agent:needs-human`. |
+| PR quality checks keep failing | After 7 rework cycles, the issue is escalated to `agent:needs-human`. |
 | "Not a Forge project" error | Run from the project root where `forge init` was run. |
 
 ## Repository Structure

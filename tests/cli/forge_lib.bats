@@ -329,22 +329,6 @@ EOF
     [[ -z "$output" ]]
 }
 
-# --- find_issue_for_temper_recovery ---
-
-@test "find_issue_for_temper_recovery returns lowest tempered issue" {
-    mock_gh_with 'echo "15"'
-    run find_issue_for_temper_recovery
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == "15" ]]
-}
-
-@test "find_issue_for_temper_recovery returns empty when none" {
-    mock_gh_with 'echo ""'
-    run find_issue_for_temper_recovery
-    [[ "$status" -eq 0 ]]
-    [[ -z "$output" ]]
-}
-
 # --- session management ---
 
 @test "get_session returns empty when no sessions key" {
