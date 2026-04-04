@@ -69,12 +69,12 @@ fi
 if command -v node &>/dev/null; then
     node_major=$(node --version | sed 's/v//' | cut -d. -f1)
     if [ "$node_major" -lt 24 ]; then
-        echo -e "${RED}Error:${NC} Node.js >= 24 LTS required (found $(node --version))."
+        echo -e "${RED}Error:${NC} Node.js >= 24 required (found $(node --version))."
         echo "  Update Node.js: https://nodejs.org"
         exit 1
     fi
 else
-    echo -e "${RED}Error:${NC} Node.js >= 24 LTS is required but not installed."
+    echo -e "${RED}Error:${NC} Node.js >= 24 is required but not installed."
     echo "  Install Node.js: https://nodejs.org"
     exit 1
 fi
