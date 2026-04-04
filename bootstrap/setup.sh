@@ -106,17 +106,17 @@ info "--- Checking prerequisites ---"
 preflight_check() {
     local missing=()
 
-    # Node.js >= 24 (LTS)
+    # Node.js >= 24
     if command -v node &>/dev/null; then
         local node_major
         node_major=$(node --version | sed 's/v//' | cut -d. -f1)
         if [ "$node_major" -lt 24 ]; then
-            missing+=("Node.js >= 24 LTS (found $(node --version)) — https://nodejs.org")
+            missing+=("Node.js >= 24 (found $(node --version)) — https://nodejs.org")
         else
             ok "Node.js $(node --version)"
         fi
     else
-        missing+=("Node.js >= 24 LTS — https://nodejs.org")
+        missing+=("Node.js >= 24 — https://nodejs.org")
     fi
 
     # pnpm >= 9
