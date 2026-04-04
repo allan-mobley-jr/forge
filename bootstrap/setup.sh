@@ -400,8 +400,13 @@ write_forge_config() {
         python3 -c "
 import json, sys
 cfg_path = sys.argv[1]
-with open(cfg_path) as f:
-    cfg = json.load(f)
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}')
+    print('Delete the file and re-run forge init.')
+    sys.exit(1)
 name, path, repo, created = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
 cfg.setdefault('projects', {})[name] = {'path': path, 'repo': repo, 'created': created, 'sessions': {}}
 with open(cfg_path, 'w') as f:

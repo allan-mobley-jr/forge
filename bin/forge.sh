@@ -887,8 +887,12 @@ case "${1:-}" in
                     python3 -c "
 import json, sys
 cfg_path = sys.argv[1]
-with open(cfg_path) as f:
-    cfg = json.load(f)
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}', file=sys.stderr)
+    sys.exit(1)
 for proj in cfg.get('projects', {}).values():
     sess = proj.get('sessions', {}).get(sys.argv[2])
     if isinstance(sess, dict):
