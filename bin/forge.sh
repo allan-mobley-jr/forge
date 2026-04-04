@@ -308,7 +308,7 @@ case "${1:-}" in
 
             # Refresh plugin caches and reinstall
             echo -e "${BLUE}Refreshing plugins...${NC}"
-            for plugin in forge vercel playwright; do
+            for plugin in forge vercel; do
                 for cache_dir in "$HOME/.claude/plugins/cache"/*/"$plugin"/*/; do
                     [ -d "$cache_dir" ] && rm -rf "$cache_dir"
                 done
@@ -316,7 +316,6 @@ case "${1:-}" in
             plugins=(
                 "Forge|forge@forge"
                 "Vercel|vercel@claude-plugins-official"
-                "Playwright|playwright@claude-plugins-official"
                 "PR Review Toolkit|pr-review-toolkit@claude-plugins-official"
             )
             for plugin_entry in "${plugins[@]}"; do
@@ -328,6 +327,31 @@ case "${1:-}" in
                     echo -e "  ${YELLOW}!${NC} $display_name plugin failed. Run manually: claude plugin install $install_spec"
                 fi
             done
+        fi
+
+        # Install/update agent-browser CLI (runs regardless of version change)
+        if ! command -v agent-browser &>/dev/null; then
+            echo -e "${BLUE}Installing agent-browser...${NC}"
+            if npm install -g agent-browser 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} agent-browser installed"
+            else
+                echo -e "  ${YELLOW}!${NC} agent-browser install failed. Run manually: npm install -g agent-browser"
+            fi
+        else
+            echo -e "  ${GREEN}✓${NC} agent-browser $(agent-browser --version 2>/dev/null || echo 'installed')"
+        fi
+
+        # Download/refresh agent-browser reference docs
+        mkdir -p "$HOME/.forge/docs"
+        local tmp_docs
+        tmp_docs=$(mktemp)
+        if curl -fsSL https://raw.githubusercontent.com/vercel-labs/agent-browser/main/README.md \
+            -o "$tmp_docs" 2>/dev/null; then
+            mv "$tmp_docs" "$HOME/.forge/docs/agent-browser.md"
+            echo -e "  ${GREEN}✓${NC} agent-browser docs updated"
+        else
+            rm -f "$tmp_docs"
+            echo -e "  ${YELLOW}!${NC} agent-browser docs download failed. Retry: curl -fsSL https://raw.githubusercontent.com/vercel-labs/agent-browser/main/README.md -o ~/.forge/docs/agent-browser.md"
         fi
         ;;
     config)
@@ -423,6 +447,18 @@ case "${1:-}" in
             echo -e "  ${RED}✗${NC} python3 not installed (required; install with: brew install python3)"
         fi
 
+        if command -v agent-browser &>/dev/null; then
+            echo -e "  ${GREEN}✓${NC} agent-browser $(agent-browser --version 2>/dev/null || echo 'installed')"
+        else
+            echo -e "  ${YELLOW}⚠${NC} agent-browser not installed — run: npm install -g agent-browser"
+        fi
+
+        if [ -f "$HOME/.forge/docs/agent-browser.md" ]; then
+            echo -e "  ${GREEN}✓${NC} agent-browser docs present"
+        else
+            echo -e "  ${YELLOW}⚠${NC} agent-browser docs missing — run: forge update"
+        fi
+
         echo ""
         echo "Plugins:"
 
@@ -436,12 +472,6 @@ case "${1:-}" in
             echo -e "  ${GREEN}✓${NC} Vercel plugin installed"
         else
             echo -e "  ${YELLOW}⚠${NC} Vercel plugin not installed"
-        fi
-
-        if claude mcp list 2>/dev/null | grep -q "playwright"; then
-            echo -e "  ${GREEN}✓${NC} Playwright MCP installed"
-        else
-            echo -e "  ${YELLOW}⚠${NC} Playwright MCP not installed"
         fi
 
         echo ""

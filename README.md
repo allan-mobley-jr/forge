@@ -39,7 +39,7 @@ mkdir my-app && cd my-app
 forge init
 ```
 
-> **Note:** The installer also sets up the **Vercel plugin** and **Playwright MCP** for Claude Code. The Vercel plugin requires OAuth authentication — it will prompt on first use. Playwright runs locally and needs no auth.
+> **Note:** The installer also sets up the **Vercel plugin** for Claude Code and **agent-browser** for browser automation. The Vercel plugin requires OAuth authentication — it will prompt on first use. agent-browser runs locally and needs no auth.
 
 Then start building:
 

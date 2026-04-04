@@ -78,7 +78,7 @@ Start the dev server and browse the application as a user:
 pnpm dev
 ```
 
-Use Playwright MCP browser tools (or the Vercel plugin's `agent-browser` / `agent-browser-verify` skill) to:
+Read `~/.forge/docs/agent-browser.md` for CLI reference (if missing, run `forge update` to download it, or run `agent-browser --help` for basic usage), then use `agent-browser` via Bash to:
 - Navigate every key page and take screenshots
 - Test interactive flows (forms, navigation, auth, data entry)
 - Check the browser console for errors and warnings
