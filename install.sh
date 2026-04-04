@@ -64,7 +64,22 @@ if ! command -v git &>/dev/null; then
     exit 1
 fi
 
-# --- Step 2: Clone or update ---
+# --- Step 2: Check Node.js ---
+
+if command -v node &>/dev/null; then
+    node_major=$(node --version | sed 's/v//' | cut -d. -f1)
+    if [ "$node_major" -lt 24 ]; then
+        echo -e "${RED}Error:${NC} Node.js >= 24 LTS required (found $(node --version))."
+        echo "  Update Node.js: https://nodejs.org"
+        exit 1
+    fi
+else
+    echo -e "${RED}Error:${NC} Node.js >= 24 LTS is required but not installed."
+    echo "  Install Node.js: https://nodejs.org"
+    exit 1
+fi
+
+# --- Step 3: Clone or update ---
 
 if [ -d "$FORGE_REPO/.git" ]; then
     echo -e "${BLUE}Updating Forge...${NC}"
@@ -89,7 +104,7 @@ else
     echo -e "${GREEN}Forge installed ($(git -C "$FORGE_REPO" rev-parse --short HEAD)).${NC}"
 fi
 
-# --- Step 3: Symlink the forge CLI ---
+# --- Step 4: Symlink the forge CLI ---
 
 mkdir -p "$FORGE_BIN"
 
@@ -98,7 +113,7 @@ mkdir -p "$FORGE_BIN"
 
 ln -sf "$FORGE_REPO/bin/forge.sh" "$FORGE_BIN/forge"
 
-# --- Step 4: Install Forge plugin + dependencies ---
+# --- Step 5: Install Forge plugin + dependencies ---
 
 if command -v claude &>/dev/null; then
     echo -e "${BLUE}Setting up Forge plugin...${NC}"
@@ -119,13 +134,30 @@ if command -v claude &>/dev/null; then
         && echo -e "  ${GREEN}[x]${NC} Vercel plugin installed" \
         || echo -e "  ${YELLOW}[!]${NC} Vercel plugin failed. Run manually: claude plugin install vercel@claude-plugins-official"
 
-    claude plugin install playwright@claude-plugins-official 2>/dev/null \
-        && echo -e "  ${GREEN}[x]${NC} Playwright plugin installed" \
-        || echo -e "  ${YELLOW}[!]${NC} Playwright plugin failed. Run manually: claude plugin install playwright@claude-plugins-official"
-
     claude plugin install pr-review-toolkit@claude-plugins-official 2>/dev/null \
         && echo -e "  ${GREEN}[x]${NC} PR Review Toolkit plugin installed" \
         || echo -e "  ${YELLOW}[!]${NC} PR Review Toolkit plugin failed. Run manually: claude plugin install pr-review-toolkit@claude-plugins-official"
+
+    # Install agent-browser CLI for browser automation
+    if ! command -v agent-browser &>/dev/null; then
+        npm install -g agent-browser 2>/dev/null \
+            && echo -e "  ${GREEN}[x]${NC} agent-browser installed" \
+            || echo -e "  ${YELLOW}[!]${NC} agent-browser install failed. Run manually: npm install -g agent-browser"
+    else
+        echo -e "  ${GREEN}[x]${NC} agent-browser already installed"
+    fi
+
+    # Download agent-browser reference docs
+    mkdir -p "$HOME/.forge/docs"
+    tmp_docs=$(mktemp)
+    if curl -fsSL https://raw.githubusercontent.com/vercel-labs/agent-browser/main/README.md \
+        -o "$tmp_docs" 2>/dev/null; then
+        mv "$tmp_docs" "$HOME/.forge/docs/agent-browser.md"
+        echo -e "  ${GREEN}[x]${NC} agent-browser docs downloaded"
+    else
+        rm -f "$tmp_docs"
+        echo -e "  ${YELLOW}[!]${NC} agent-browser docs download failed. Retry: curl -fsSL https://raw.githubusercontent.com/vercel-labs/agent-browser/main/README.md -o ~/.forge/docs/agent-browser.md"
+    fi
 else
     echo -e "${RED}Error:${NC} Claude Code is required but not found in PATH."
     echo "  Install Claude Code first: https://docs.anthropic.com/en/docs/claude-code"
@@ -135,7 +167,7 @@ fi
 
 echo ""
 
-# --- Step 5: Add to PATH ---
+# --- Step 6: Add to PATH ---
 
 SHELL_RC=""
 if [ -n "${ZSH_VERSION:-}" ] || [ "$(basename "${SHELL:-}")" = "zsh" ]; then

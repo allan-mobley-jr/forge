@@ -173,7 +173,7 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered"
   pnpm test
   pnpm build
   ```
-- **Run E2E tests:** Start the dev server (`pnpm dev`) and use Playwright MCP browser tools to navigate key pages affected by the change. Verify the UI renders correctly, interactions work, and nothing is visually broken. Stop the dev server when done.
+- **Run E2E tests:** Start the dev server (`pnpm dev`), read `~/.forge/docs/agent-browser.md` for CLI reference (if missing, run `forge update` to download it, or run `agent-browser --help` for basic usage), then use `agent-browser` via Bash to navigate key pages affected by the change. Verify the UI renders correctly, interactions work, and nothing is visually broken. Stop the dev server when done.
 - Fix all failures before proceeding — linting errors, type errors, test failures, build errors. Do not file issues for things you can fix.
 
 ### 8. Update README

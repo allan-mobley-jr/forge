@@ -103,7 +103,7 @@ This is a lean evaluation. Read the artifacts directly — no subagent launches 
 3. **Check acceptance criteria:** Verify each criterion in the issue body is met by the implementation.
 4. **Evaluate against GRADING_CRITERIA.md:** Grade the implementation on design quality, originality, craft, and functionality. The implementation must meet the project's quality bar, not just check the acceptance criteria boxes.
 
-**Browse the app as a user:** Start the dev server (`pnpm dev`) and use Playwright MCP browser tools (or the Vercel plugin's `agent-browser` / `agent-browser-verify` skill) to navigate key pages affected by the change. Experience the UI as a user would — verify it looks right, interactions feel correct, and nothing is broken. This is evaluation, not testing.
+**Browse the app as a user:** Start the dev server (`pnpm dev`), read `~/.forge/docs/agent-browser.md` for CLI reference (if missing, run `forge update` to download it, or run `agent-browser --help` for basic usage), then use `agent-browser` via Bash to navigate key pages affected by the change. Experience the UI as a user would — verify it looks right, interactions feel correct, and nothing is broken. This is evaluation, not testing.
 
 ### 4. Present & Confer
 
