@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-04-04
+
+### Added
+- agent-browser CLI replaces Playwright MCP for browser automation — 80-90% fewer tokens per page snapshot, installed globally via `npm install -g agent-browser`
+- agent-browser reference docs downloaded to `~/.forge/docs/` during install and update
+- `forge doctor` reports agent-browser CLI and docs status
+
+### Changed
+- Node.js >= 24 is now verified during installation (previously only checked during `forge init`)
+
+### Fixed
+- Add missing Issue Ownership section to auto-honer-audit agent
+- Reorder Issue Ownership section in auto-blacksmith and auto-temperer agents for consistency
+- Add `json.JSONDecodeError` handling to all JSON config parsing
+- Fix `clear_issue_sessions` silently swallowing errors
+- README rework cycle limit corrected from 5 to 7
+- README label count corrected from 22 to 21
+
+### Removed
+- Playwright MCP no longer installed, cached, or checked by Forge
+- Dead `find_issue_for_temper_recovery` function removed
+
+> **Upgrading from v0.3.0:** Run `forge update` to install agent-browser and download its documentation. Node.js >= 24 is now required.
+
 ## [0.3.0] - 2026-04-03
 
 ### Added
@@ -142,6 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.4.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.0
 [0.3.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.3.0
 [0.2.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.2
 [0.2.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.1
