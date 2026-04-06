@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.1] - 2026-04-06
+
+### Added
+- `Skill` tool added to all agent allowedTools so agents can deterministically invoke skills (frontend-design, marketplace, vercel-storage, etc.) instead of relying on auto-loading or manual file reads
+
+### Changed
+- Smelter monorepo Vercel infrastructure now consolidates into a mandatory restructure issue (the first implementation issue) instead of being scattered across per-hub issues. INGOT.md gains required Shared Resource Provisioning and Per-Hub Vercel Project Setup subsections. Auto-Smelter ledger records the Vercel infrastructure anchor issue number.
+
+### Fixed
+- `run_forge_agent` now fails loudly when an agent file exists but yields no extractable tools, preventing silent `--allowedTools` omission that would cause headless agents to hang
+
 ## [0.5.0] - 2026-04-06
 
 ### Added
@@ -209,6 +220,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.5.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.1
 [0.5.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.0
 [0.4.5]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.5
 [0.4.4]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.4
