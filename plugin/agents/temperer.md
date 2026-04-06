@@ -7,6 +7,7 @@ tools:
   - Glob
   - Grep
   - Agent
+  - mcp__*
 ---
 
 # The Temperer

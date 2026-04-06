@@ -11,6 +11,7 @@ tools:
   - WebSearch
   - WebFetch
   - Agent
+  - mcp__*
 ---
 
 # The Blacksmith

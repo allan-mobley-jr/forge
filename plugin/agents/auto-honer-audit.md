@@ -10,6 +10,7 @@ tools:
   - WebSearch
   - WebFetch
   - Agent
+  - mcp__*
 ---
 
 # The Auto-Honer — Audit
