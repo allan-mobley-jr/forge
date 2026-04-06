@@ -138,6 +138,14 @@ if command -v claude &>/dev/null; then
         && echo -e "  ${GREEN}[x]${NC} PR Review Toolkit plugin installed" \
         || echo -e "  ${YELLOW}[!]${NC} PR Review Toolkit plugin failed. Run manually: claude plugin install pr-review-toolkit@claude-plugins-official"
 
+    claude plugin install feature-dev@claude-plugins-official 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} Feature Dev plugin installed" \
+        || echo -e "  ${YELLOW}[!]${NC} Feature Dev plugin failed. Run manually: claude plugin install feature-dev@claude-plugins-official"
+
+    claude plugin install frontend-design@claude-plugins-official 2>/dev/null \
+        && echo -e "  ${GREEN}[x]${NC} Frontend Design plugin installed" \
+        || echo -e "  ${YELLOW}[!]${NC} Frontend Design plugin failed. Run manually: claude plugin install frontend-design@claude-plugins-official"
+
     # Install agent-browser CLI for browser automation
     if ! command -v agent-browser &>/dev/null; then
         npm install -g agent-browser 2>/dev/null \
