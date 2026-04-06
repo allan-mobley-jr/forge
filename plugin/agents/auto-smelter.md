@@ -115,30 +115,26 @@ git push origin main
 
 ### 5. Vercel Setup
 
-Link the project to Vercel and configure environments. All steps are non-blocking — if any fail, warn and continue.
+All steps are non-blocking — if any fail, warn and continue.
 
-**Link the project:**
+**Single-app projects:** Link the project, configure production branch, and create Staging environment.
+
 ```bash
 vercel link --yes
 ```
 
-**Set production branch:**
+Set production branch to `production`: Use the Vercel MCP tools or `vercel` CLI. If neither provides a direct method, use WebSearch to find the current correct Vercel API endpoint — do not hardcode an API version, as these endpoints change.
+
+Create Staging environment:
 ```bash
 project_id=$(python3 -c "import json; print(json.load(open('.vercel/project.json')).get('projectId',''))")
-vercel api "/v9/projects/$project_id" -X PATCH --input <(echo '{"productionDeploymentBranch":"production"}')
-```
-
-**Create Staging environment:**
-```bash
 vercel api "/v9/projects/$project_id/custom-environments" -X POST \
   --input <(echo '{"slug":"Staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}')
 ```
 
-**For monorepos:** Link each deployable app separately:
-```bash
-cd apps/<app-name> && vercel link --yes && cd ../..
-```
-Then configure production branch and Staging environment for each Vercel project.
+**Monorepos:** Do **not** create or link any Vercel projects at scaffold time — the real apps don't exist yet (`create-turbo` only produces placeholder apps). Each app gets its own Vercel project when it is implemented. Instead:
+1. Include the full per-app Vercel project setup procedure in INGOT.md's Deployment & Environments section (see step 6).
+2. Add Vercel setup acceptance criteria to each deployable app issue (see step 9).
 
 If Vercel setup fails, document what was attempted and what needs manual follow-up in INGOT.md.
 
@@ -148,7 +144,7 @@ Write `INGOT.md` to the project root using the Write tool. This is the architect
 
 - **Key Decisions** table — architectural decisions with rationale (include a Date column for future entries)
 - **Approaches Rejected** table — alternatives considered and why they were rejected (include a Date column)
-- **Deployment & Environments** section — Vercel project(s), branch-environment mapping, env vars per environment, database branching strategy if applicable
+- **Deployment & Environments** section — Vercel project(s), branch-environment mapping, env vars per environment, database branching strategy if applicable. **For monorepos:** include a step-by-step "Vercel Project Setup" procedure for each deployable app (link, set root directory, enable `sourceFilesOutsideRootDirectory`, configure production branch, create Staging environment, connect shared resources and env vars) so the Blacksmith can execute it when implementing each app.
 - **Design Language** section — color palette, typography, component style direction, spacing conventions. Use the **frontend-design** skill and the Vercel plugin's **shadcn/ui** guidance to create a distinctive visual identity. Do not default to generic templates.
 
 Commit and push to main:
@@ -224,6 +220,13 @@ gh issue create \
 - [ ] <criterion 1>
 - [ ] <criterion 2>
 ```
+
+**For monorepos — Vercel setup in deployable app issues:** When creating an issue for a hub/app that will be separately deployed (e.g., each app under `apps/`), include Vercel project setup in the acceptance criteria:
+- `Vercel project created and linked (vercel link from app directory, root directory set, sourceFilesOutsideRootDirectory enabled)`
+- `Production branch set to production, Staging environment created tracking main`
+- `Shared resources connected (Neon, Blob, env vars) per the procedure in INGOT.md`
+
+This ensures per-app Vercel configuration happens when the app code actually exists, not at scaffold time.
 
 ### 10. Post Ledger Comment
 
