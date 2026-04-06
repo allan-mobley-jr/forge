@@ -207,7 +207,22 @@ EOF
     run run_forge_agent "Smelter"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"--agent"* ]]
-    [[ "$output" == *"forge:smelter"* ]]
+    [[ "$output" == *"forge:Smelter"* ]]
+}
+
+@test "run_forge_agent preserves agent name casing in --agent flag" {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/honer-audit.md" <<'EOF'
+---
+name: Honer-Audit
+tools:
+  - Bash
+---
+EOF
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Honer-Audit"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"forge:Honer-Audit"* ]]
 }
 
 @test "run_forge_agent passes prompt with -p flag" {
@@ -251,6 +266,8 @@ EOF
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"Greet the user."* ]]
     [[ "$output" != *"-p"* ]]
+    # Prompt must appear before --agent flag
+    [[ "$output" == *"called: Greet the user. --agent"* ]]
 }
 
 @test "run_forge_agent --interactive with --resume-session omits -p" {
@@ -261,6 +278,8 @@ EOF
     [[ "$output" == *"--resume"* ]]
     [[ "$output" == *"Continue."* ]]
     [[ "$output" != *"-p"* ]]
+    # Prompt must appear before --resume flag
+    [[ "$output" == *"called: Continue. --resume"* ]]
 }
 
 @test "run_forge_agent --interactive with empty prompt passes no prompt" {
@@ -280,6 +299,8 @@ EOF
     [[ "$output" == *"--session-id"* ]]
     [[ "$output" == *"Greet the user."* ]]
     [[ "$output" != *"-p"* ]]
+    # Prompt must appear before --agent flag
+    [[ "$output" == *"called: Greet the user. --agent"* ]]
 }
 
 # --- find_issue_for_hammer ---
