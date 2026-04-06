@@ -693,28 +693,33 @@ run_forge_agent() {
     local project_model
     project_model=$(get_project_model)
 
-    local cmd=()
+    # Build command — interactive prompt must be the first positional arg
+    # (before any flags). --agent must preserve original casing because the
+    # plugin system registers agents by frontmatter name (e.g. forge:Smelter).
+    local cmd=(claude)
+
+    # Interactive prompt goes immediately after 'claude' (positional arg)
+    if [ -n "$interactive" ] && [ -n "$prompt" ]; then
+        cmd+=("$prompt")
+    fi
+
+    # Mode: resume existing session vs start new one
     if [ -n "$resume_session" ]; then
-        # Resume an existing session by UUID
-        cmd=(claude --resume "$resume_session")
-        [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
+        cmd+=(--resume "$resume_session")
     else
-        # Start a new session
-        cmd=(claude --agent "forge:${agent_name_lower}")
+        cmd+=(--agent "forge:${agent_name}")
         [ -n "$session_id" ] && cmd+=(--session-id "$session_id")
         [ -n "$session_name" ] && cmd+=(-n "$session_name")
-        [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     fi
+
+    # Shared flags
+    [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     [ -n "$project_model" ] && cmd+=(--model "$project_model")
 
-    # Append prompt: -p for headless (print and exit), positional arg for interactive
-    if [ -n "$prompt" ]; then
-        if [ -n "$interactive" ]; then
-            cmd+=("$prompt")
-        else
-            cmd+=(-p "$prompt")
-            _forge_spinner_start "$spinner_msg"
-        fi
+    # Headless prompt uses -p flag (flag order doesn't matter)
+    if [ -n "$prompt" ] && [ -z "$interactive" ]; then
+        cmd+=(-p "$prompt")
+        _forge_spinner_start "$spinner_msg"
     fi
 
     local exit_code=0
