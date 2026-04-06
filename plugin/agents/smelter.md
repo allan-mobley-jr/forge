@@ -10,6 +10,7 @@ tools:
   - WebSearch
   - WebFetch
   - Agent
+  - Skill
   - mcp__*
 ---
 

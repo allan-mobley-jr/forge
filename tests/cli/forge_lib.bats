@@ -270,6 +270,23 @@ EOF
     grep -Fq -- "Bash,Read,mcp__*" <<<"$output"
 }
 
+@test "run_forge_agent passes Skill tool through to --allowedTools" {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/blacksmith.md" <<'EOF'
+---
+name: Blacksmith
+tools:
+  - Bash
+  - Read
+  - Skill
+---
+EOF
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Bash,Read,Skill"* ]]
+}
+
 @test "run_forge_agent propagates exit code from claude" {
     _create_agent_file "smelter"
     mock_claude_with 'exit 42'

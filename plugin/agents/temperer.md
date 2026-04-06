@@ -7,6 +7,7 @@ tools:
   - Glob
   - Grep
   - Agent
+  - Skill
   - mcp__*
 ---
 
