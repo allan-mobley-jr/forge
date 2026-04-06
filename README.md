@@ -190,6 +190,25 @@ Vercel watches the `production` branch and deploys automatically. The human cont
 | `forge help <command>` | Show help for a specific command |
 | `forge uninstall` | Remove Forge from your system (keeps projects) |
 
+### Configuration
+
+| Command | Description |
+|---------|-------------|
+| `forge config` | Show current project configuration |
+| `forge config model <model>` | Pin the model for all agents in this project |
+
+**Model pinning** prevents model drift across pipeline runs. Accepts aliases (`opus`, `sonnet`, `haiku`) or full model IDs:
+
+```bash
+# Use an alias (resolves to the default context window)
+forge config model opus
+
+# Use a full model ID for extended context (recommended for complex projects)
+forge config model 'claude-opus-4-6[1m]'
+```
+
+> **Tip:** The `opus` alias resolves to `claude-opus-4-6` with a 200K context window. For ambitious projects with large codebases, use `claude-opus-4-6[1m]` to get the full 1M context window. This gives agents significantly more room for research, planning, and implementation.
+
 ## Label System
 
 Target projects use these labels:
