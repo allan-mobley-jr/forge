@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-04-06
+
+### Fixed
+- Interactive agent sessions (`forge smelt`, `forge hammer`, `forge temper`, `forge hone`) now stay interactive — prompt is passed as a positional argument instead of `-p` (headless mode)
+- `feature-dev` and `frontend-design` plugins added to managed dependencies in `install.sh` and `forge update` — these were already referenced by agents but missing from the install chain; Blacksmith now references the `frontend-design` skill for UI implementation
+
 ## [0.4.0] - 2026-04-04
 
 ### Added
@@ -166,6 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.4.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.1
 [0.4.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.0
 [0.3.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.3.0
 [0.2.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.2.2
