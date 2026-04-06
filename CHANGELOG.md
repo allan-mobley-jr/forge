@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-04-06
+
+### Fixed
+- Session picker TUI now renders correctly — output redirected to stderr so command substitution doesn't swallow the interactive display
+
+### Added
+- Configuration section in README documenting `forge config model` and extended context window usage (`claude-opus-4-6[1m]`)
+
 ## [0.4.1] - 2026-04-06
 
 ### Fixed
@@ -172,6 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.4.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.2
 [0.4.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.1
 [0.4.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.0
 [0.3.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.3.0
