@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.4.1] - 2026-04-06
 
 ### Fixed
-- Interactive agent sessions (`forge smelt`, `hammer`, `temper`, `hone`) now stay interactive — prompt is passed as a positional argument instead of `-p` (headless mode)
+- Interactive agent sessions (`forge smelt`, `forge hammer`, `forge temper`, `forge hone`) now stay interactive — prompt is passed as a positional argument instead of `-p` (headless mode)
 - `feature-dev` and `frontend-design` plugins added to managed dependencies in `install.sh` and `forge update` — these were already referenced by agents but missing from the install chain; Blacksmith now references the `frontend-design` skill for UI implementation
 
 ## [0.4.0] - 2026-04-04
