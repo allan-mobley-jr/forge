@@ -778,6 +778,13 @@ run_forge_agent() {
         tools=$(sed -n '/^tools:/,/^---/{
 /^  - /s/^  - //p
 }' "$agent_file" | tr '\n' ',' | sed 's/,$//')
+        # Fail loudly if agent file exists but yields no tools — silent
+        # extraction failure would let the agent run with no allowedTools
+        # and hang on the first tool call in headless mode.
+        if [ -z "$tools" ]; then
+            forge_fail "Agent '$agent_name' has no extractable tools from $agent_file (expected '  - ToolName' entries under 'tools:')"
+            return 1
+        fi
     fi
 
     # Read project model setting

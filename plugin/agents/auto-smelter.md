@@ -151,6 +151,13 @@ Write `INGOT.md` to the project root using the Write tool. This is the architect
   - **Per-Hub Vercel Project Setup** — for each deployable hub: `vercel link` from the app directory, set root directory, enable `sourceFilesOutsideRootDirectory`, configure production branch, create Staging environment, connect to the relevant team-level shared resources, configure env vars per environment. This procedure runs in the restructure issue once the hub directories exist.
 - **Design Language** section — color palette, typography, component style direction, spacing conventions. Use the **frontend-design** skill and the Vercel plugin's **shadcn/ui** guidance to create a distinctive visual identity. Do not default to generic templates.
 
+**Verification before commit:** For monorepos, verify INGOT.md contains both required subsection headings exactly:
+```bash
+grep -q '^### Shared Resource Provisioning' INGOT.md || { echo "ERROR: INGOT.md missing 'Shared Resource Provisioning' subsection"; exit 1; }
+grep -q '^### Per-Hub Vercel Project Setup' INGOT.md || { echo "ERROR: INGOT.md missing 'Per-Hub Vercel Project Setup' subsection"; exit 1; }
+```
+If either heading is missing, fix INGOT.md before committing — downstream agents (the Blacksmith on the restructure issue) rely on these exact headings to find the procedures.
+
 Commit and push to main:
 ```bash
 git add INGOT.md
@@ -225,16 +232,21 @@ gh issue create \
 - [ ] <criterion 2>
 ```
 
-**For monorepos — Vercel infrastructure goes in the restructure issue:** Monorepo projects need a "restructure" issue early in the implementation sequence — the issue that converts `create-turbo`'s placeholder apps (`web`, `docs`) into the real hub directory layout (`apps/<hub>/` per hub). This restructure issue is the **single anchor for all Vercel infrastructure setup** because by the time it runs, the actual hub directories exist and CAN be linked to Vercel projects.
+**For monorepos — Vercel infrastructure goes in the restructure issue (MANDATORY):** Monorepo projects MUST have a "restructure" issue as the **first** implementation issue in the sequence — the issue that converts `create-turbo`'s placeholder apps (`web`, `docs`) into the real hub directory layout (`apps/<hub>/` per hub). If your issue breakdown doesn't naturally include a restructure issue, **you MUST file one** before any hub implementation issue. This restructure issue is the **single anchor for all Vercel infrastructure setup** because by the time it runs, the actual hub directories exist and CAN be linked to Vercel projects.
 
-When creating issues, identify the restructure issue (or plan one if missing) and embed all Vercel infrastructure acceptance criteria there:
+The restructure issue MUST contain ALL of these acceptance criteria, copied verbatim (not "per INGOT.md" — inline them so the issue is self-contained):
 - `Real hub directories created under apps/ for each hub`
-- `Team-level shared resources provisioned via Vercel Marketplace dashboard (Neon, Blob, etc.) per the procedure in INGOT.md`
-- `One Vercel project per hub, linked from each app directory`
-- `sourceFilesOutsideRootDirectory enabled on each Vercel project`
-- `Production branch set to production, Staging environment created tracking main on each project`
-- `Each hub project connected to relevant team-level shared resources`
-- `Environment variables documented and configured per environment (production, preview, staging)`
+- `Team-level shared resources provisioned via Vercel Marketplace dashboard (Neon, Blob, etc.) at the team level — UI not CLI, since team-level provisioning requires no linked project`
+- `One Vercel project per hub, linked from each app directory via 'vercel link'`
+- `sourceFilesOutsideRootDirectory enabled on each Vercel project so apps can access shared packages`
+- `Production branch set to 'production' on each Vercel project`
+- `Staging custom environment created tracking 'main' on each Vercel project`
+- `Each hub project connected to the relevant team-level shared resources (Neon, Blob, etc.)`
+- `Environment variables documented in INGOT.md and configured per environment (production, preview, staging) on each project`
+
+Use `scope:infra` as one of the labels on this issue.
+
+**Verification before filing:** After creating all issues, verify the restructure issue exists and contains every criterion above. If missing, STOP and file it before proceeding.
 
 **Hub implementation issues do NOT include Vercel acceptance criteria** — by the time they run, the project, environments, and shared resources are already set up. They focus purely on app code and functionality.
 
@@ -268,6 +280,9 @@ Produced from feature request #N.
 | # | Issue | Title | Milestone |
 |---|-------|-------|-----------|
 | 1 | #N    | ...   | ...       |
+
+## Vercel Infrastructure Anchor
+<For monorepos, state the issue number that contains all Vercel infrastructure setup criteria, e.g., "Issue #N — restructure monorepo + Vercel setup". For single-app projects, state "N/A — single-app project, Vercel set up at scaffold time". This breadcrumb lets downstream agents verify infrastructure setup is tracked.>
 
 ## Planning Rationale
 <why the architecture and issue breakdown were structured this way>
