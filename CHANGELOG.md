@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.4] - 2026-04-06
+
+### Added
+- All agents now auto-approve MCP tools from installed plugins (`mcp__*` wildcard in `--allowedTools`) — eliminates permission prompts for Vercel plugin operations
+
 ## [0.4.3] - 2026-04-06
 
 ### Fixed
@@ -185,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.4.4]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.4
 [0.4.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.3
 [0.4.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.2
 [0.4.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.1
