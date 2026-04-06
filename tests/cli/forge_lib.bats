@@ -266,7 +266,8 @@ EOF
     mock_claude_with 'echo "called: $*"'
     run run_forge_agent "Blacksmith"
     [[ "$status" -eq 0 ]]
-    [[ "$output" == *"Bash,Read,mcp__*"* ]]
+    # Use grep -F for literal match — the * in mcp__* would act as a glob in [[ == ]]
+    grep -Fq -- "Bash,Read,mcp__*" <<<"$output"
 }
 
 @test "run_forge_agent propagates exit code from claude" {
