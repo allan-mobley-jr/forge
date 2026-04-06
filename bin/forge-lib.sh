@@ -651,12 +651,13 @@ check_auth() {
 # --- Agent invocation ---
 
 # run_forge_agent — invoke a Claude Code session with a named agent.
-# Usage: run_forge_agent <agent-name> [prompt] [spinner-message] [--session-name <name>] [--session-id <uuid>] [--resume-session <uuid>]
+# Usage: run_forge_agent <agent-name> [prompt] [spinner-message] [--session-name <name>] [--session-id <uuid>] [--resume-session <uuid>] [--interactive]
 # Extracts tools from agent frontmatter and passes --allowedTools for auto-approval.
 # Options (after positional args):
 #   --session-name <name>   Start a new named session (adds -n <name> to claude)
 #   --session-id <uuid>     Pre-assign a UUID for the session (adds --session-id <uuid> to claude)
 #   --resume-session <uuid>  Resume an existing session by UUID (adds --resume <uuid> to claude)
+#   --interactive            Stay interactive — prompt becomes a positional arg instead of -p
 run_forge_agent() {
     local agent_name="$1"
     local prompt="${2:-}"
@@ -664,12 +665,13 @@ run_forge_agent() {
     shift; shift 2>/dev/null || true; shift 2>/dev/null || true
 
     # Parse optional flags
-    local session_name="" session_id="" resume_session=""
+    local session_name="" session_id="" resume_session="" interactive=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --session-name)   session_name="$2"; shift 2 ;;
             --session-id)     session_id="$2"; shift 2 ;;
             --resume-session) resume_session="$2"; shift 2 ;;
+            --interactive)    interactive=1; shift ;;
             *) shift ;;
         esac
     done
@@ -694,21 +696,24 @@ run_forge_agent() {
     if [ -n "$resume_session" ]; then
         # Resume an existing session by UUID
         cmd=(claude --resume "$resume_session")
-        [ -n "$prompt" ] && cmd+=(-p "$prompt")
         [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     else
         # Start a new session
         cmd=(claude --agent "forge:${agent_name_lower}")
         [ -n "$session_id" ] && cmd+=(--session-id "$session_id")
         [ -n "$session_name" ] && cmd+=(-n "$session_name")
-        [ -n "$prompt" ] && cmd+=(-p "$prompt")
         [ -n "$tools" ] && cmd+=(--allowedTools "$tools")
     fi
     [ -n "$project_model" ] && cmd+=(--model "$project_model")
 
-    # Start spinner for headless agents (those with -p flag)
+    # Append prompt: -p for headless (print and exit), positional arg for interactive
     if [ -n "$prompt" ]; then
-        _forge_spinner_start "$spinner_msg"
+        if [ -n "$interactive" ]; then
+            cmd+=("$prompt")
+        else
+            cmd+=(-p "$prompt")
+            _forge_spinner_start "$spinner_msg"
+        fi
     fi
 
     local exit_code=0

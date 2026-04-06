@@ -244,6 +244,44 @@ EOF
     [[ "$status" -eq 42 ]]
 }
 
+@test "run_forge_agent --interactive passes prompt as positional arg, not -p" {
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "Greet the user." "" --interactive
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Greet the user."* ]]
+    [[ "$output" != *"-p"* ]]
+}
+
+@test "run_forge_agent --interactive with --resume-session omits -p" {
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "Continue." "" --resume-session "cccccccc-1111-2222-3333-444444444444" --interactive
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--resume"* ]]
+    [[ "$output" == *"Continue."* ]]
+    [[ "$output" != *"-p"* ]]
+}
+
+@test "run_forge_agent --interactive with empty prompt passes no prompt" {
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "" "" --interactive
+    [[ "$status" -eq 0 ]]
+    [[ "$output" != *"-p"* ]]
+}
+
+@test "run_forge_agent --interactive with --session-id omits -p" {
+    _create_agent_file "smelter"
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Smelter" "Greet the user." "" --session-id "dddddddd-1111-2222-3333-444444444444" --session-name "smelter-ingot" --interactive
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"--agent"* ]]
+    [[ "$output" == *"--session-id"* ]]
+    [[ "$output" == *"Greet the user."* ]]
+    [[ "$output" != *"-p"* ]]
+}
+
 # --- find_issue_for_hammer ---
 
 @test "find_issue_for_hammer returns needs-human issue first" {
@@ -543,6 +581,7 @@ EOF
     [[ "$output" == *"--resume"* ]]
     [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
     [[ "$output" != *"--agent"* ]]
+    [[ "$output" == *"-p"* ]]
 }
 
 # --- project state detection ---
