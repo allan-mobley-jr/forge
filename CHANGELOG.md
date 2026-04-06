@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.5] - 2026-04-06
+
+### Fixed
+- Smelter monorepo Vercel setup — single-app projects get linked at scaffold time; monorepos defer all Vercel project creation to per-app issues with `sourceFilesOutsideRootDirectory` and shared resource acceptance criteria
+- Agents now post ledger comments before transitioning status labels — if interrupted, the reasoning is preserved and the label can be flipped on resume
+
+### Changed
+- Hardcoded production branch API endpoint removed from Smelter — agents now use Vercel MCP tools or web search for current correct method
+
 ## [0.4.4] - 2026-04-06
 
 ### Added
@@ -190,6 +199,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.4.5]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.5
 [0.4.4]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.4
 [0.4.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.3
 [0.4.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.2
