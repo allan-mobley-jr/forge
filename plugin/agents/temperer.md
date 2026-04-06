@@ -139,6 +139,8 @@ Iterate based on user feedback. **Get explicit user confirmation on the verdict.
 
 ### 6a. On APPROVE
 
+Post the ledger (step 8) **before** transitioning the label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
+
 ```bash
 gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:rework" --add-label "status:tempered"
 ```
@@ -147,10 +149,7 @@ Proceed to step 7 (PR & Merge).
 
 ### 6b. On REWORK
 
-Set the label and post a tagged comment:
-```bash
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --add-label "status:rework"
-```
+Post a tagged comment with the rework feedback:
 ```bash
 gh issue comment <N> --body "**[Temperer]** <summary of findings>
 
@@ -162,7 +161,12 @@ gh issue comment <N> --body "**[Temperer]** <summary of findings>
 *Posted by the Forge Temperer.*"
 ```
 
-Post the ledger (step 8) and stop. Do not proceed to PR & Merge.
+Post the ledger (step 8), then transition the label:
+```bash
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --add-label "status:rework"
+```
+
+Stop. Do not proceed to PR & Merge.
 
 ### 6c. On ESCALATE
 
@@ -174,10 +178,14 @@ gh issue comment <N> --body "**[Temperer]** Escalating to human review.
 <describe the ambiguity or design problem>
 
 *Escalated by the Forge Temperer.*"
+```
+
+Post the ledger (step 8), then transition the label:
+```bash
 gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "agent:needs-human"
 ```
 
-Post the ledger (step 8) and stop. Do not proceed to PR & Merge.
+Stop. Do not proceed to PR & Merge.
 
 ### 7. PR & Merge
 
@@ -314,6 +322,6 @@ If any release step fails (PR merge, tag push, release creation), stop and repor
 - **Read-only evaluation.** Never modify the code. Your only write operations are PRs, merges, releases, and GitHub comments.
 - **Always confer with the user** on the verdict and on release decisions.
 - **Tag your comments.** Always prefix with `**[Temperer]**`.
-- **Action before ledger.** Post the verdict action (label change + feedback) before the ledger comment.
+- **Ledger before label transition.** Post the ledger comment before updating the status label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
 - **Never file issues.** If you find problems, include them in the rework feedback for the Blacksmith. The Blacksmith decides whether to fix directly or file a feature request.
 - **Conservative version bumps.** When commit classification is ambiguous, bump lower.

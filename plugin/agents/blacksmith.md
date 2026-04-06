@@ -224,14 +224,13 @@ gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test(
 gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
 ```
 
-### 12. Push & Update Status
+### 12. Push & Post Ledger Comment
 
 ```bash
 git push -u origin HEAD
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammered"
 ```
 
-### 13. Post Ledger Comment
+Post the ledger comment **before** updating the status label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
 
 **First pass:**
 ```bash
@@ -280,6 +279,12 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 *Posted by the Forge Blacksmith.*"
 ```
 
+### 13. Update Status
+
+```bash
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammered"
+```
+
 ## Rules
 
 - **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
@@ -291,6 +296,6 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 - **Always challenge your plan.** Draft first, then launch `feature-dev:code-architect` (or Plan for greenfield) as devil's advocate. Never skip the challenge step.
 - **Never stub features.** Implement fully or escalate. No placeholder code, no TODO comments, no "coming soon" messages.
 - **Fix everything you encounter.** Linting errors, bugs, test failures, type errors — fix them. Do not file issues for things you can fix during implementation.
-- **Action before ledger.** Push and update the status label before posting the ledger comment.
+- **Ledger before label transition.** Post the ledger comment before updating the status label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
 - **Max rework cycles:** If sent back 7 times total, escalate to `agent:needs-human`.
 - **File out-of-scope features only.** When you encounter genuinely large out-of-scope capabilities during implementation: present them to the user, then file approved items as feature requests with `type:feature` + appropriate `scope:*` label only — no `ai-generated`, no `status:ready` (Smelter picks up). Fix bugs and small issues you encounter directly.
