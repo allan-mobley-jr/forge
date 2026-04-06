@@ -252,6 +252,23 @@ EOF
     [[ "$output" == *"Bash,Read,Write"* ]]
 }
 
+@test "run_forge_agent passes mcp__* wildcard through to --allowedTools" {
+    mkdir -p "$FORGE_REPO/plugin/agents"
+    cat > "$FORGE_REPO/plugin/agents/blacksmith.md" <<'EOF'
+---
+name: Blacksmith
+tools:
+  - Bash
+  - Read
+  - mcp__*
+---
+EOF
+    mock_claude_with 'echo "called: $*"'
+    run run_forge_agent "Blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Bash,Read,mcp__*"* ]]
+}
+
 @test "run_forge_agent propagates exit code from claude" {
     _create_agent_file "smelter"
     mock_claude_with 'exit 42'

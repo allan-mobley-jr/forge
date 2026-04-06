@@ -9,6 +9,7 @@ tools:
   - WebSearch
   - WebFetch
   - Agent
+  - mcp__*
 ---
 
 # The Honer — Bug Triage
