@@ -295,6 +295,7 @@ _forge_project_name() {
 # get_session — read the active session for an agent role.
 # Usage: get_session <agent_role>   (e.g., get_session blacksmith)
 # Prints: <session_id>\t<name>\t<issue>   or empty if no active session.
+# Skips archived sessions so auto/stoke/cast don't resume stale work.
 get_session() {
     local role="$1"
     local project_name
@@ -310,7 +311,7 @@ try:
     active = s.get('active')
     if active:
         entry = next((h for h in s.get('history', []) if h.get('session_id') == active), None)
-        if entry:
+        if entry and not entry.get('archived', False):
             iss = entry.get('issue')
             print(entry['session_id'] + '\t' + entry['name'] + '\t' + (str(iss) if iss is not None else ''))
 except (KeyError, TypeError, FileNotFoundError, json.JSONDecodeError):
@@ -420,17 +421,21 @@ if changed:
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$issue_num"
 }
 
-# list_sessions — list all sessions in history for an agent role.
-# Usage: list_sessions <agent_role>
-# Prints: one line per session: <session_id>\t<name>\t<issue>\t<created>\t<active>
-# where <active> is "*" if it's the active session, empty otherwise.
+# list_sessions — list sessions in history for an agent role.
+# Usage: list_sessions <agent_role> [mode]
+# mode: "all" = include archived sessions, default = exclude archived.
+# Prints: one line per session: <session_id>\t<name>\t<issue>\t<created>\t<active>\t<archived>
+# where <active> is "*" if it's the active session, empty otherwise;
+# <archived> is "archived" if the session is archived, empty otherwise.
 list_sessions() {
     local role="$1"
+    local mode="${2:-}"
     local project_name
     project_name=$(_forge_project_name)
     python3 -c "
 import json, sys
 try:
+    mode = sys.argv[4]
     with open(sys.argv[1]) as f:
         cfg = json.load(f)
     sess = cfg['projects'][sys.argv[2]]['sessions'][sys.argv[3]]
@@ -438,33 +443,116 @@ try:
         sys.exit(0)
     active = sess.get('active')
     for h in sess['history']:
+        is_archived = h.get('archived', False)
+        if mode != 'all' and is_archived:
+            continue
         sid = h.get('session_id', '')
         marker = '*' if sid == active else ''
         iss = h.get('issue')
-        print(sid + '\t' + h['name'] + '\t' + (str(iss) if iss is not None else '') + '\t' + (h.get('created') or '') + '\t' + marker)
+        arch = 'archived' if is_archived else ''
+        print(sid + '\t' + h['name'] + '\t' + (str(iss) if iss is not None else '') + '\t' + (h.get('created') or '') + '\t' + marker + '\t' + arch)
 except (KeyError, TypeError, FileNotFoundError, json.JSONDecodeError):
     pass
-" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" 2>/dev/null || true
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$mode" 2>/dev/null || true
+}
+
+# archive_closed_sessions — mark sessions for closed issues as archived.
+# Usage: archive_closed_sessions <agent_role>
+# For each non-archived session with an issue number, checks if the issue is
+# closed via `gh issue view`. If closed, sets archived=true and clears active
+# if it was the active session. Non-blocking: if gh fails, the session is kept.
+archive_closed_sessions() {
+    local role="$1"
+    local project_name
+    project_name=$(_forge_project_name)
+
+    # Collect issue numbers from non-archived sessions
+    local issues_to_check=()
+    while IFS=$'\t' read -r sid name iss dt marker _archived; do
+        [ -z "$sid" ] && continue
+        [ -z "$iss" ] && continue
+        issues_to_check+=("$iss")
+    done < <(list_sessions "$role")
+
+    # No sessions with issues — nothing to check
+    [ ${#issues_to_check[@]} -eq 0 ] && return 0
+
+    # Deduplicate
+    local unique_issues
+    unique_issues=$(printf '%s\n' "${issues_to_check[@]}" | sort -u)
+
+    # Check each issue — collect closed ones
+    local closed_issues=()
+    for iss in $unique_issues; do
+        local state
+        state=$(gh issue view "$iss" --json state --jq '.state' 2>/dev/null) || continue
+        if [ "$state" = "CLOSED" ]; then
+            closed_issues+=("$iss")
+        fi
+    done
+
+    # Nothing to archive
+    [ ${#closed_issues[@]} -eq 0 ] && return 0
+
+    # Mark sessions as archived in config
+    local closed_json
+    closed_json=$(printf '%s\n' "${closed_issues[@]}" | python3 -c "import sys,json; print(json.dumps([int(l.strip()) for l in sys.stdin if l.strip()]))")
+    python3 -c "
+import json, sys
+cfg_path, proj, role = sys.argv[1], sys.argv[2], sys.argv[3]
+closed = json.loads(sys.argv[4])
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except json.JSONDecodeError as e:
+    print(f'Error: {cfg_path} is corrupted: {e}', file=sys.stderr)
+    sys.exit(1)
+sess = cfg.get('projects', {}).get(proj, {}).get('sessions', {}).get(role)
+if not isinstance(sess, dict):
+    sys.exit(0)
+changed = False
+for h in sess.get('history', []):
+    iss = h.get('issue')
+    if iss is not None and iss in closed and not h.get('archived', False):
+        h['archived'] = True
+        changed = True
+        # Clear active if this was the active session
+        if sess.get('active') == h.get('session_id'):
+            sess['active'] = None
+if changed:
+    with open(cfg_path, 'w') as f:
+        json.dump(cfg, f, indent=2)
+        f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$closed_json"
 }
 
 # pick_session — interactive session picker with arrow keys and number input.
-# Usage: pick_session <agent_role>
+# Usage: pick_session <agent_role> [mode]
+# mode: "all" = show all sessions including archived (for sessions command),
+#       default = prune closed issues first, show only non-archived.
 # Prints the chosen session_id (UUID) to stdout. Empty if user chooses "start fresh."
 # Skips the picker and returns empty if no history exists.
 pick_session() {
     local role="$1"
+    local mode="${2:-}"
     local sessions=()
-    local names=() issues=() dates=() markers=()
+    local names=() issues=() dates=() markers=() archived_flags=()
+
+    # Auto-prune closed-issue sessions before showing (unless browsing all)
+    if [ "$mode" != "all" ]; then
+        archive_closed_sessions "$role"
+    fi
 
     # Read session history
-    while IFS=$'\t' read -r sid name iss dt marker; do
+    while IFS=$'\t' read -r sid name iss dt marker arch; do
         [ -z "$sid" ] && continue
         sessions+=("$sid")
         names+=("$name")
         issues+=("$iss")
         dates+=("$dt")
         markers+=("$marker")
-    done < <(list_sessions "$role")
+        archived_flags+=("$arch")
+    done < <(list_sessions "$role" "$mode")
 
     # No history — return empty (start fresh)
     if [ ${#sessions[@]} -eq 0 ]; then
@@ -504,6 +592,9 @@ pick_session() {
             fi
             if [ "${markers[$i]}" = "*" ]; then
                 suffix="${suffix} [active]"
+            fi
+            if [ "${archived_flags[$i]}" = "archived" ]; then
+                suffix="${suffix} [archived]"
             fi
             printf "  %s %d. %s%s\n" "$prefix" "$((i + 1))" "${names[$i]}" "$suffix" >&2
             line_count=$((line_count + 1))

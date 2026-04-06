@@ -66,6 +66,7 @@ show_usage() {
     echo "  cast             Full autonomous cycle: smelt → stoke → hone"
     echo ""
     echo "  Prefix 'auto-' for autonomous mode (e.g., forge auto-smelt)."
+    echo "  Append 'sessions' to browse session history (e.g., forge hammer sessions)."
     echo ""
     echo "Operations:"
     echo "  deploy           Deploy main to production (human only)"
@@ -200,6 +201,17 @@ show_command_help() {
             echo "  Audit        No bugs — technical + UX/design audit against GRADING_CRITERIA.md"
             echo ""
             echo "The CLI detects which role to use based on project state."
+            ;;
+        sessions)
+            echo "forge <command> sessions — Browse session history"
+            echo ""
+            echo "Usage: forge smelt sessions"
+            echo "       forge hammer sessions"
+            echo "       forge temper sessions"
+            echo "       forge hone sessions"
+            echo ""
+            echo "Shows all sessions (including archived) for the given agent."
+            echo "Select any session to resume it."
             ;;
         stoke)
             echo "forge stoke — Autonomously process the issue queue"
@@ -543,6 +555,21 @@ case "${1:-}" in
     smelt|auto-smelt)
         FORGE_COMMAND="$1"; shift
 
+        if [ "${1:-}" = "sessions" ]; then
+            require_forge_project
+            local sess_choice
+            sess_choice=$(pick_session "smelter" "all")
+            if [ -n "$sess_choice" ]; then
+                local sess_agent
+                sess_agent=$(_resolve_smelter_agent "interactive")
+                agent_msg SMELTER "Resuming session..."
+                run_forge_agent "$sess_agent" "Continue where you left off." "" --resume-session "$sess_choice" --interactive
+            else
+                forge_info "No session selected."
+            fi
+            exit 0
+        fi
+
         require_forge_project
         check_auth
         check_labels
@@ -624,6 +651,19 @@ case "${1:-}" in
     hammer|auto-hammer)
         FORGE_COMMAND="$1"; shift
 
+        if [ "${1:-}" = "sessions" ]; then
+            require_forge_project
+            local sess_choice
+            sess_choice=$(pick_session "blacksmith" "all")
+            if [ -n "$sess_choice" ]; then
+                agent_msg BLACKSMITH "Resuming session..."
+                run_forge_agent "Blacksmith" "Continue where you left off." "" --resume-session "$sess_choice" --interactive
+            else
+                forge_info "No session selected."
+            fi
+            exit 0
+        fi
+
         require_forge_project
         check_auth
         check_labels
@@ -681,6 +721,19 @@ case "${1:-}" in
     temper|auto-temper)
         FORGE_COMMAND="$1"; shift
 
+        if [ "${1:-}" = "sessions" ]; then
+            require_forge_project
+            local sess_choice
+            sess_choice=$(pick_session "temperer" "all")
+            if [ -n "$sess_choice" ]; then
+                agent_msg TEMPERER "Resuming session..."
+                run_forge_agent "Temperer" "Continue where you left off." "" --resume-session "$sess_choice" --interactive
+            else
+                forge_info "No session selected."
+            fi
+            exit 0
+        fi
+
         require_forge_project
         check_auth
         check_labels
@@ -737,6 +790,21 @@ case "${1:-}" in
 
     hone|auto-hone)
         FORGE_COMMAND="$1"; shift
+
+        if [ "${1:-}" = "sessions" ]; then
+            require_forge_project
+            local sess_choice
+            sess_choice=$(pick_session "honer" "all")
+            if [ -n "$sess_choice" ]; then
+                local sess_agent
+                sess_agent=$(_resolve_honer_agent "interactive")
+                agent_msg HONER "Resuming session..."
+                run_forge_agent "$sess_agent" "Continue where you left off." "" --resume-session "$sess_choice" --interactive
+            else
+                forge_info "No session selected."
+            fi
+            exit 0
+        fi
 
         require_forge_project
         check_auth
