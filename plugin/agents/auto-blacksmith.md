@@ -45,6 +45,7 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
   - **ai-architect** — AI SDK patterns, model selection, agent architecture, RAG pipelines
   - **deployment-expert** — Build failures, function runtime, env vars, DNS, CI/CD, rollbacks
   - **performance-optimizer** — Core Web Vitals, caching, image/font optimization, bundle size
+- The **frontend-design** skill is available for creating distinctive, production-grade UI. Use it when implementing visual components, pages, and layouts — it generates creative, polished code that avoids generic AI aesthetics.
 
 ## Git Workflow
 

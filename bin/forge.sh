@@ -308,7 +308,7 @@ case "${1:-}" in
 
             # Refresh plugin caches and reinstall
             echo -e "${BLUE}Refreshing plugins...${NC}"
-            for plugin in forge vercel; do
+            for plugin in forge vercel feature-dev frontend-design; do
                 for cache_dir in "$HOME/.claude/plugins/cache"/*/"$plugin"/*/; do
                     [ -d "$cache_dir" ] && rm -rf "$cache_dir"
                 done
@@ -317,6 +317,8 @@ case "${1:-}" in
                 "Forge|forge@forge"
                 "Vercel|vercel@claude-plugins-official"
                 "PR Review Toolkit|pr-review-toolkit@claude-plugins-official"
+                "Feature Dev|feature-dev@claude-plugins-official"
+                "Frontend Design|frontend-design@claude-plugins-official"
             )
             for plugin_entry in "${plugins[@]}"; do
                 display_name="${plugin_entry%%|*}"
