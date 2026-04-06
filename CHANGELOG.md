@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-04-06
+
+### Added
+- `forge <command> sessions` — browse all sessions including archived for any craftsman (smelt, hammer, temper, hone)
+- Auto-prune of closed-issue sessions from the normal session picker — closed issues are archived (not deleted) so they can still be browsed via the sessions command
+- `archived` flag on session history entries; `get_session` skips archived sessions so auto/stoke/cast won't resume stale work
+
+### Changed
+- `pick_session` and `list_sessions` now accept a mode parameter (`all` to include archived sessions)
+
 ## [0.4.5] - 2026-04-06
 
 ### Fixed
@@ -199,6 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.5.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.0
 [0.4.5]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.5
 [0.4.4]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.4
 [0.4.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.3
