@@ -485,12 +485,13 @@ pick_session() {
 
     # Render function
     _pick_render() {
-        # Move cursor up to overwrite previous render
+        # Move cursor up to overwrite previous render (write to stderr so
+        # command substitution only captures the final session ID on stdout)
         if [ "${_pick_rendered:-0}" -gt 0 ]; then
-            printf '\033[%dA' "$((_pick_rendered))"
+            printf '\033[%dA' "$((_pick_rendered))" >&2
         fi
         local line_count=0
-        printf "  %s sessions:\n" "$role"
+        printf "  %s sessions:\n" "$role" >&2
         line_count=$((line_count + 1))
         for i in "${!sessions[@]}"; do
             local prefix="  "
@@ -504,7 +505,7 @@ pick_session() {
             if [ "${markers[$i]}" = "*" ]; then
                 suffix="${suffix} [active]"
             fi
-            printf "  %s %d. %s%s\n" "$prefix" "$((i + 1))" "${names[$i]}" "$suffix"
+            printf "  %s %d. %s%s\n" "$prefix" "$((i + 1))" "${names[$i]}" "$suffix" >&2
             line_count=$((line_count + 1))
         done
         # "Start fresh" option
@@ -512,9 +513,9 @@ pick_session() {
         if [ "$selected" -eq "$max_idx" ]; then
             fresh_prefix="> "
         fi
-        printf "  %s %d. Start fresh\n" "$fresh_prefix" "$((total + 1))"
+        printf "  %s %d. Start fresh\n" "$fresh_prefix" "$((total + 1))" >&2
         line_count=$((line_count + 1))
-        printf "\n  Arrow keys to navigate, number to jump, Enter to confirm.\n"
+        printf "\n  Arrow keys to navigate, number to jump, Enter to confirm.\n" >&2
         line_count=$((line_count + 2))
         _pick_rendered=$line_count
     }
