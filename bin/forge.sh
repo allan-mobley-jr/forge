@@ -585,7 +585,7 @@ case "${1:-}" in
                 local smelter_agent
                 smelter_agent=$(_resolve_smelter_agent "interactive")
                 agent_msg SMELTER "Resuming..."
-                if ! run_forge_agent "$smelter_agent" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                if ! run_forge_agent "$smelter_agent" "Continue where you left off." "" --resume-session "$resumed_session" --interactive; then
                     agent_fail SMELTER "failed."
                     exit 1
                 fi
@@ -610,7 +610,7 @@ case "${1:-}" in
                 session_id=$(_forge_uuid)
                 set_session "smelter" "$session_name" "$session_id" "" 2>/dev/null || true
                 agent_msg SMELTER "Starting..."
-                if ! run_forge_agent "$smelter_agent" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
+                if ! run_forge_agent "$smelter_agent" "Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail SMELTER "failed."
                     exit 1
                 fi
@@ -659,7 +659,7 @@ case "${1:-}" in
             resumed_session=$(pick_session "blacksmith")
             agent_msg BLACKSMITH "Starting on issue #$issue..."
             if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$resumed_session"; then
+                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$resumed_session" --interactive; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -667,7 +667,7 @@ case "${1:-}" in
                 local session_id session_name="blacksmith-issue-${issue}"
                 session_id=$(_forge_uuid)
                 set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
-                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
+                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -716,7 +716,7 @@ case "${1:-}" in
             resumed_session=$(pick_session "temperer")
             agent_msg TEMPERER "Starting on issue #$issue..."
             if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Temperer" "Continue where you left off. Review issue #${issue}." "" --resume-session "$resumed_session"; then
+                if ! run_forge_agent "Temperer" "Continue where you left off. Review issue #${issue}." "" --resume-session "$resumed_session" --interactive; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
                 fi
@@ -724,7 +724,7 @@ case "${1:-}" in
                 local session_id session_name="temperer-issue-${issue}"
                 session_id=$(_forge_uuid)
                 set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
-                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name"; then
+                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
                 fi
@@ -789,7 +789,7 @@ case "${1:-}" in
                 local honer_agent
                 honer_agent=$(_resolve_honer_agent "interactive")
                 agent_msg HONER "Resuming..."
-                if ! run_forge_agent "$honer_agent" "Continue where you left off." "" --resume-session "$resumed_session"; then
+                if ! run_forge_agent "$honer_agent" "Continue where you left off." "" --resume-session "$resumed_session" --interactive; then
                     agent_fail HONER "failed."
                     exit 1
                 fi
@@ -815,7 +815,7 @@ case "${1:-}" in
                     set_session "honer" "$session_name" "$session_id" "" 2>/dev/null || true
                 fi
                 agent_msg HONER "Starting..."
-                if ! run_forge_agent "$honer_agent" "$honer_prompt" "" --session-id "$session_id" --session-name "$session_name"; then
+                if ! run_forge_agent "$honer_agent" "$honer_prompt" "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail HONER "failed."
                     exit 1
                 fi
