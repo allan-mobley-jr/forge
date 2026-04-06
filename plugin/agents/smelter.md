@@ -10,6 +10,7 @@ tools:
   - WebSearch
   - WebFetch
   - Agent
+  - Skill
   - mcp__*
 ---
 
@@ -140,9 +141,10 @@ vercel api "/v9/projects/$project_id/custom-environments" -X POST \
   --input <(echo '{"slug":"Staging","description":"Staging environment tracking main","branchMatcher":{"type":"equals","pattern":"main"}}')
 ```
 
-**Monorepos:** Do **not** create or link any Vercel projects at scaffold time — the real apps don't exist yet (`create-turbo` only produces placeholder apps). Each app gets its own Vercel project when it is implemented. Instead:
-1. Include the full per-app Vercel project setup procedure in INGOT.md's Deployment & Environments section (see step 7).
-2. Add Vercel setup acceptance criteria to each deployable app issue (see step 11).
+**Monorepos:** Do **not** create or link any Vercel projects at scaffold time — the real apps don't exist yet (`create-turbo` only produces placeholder apps). All Vercel infrastructure setup happens in the **monorepo restructure issue** — the first implementation issue, which converts the placeholder apps into the real hub directory layout. By the time that issue runs, the actual hub directories exist (even as stubs) and CAN be linked to Vercel projects. Instead:
+1. Document the team-level shared resource provisioning procedure (Neon, Blob, etc.) and the per-hub Vercel project setup procedure in INGOT.md's Deployment & Environments section (see step 7).
+2. Embed all Vercel infrastructure acceptance criteria in the **restructure issue** — not in each hub implementation issue (see step 11).
+3. Subsequent hub implementation issues focus on app code only, not infrastructure.
 
 If Vercel setup fails, document what was attempted and what needs manual follow-up in INGOT.md.
 
@@ -152,8 +154,17 @@ Write `INGOT.md` to the project root using the Write tool. This is the architect
 
 - **Key Decisions** table — architectural decisions with rationale (include a Date column for future entries)
 - **Approaches Rejected** table — alternatives considered and why they were rejected (include a Date column)
-- **Deployment & Environments** section — Vercel project(s), branch-environment mapping, env vars per environment, database branching strategy if applicable. **For monorepos:** include a step-by-step "Vercel Project Setup" procedure for each deployable app (link, set root directory, enable `sourceFilesOutsideRootDirectory`, configure production branch, create Staging environment, connect shared resources and env vars) so the Blacksmith can execute it when implementing each app.
+- **Deployment & Environments** section — Vercel project(s), branch-environment mapping, env vars per environment, database branching strategy if applicable. **For monorepos**, include two subsections:
+  - **Shared Resource Provisioning** — team-level resources (Neon Postgres, Vercel Blob, Upstash Redis, etc.) are provisioned via the **Vercel Marketplace dashboard** (UI, not CLI), because team-level provisioning requires no linked project. Document each shared resource needed, the dashboard install steps, and how local dev gets credentials before any Vercel project exists (e.g., copy `POSTGRES_URL` from the Neon dashboard into a gitignored `.env.local`).
+  - **Per-Hub Vercel Project Setup** — for each deployable hub: `vercel link` from the app directory, set root directory, enable `sourceFilesOutsideRootDirectory`, configure production branch, create Staging environment, connect to the relevant team-level shared resources, configure env vars per environment. This procedure runs in the restructure issue once the hub directories exist.
 - **Design Language** section — color palette, typography, component style direction, spacing conventions. Use the **frontend-design** skill and the Vercel plugin's **shadcn/ui** guidance to create a distinctive visual identity. Do not default to generic templates.
+
+**Verification before commit:** For monorepos, verify INGOT.md contains both required subsection headings exactly:
+```bash
+grep -q '^### Shared Resource Provisioning' INGOT.md || { echo "ERROR: INGOT.md missing 'Shared Resource Provisioning' subsection"; exit 1; }
+grep -q '^### Per-Hub Vercel Project Setup' INGOT.md || { echo "ERROR: INGOT.md missing 'Per-Hub Vercel Project Setup' subsection"; exit 1; }
+```
+If either heading is missing, fix INGOT.md before committing — downstream agents (the Blacksmith on the restructure issue) rely on these exact headings to find the procedures.
 
 Commit and push to main:
 ```bash
@@ -236,12 +247,23 @@ gh issue create \
 - [ ] <criterion 2>
 ```
 
-**For monorepos — Vercel setup in deployable app issues:** When creating an issue for a hub/app that will be separately deployed (e.g., each app under `apps/`), include Vercel project setup in the acceptance criteria:
-- `Vercel project created and linked (vercel link from app directory, root directory set, sourceFilesOutsideRootDirectory enabled)`
-- `Production branch set to production, Staging environment created tracking main`
-- `Shared resources connected (Neon, Blob, env vars) per the procedure in INGOT.md`
+**For monorepos — Vercel infrastructure goes in the restructure issue (MANDATORY):** Monorepo projects MUST have a "restructure" issue as the **first** implementation issue in the sequence — the issue that converts `create-turbo`'s placeholder apps (`web`, `docs`) into the real hub directory layout (`apps/<hub>/` per hub). If your issue breakdown doesn't naturally include a restructure issue, **you MUST file one** before any hub implementation issue. This restructure issue is the **single anchor for all Vercel infrastructure setup** because by the time it runs, the actual hub directories exist and CAN be linked to Vercel projects.
 
-This ensures per-app Vercel configuration happens when the app code actually exists, not at scaffold time.
+The restructure issue MUST contain ALL of these acceptance criteria, copied verbatim (not "per INGOT.md" — inline them so the issue is self-contained):
+- `Real hub directories created under apps/ for each hub`
+- `Team-level shared resources provisioned via Vercel Marketplace dashboard (Neon, Blob, etc.) at the team level — UI not CLI, since team-level provisioning requires no linked project`
+- `One Vercel project per hub, linked from each app directory via 'vercel link'`
+- `sourceFilesOutsideRootDirectory enabled on each Vercel project so apps can access shared packages`
+- `Production branch set to 'production' on each Vercel project`
+- `Staging custom environment created tracking 'main' on each Vercel project`
+- `Each hub project connected to the relevant team-level shared resources (Neon, Blob, etc.)`
+- `Environment variables documented in INGOT.md and configured per environment (production, preview, staging) on each project`
+
+Use `scope:infra` as one of the labels on this issue.
+
+**Verification before filing:** After creating all issues, verify the restructure issue exists and contains every criterion above. If missing, STOP and file it before proceeding.
+
+**Hub implementation issues do NOT include Vercel acceptance criteria** — by the time they run, the project, environments, and shared resources are already set up. They focus purely on app code and functionality.
 
 ## Rules
 
