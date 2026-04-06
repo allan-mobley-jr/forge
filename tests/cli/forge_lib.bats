@@ -1029,3 +1029,217 @@ EOF
     [[ "$output" == *"Hammering issue #10"* ]]
     [[ "$output" != *"--resume"* ]]
 }
+
+# --- session archiving ---
+
+@test "archive_closed_sessions marks sessions for closed issues" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-10" "aaaaaaaa-1111-2222-3333-444444444444" "10"
+    set_session "blacksmith" "blacksmith-issue-11" "bbbbbbbb-2222-3333-4444-555555555555" "11"
+    # Mock gh: issue 10 is CLOSED, issue 11 is OPEN
+    mock_gh_with '
+        if [[ "$*" == *"issue view"* ]] && [[ "$*" == *"10"* ]]; then
+            echo "CLOSED"
+            exit 0
+        fi
+        if [[ "$*" == *"issue view"* ]] && [[ "$*" == *"11"* ]]; then
+            echo "OPEN"
+            exit 0
+        fi
+    '
+    archive_closed_sessions "blacksmith"
+    # Issue 10 session should be archived, issue 11 should not
+    run list_sessions "blacksmith" "all"
+    [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"*"archived"* ]]
+    [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
+    # Non-all list should exclude archived
+    run list_sessions "blacksmith"
+    [[ "$output" != *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
+    [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
+}
+
+@test "archive_closed_sessions clears active if archived session was active" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-10" "aaaaaaaa-1111-2222-3333-444444444444" "10"
+    mock_gh_with '
+        if [[ "$*" == *"issue view"* ]]; then
+            echo "CLOSED"
+            exit 0
+        fi
+    '
+    archive_closed_sessions "blacksmith"
+    # Active session should be cleared because it was archived
+    run get_session "blacksmith"
+    [[ -z "$output" ]]
+}
+
+@test "archive_closed_sessions is non-blocking on gh failure" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-10" "aaaaaaaa-1111-2222-3333-444444444444" "10"
+    # Mock gh to fail (network error)
+    mock_gh_with 'exit 1'
+    archive_closed_sessions "blacksmith"
+    # Session should NOT be archived when gh fails
+    run list_sessions "blacksmith"
+    [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
+}
+
+@test "get_session skips archived sessions" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {
+        "blacksmith": {
+          "active": "aaaaaaaa-1111-2222-3333-444444444444",
+          "history": [
+            {
+              "name": "blacksmith-issue-10",
+              "session_id": "aaaaaaaa-1111-2222-3333-444444444444",
+              "issue": 10,
+              "created": "2026-01-01T00:00:00Z",
+              "archived": true
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    run get_session "blacksmith"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+@test "list_sessions default mode excludes archived" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {
+        "blacksmith": {
+          "active": null,
+          "history": [
+            {
+              "name": "blacksmith-issue-10",
+              "session_id": "aaaaaaaa-1111-2222-3333-444444444444",
+              "issue": 10,
+              "created": "2026-01-01T00:00:00Z",
+              "archived": true
+            },
+            {
+              "name": "blacksmith-issue-11",
+              "session_id": "bbbbbbbb-2222-3333-4444-555555555555",
+              "issue": 11,
+              "created": "2026-01-02T00:00:00Z"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    run list_sessions "blacksmith"
+    [[ "$output" != *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
+    [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
+}
+
+@test "list_sessions all mode includes archived with marker" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {
+        "blacksmith": {
+          "active": null,
+          "history": [
+            {
+              "name": "blacksmith-issue-10",
+              "session_id": "aaaaaaaa-1111-2222-3333-444444444444",
+              "issue": 10,
+              "created": "2026-01-01T00:00:00Z",
+              "archived": true
+            },
+            {
+              "name": "blacksmith-issue-11",
+              "session_id": "bbbbbbbb-2222-3333-4444-555555555555",
+              "issue": 11,
+              "created": "2026-01-02T00:00:00Z"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    run list_sessions "blacksmith" "all"
+    [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"*"archived"* ]]
+    [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
+}
+
+@test "archive_closed_sessions skips sessions without issue numbers" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "smelter" "smelter-ingot" "aaaaaaaa-1111-2222-3333-444444444444" ""
+    # Mock gh should not even be called
+    mock_gh_with 'echo "SHOULD_NOT_BE_CALLED"; exit 1'
+    archive_closed_sessions "smelter"
+    # Session should remain unchanged
+    run list_sessions "smelter"
+    [[ "$output" == *"smelter-ingot"* ]]
+}
