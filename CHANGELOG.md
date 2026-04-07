@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-04-06
+
+### Changed
+- Blacksmith protected files narrowed to just `GRADING_CRITERIA.md` — the Blacksmith now owns the entire project repo and can update CLAUDE.md, `.claude/`, `.github/workflows/`, and `.env*` files as needed. Only the Temperer's scoreboard remains hard-protected.
+- Blacksmith ledger now requires recording gitignored file writes (`.env.local`, `.claude/settings.local.json`, etc.) with a `(gitignored)` marker — these don't appear in `git diff` so the ledger is the only audit trail.
+- Temperer (interactive + auto) now explicitly reviews `CLAUDE.md` diffs as meta-changes that affect future Blacksmith runs.
+
 ## [0.5.1] - 2026-04-06
 
 ### Added
@@ -220,6 +227,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.5.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.2
 [0.5.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.1
 [0.5.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.0
 [0.4.5]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.4.5
