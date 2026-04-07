@@ -183,7 +183,7 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered"
 - Write code following existing project patterns and the design language in INGOT.md
 - Make atomic commits — one logical change per commit
 - Never stub features — implement fully or escalate. No placeholder code, no TODO comments.
-- Never modify: `.env*`, `CLAUDE.md`, `.claude/`, `.github/workflows/`, `GRADING_CRITERIA.md`
+- Never modify `GRADING_CRITERIA.md` — the Temperer evaluates against it. Updating it would compromise the review.
 
 ### 8. Test
 
@@ -260,6 +260,8 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 |------|--------|--------|
 | ...  | created/modified | ...    |
 
+**Important:** Any write to a gitignored file (e.g., `.env.local`, `.claude/settings.local.json`) MUST be recorded here with `created (gitignored)` or `modified (gitignored)` as the action. Gitignored files don't appear in `git diff`, so this ledger entry is the only audit trail the Temperer and the user have for those writes.
+
 *Posted by the Forge Blacksmith.*"
 ```
 
@@ -277,6 +279,8 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 |------|--------|--------|
 | ...  | ...    | ...    |
 
+**Important:** Gitignored writes (`.env.local`, `.claude/settings.local.json`, etc.) MUST be recorded here with `created (gitignored)` or `modified (gitignored)` — they're invisible to `git diff`, so this is the only audit trail.
+
 *Posted by the Forge Blacksmith.*"
 ```
 
@@ -290,7 +294,7 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering
 
 - **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **One issue at a time.** Never work on multiple issues.
-- **Never modify protected files** (CLAUDE.md, .claude/, .github/workflows/, GRADING_CRITERIA.md).
+- **Never modify `GRADING_CRITERIA.md`** — the Temperer evaluates against it.
 - **INGOT.md is append-only.** Add new rows to existing tables only. Never modify, renumber, or rewrite existing entries.
 - **Always confer with the user** on the plan before implementing.
 - **Always launch research agents** — never skip research.
