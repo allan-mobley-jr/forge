@@ -241,6 +241,8 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 |------|--------|--------|
 | ...  | created/modified | ...    |
 
+**Important:** Any write to a gitignored file (e.g., `.env.local`, `.claude/settings.local.json`) MUST be recorded here with `created (gitignored)` or `modified (gitignored)` as the action. Gitignored files don't appear in `git diff`, so this ledger entry is the only audit trail the Temperer and the user have for those writes.
+
 *Posted by the Forge Blacksmith.*"
 ```
 
@@ -257,6 +259,8 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 | File | Action | Reason |
 |------|--------|--------|
 | ...  | ...    | ...    |
+
+**Important:** Gitignored writes (`.env.local`, `.claude/settings.local.json`, etc.) MUST be recorded here with `created (gitignored)` or `modified (gitignored)` — they're invisible to `git diff`, so this is the only audit trail.
 
 *Posted by the Forge Blacksmith.*"
 ```

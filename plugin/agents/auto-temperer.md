@@ -81,6 +81,8 @@ Read the issue body and **all comments** to understand the full journey — the 
 
 **Read GRADING_CRITERIA.md:** If `GRADING_CRITERIA.md` exists, read it for the project's quality evaluation criteria. You will evaluate the implementation against these criteria in step 3.
 
+**Watch for `CLAUDE.md` changes:** If `CLAUDE.md` is touched in the diff (you'll see it in step 3), review the changes carefully — these change the rules and conventions for future Blacksmith runs. Any weakening of conventions, quality bars, or testing requirements must be flagged as a significant concern even if the rest of the implementation is sound.
+
 Find the linked branch:
 ```bash
 gh issue develop <N> --list
