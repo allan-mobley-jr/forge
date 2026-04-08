@@ -673,14 +673,13 @@ case "${1:-}" in
         archive_closed_sessions "blacksmith" || forge_warn "Session archival reported errors; sessions may be stale."
 
         # Classify the lowest open issue and route accordingly
-        local classification issue category
+        local classification issue category status
         classification=$(classify_lowest_open_issue)
         if [ -z "$classification" ]; then
             forge_info "No open issues."
             exit 0
         fi
-        issue=$(printf '%s' "$classification" | cut -f1)
-        category=$(printf '%s' "$classification" | cut -f2)
+        IFS=$'\t' read -r issue category status <<< "$classification"
 
         case "$category" in
             hammerable) ;;  # fall through to dispatch
@@ -701,14 +700,21 @@ case "${1:-}" in
                 exit 1 ;;
         esac
 
+        # Build the status-specific task prompt shared by auto + interactive,
+        # fresh + resume. The framing differs below (INGOT context for fresh,
+        # "Continue working"/greeting prefixes, etc.) but the core instructions
+        # are the same regardless of session state.
+        local task_prompt
+        task_prompt=$(_blacksmith_prompt_for_status "$status" "$issue")
+
         # Resume if the active session matches this issue; otherwise start fresh
         local existing_bs_session existing_bs_issue
         IFS=$'\t' read -r existing_bs_session _ existing_bs_issue <<< "$(get_session "blacksmith")"
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
             if [ -n "$existing_bs_session" ] && [ "$existing_bs_issue" = "$issue" ]; then
-                agent_msg BLACKSMITH "Resuming on issue #$issue..."
-                if ! run_forge_agent "auto-blacksmith" "Continue working. Implement issue #${issue}." "" --resume-session "$existing_bs_session"; then
+                agent_msg BLACKSMITH "Resuming on issue #$issue ($status)..."
+                if ! run_forge_agent "auto-blacksmith" "Continue working. ${task_prompt}" "" --resume-session "$existing_bs_session"; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -716,8 +722,8 @@ case "${1:-}" in
                 local session_id session_name="blacksmith-issue-${issue}"
                 session_id=$(_forge_uuid)
                 set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
-                agent_msg BLACKSMITH "Starting on issue #$issue..."
-                if ! run_forge_agent "auto-blacksmith" "Read INGOT.md in the project root for architectural context before starting. Implement issue #${issue}." "" \
+                agent_msg BLACKSMITH "Starting on issue #$issue ($status)..."
+                if ! run_forge_agent "auto-blacksmith" "Read INGOT.md in the project root for architectural context before starting. ${task_prompt}" "" \
                     --session-id "$session_id" --session-name "$session_name"; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
@@ -725,8 +731,8 @@ case "${1:-}" in
             fi
         else
             if [ -n "$existing_bs_session" ] && [ "$existing_bs_issue" = "$issue" ]; then
-                agent_msg BLACKSMITH "Resuming on issue #$issue..."
-                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$existing_bs_session" --interactive; then
+                agent_msg BLACKSMITH "Resuming on issue #$issue ($status)..."
+                if ! run_forge_agent "Blacksmith" "Continue where you left off. ${task_prompt}" "" --resume-session "$existing_bs_session" --interactive; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -734,8 +740,8 @@ case "${1:-}" in
                 local session_id session_name="blacksmith-issue-${issue}"
                 session_id=$(_forge_uuid)
                 set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
-                agent_msg BLACKSMITH "Starting on issue #$issue..."
-                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user, then work on issue #${issue}." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
+                agent_msg BLACKSMITH "Starting on issue #$issue ($status)..."
+                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user, then: ${task_prompt}" "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -769,14 +775,13 @@ case "${1:-}" in
         archive_closed_sessions "temperer" || forge_warn "Session archival reported errors; sessions may be stale."
 
         # Classify the lowest open issue and route accordingly
-        local classification issue category
+        local classification issue category status
         classification=$(classify_lowest_open_issue)
         if [ -z "$classification" ]; then
             forge_info "No open issues."
             exit 0
         fi
-        issue=$(printf '%s' "$classification" | cut -f1)
-        category=$(printf '%s' "$classification" | cut -f2)
+        IFS=$'\t' read -r issue category status <<< "$classification"
 
         case "$category" in
             temperable) ;;  # fall through to dispatch

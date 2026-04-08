@@ -858,12 +858,14 @@ run_forge_agent() {
 # stderr progress output noisy. Accepted trade-off.
 
 # classify_lowest_open_issue — classify the lowest-numbered open issue.
-# Prints "<number>\t<category>" where category is one of:
-#   hammerable — has status:ready|rework|needs-human|hammering → forge hammer
-#   temperable — has status:hammered|tempering|tempered → forge temper
-#   feature    — human-filed type:feature (no ai-generated) → forge smelt
-#   bug        — human-filed type:bug (no ai-generated) → forge hone
-#   unknown    — open but no actionable label (ai-generated without a status, etc.)
+# Prints "<number>\t<category>\t<status>" where:
+#   category is one of:
+#     hammerable — has status:ready|rework|needs-human|hammering → forge hammer
+#     temperable — has status:hammered|tempering|tempered → forge temper
+#     feature    — human-filed type:feature (no ai-generated) → forge smelt
+#     bug        — human-filed type:bug (no ai-generated) → forge hone
+#     unknown    — open but no actionable label (ai-generated without a status, etc.)
+#   status is the first status:* label on the issue, or empty if none.
 # Prints nothing (returns 0) when there are no open issues.
 classify_lowest_open_issue() {
     local data
@@ -884,23 +886,64 @@ classify_lowest_open_issue() {
     # Pad for substring matching: ",label1,label2,"
     local padded=",${labels},"
 
-    local category
+    # Single pass over the label set: each status:* label determines both
+    # the category and the status field, so the two are set together.
+    # Status precedence (ready > rework > needs-human > hammering > hammered
+    # > tempering > tempered) matches the hammer/temper dispatch priority.
+    local category status=""
     case "$padded" in
-        *,status:ready,*|*,status:rework,*|*,status:needs-human,*|*,status:hammering,*)
-            category="hammerable" ;;
-        *,status:hammered,*|*,status:tempering,*|*,status:tempered,*)
-            category="temperable" ;;
-        *,ai-generated,*)
-            category="unknown" ;;
-        *,type:feature,*)
-            category="feature" ;;
-        *,type:bug,*)
-            category="bug" ;;
-        *)
-            category="unknown" ;;
+        *,status:ready,*)        category="hammerable"; status="status:ready" ;;
+        *,status:rework,*)       category="hammerable"; status="status:rework" ;;
+        *,status:needs-human,*)  category="hammerable"; status="status:needs-human" ;;
+        *,status:hammering,*)    category="hammerable"; status="status:hammering" ;;
+        *,status:hammered,*)     category="temperable"; status="status:hammered" ;;
+        *,status:tempering,*)    category="temperable"; status="status:tempering" ;;
+        *,status:tempered,*)     category="temperable"; status="status:tempered" ;;
+        *,ai-generated,*)        category="unknown" ;;
+        *,type:feature,*)        category="feature" ;;
+        *,type:bug,*)            category="bug" ;;
+        *)                       category="unknown" ;;
     esac
 
-    printf '%s\t%s\n' "$number" "$category"
+    printf '%s\t%s\t%s\n' "$number" "$category" "$status"
+}
+
+# _blacksmith_prompt_for_status — build the headless Blacksmith prompt for a given status.
+# Usage: _blacksmith_prompt_for_status <status> <issue>
+# Prints the prompt body to stdout. Callers in forge.sh / run_stoke_loop are
+# responsible for prepending context (INGOT.md instruction for fresh sessions,
+# "Continue working. " for resumes) and, for the interactive dispatch, the
+# "Greet the user, then …" framing.
+#
+# The prompts are deliberately status-specific so the agent knows up front
+# whether it's starting fresh, resuming an interrupted run, addressing rework
+# feedback, or collaborating on a needs-human recovery — rather than having
+# to infer that by re-querying labels.
+_blacksmith_prompt_for_status() {
+    local status="$1" issue="$2"
+    case "$status" in
+        status:rework)
+            echo "Issue #${issue} has status:rework — the Temperer rejected a prior pass. Read every comment tagged \"**[Temperer]**\" that isn't prefixed with ✅ (including both must-fix items and non-blockers) and address every finding in this pass."
+            ;;
+        status:needs-human)
+            echo "Issue #${issue} has status:needs-human — automated rework cycles failed. Read all \"**[Blacksmith Ledger]**\" comments and \"**[Temperer]**\" feedback, present a summary of what was tried and what kept failing, and collaborate with the user on a new approach before resuming implementation."
+            ;;
+        status:hammering)
+            echo "Issue #${issue} has status:hammering — a previous Blacksmith run was interrupted. Check the linked branch for partial work and pick up where you left off."
+            ;;
+        status:ready|"")
+            echo "Implement issue #${issue}."
+            ;;
+        *)
+            # Loud failure: every caller is expected to pass one of the known
+            # hammerable statuses (or empty, treated as ready). An unexpected
+            # value here means a caller bug or a stale status label in the
+            # target repo — silently degrading to a plain "Implement" prompt
+            # would strip rework/needs-human/hammering context without warning.
+            forge_fail "_blacksmith_prompt_for_status: unexpected status '$status' for issue #${issue}"
+            exit 1
+            ;;
+    esac
 }
 
 # --- Stoke loop ---
@@ -948,8 +991,11 @@ run_stoke_loop() {
 
         case "$status" in
             status:ready|status:rework|status:hammering)
-                # Determine prompt: fresh sessions read INGOT.md
-                local bs_prompt="Implement issue #${issue}."
+                # Build the status-specific task prompt (rework → read Temperer
+                # feedback, hammering → resume interrupted work, ready → plain
+                # implement). Shared with the interactive forge hammer path.
+                local bs_prompt
+                bs_prompt=$(_blacksmith_prompt_for_status "$status" "$issue")
                 local bs_session bs_issue
                 bs_session=$(get_session "blacksmith" | cut -f1)
                 bs_issue=$(get_session "blacksmith" | cut -f3)
