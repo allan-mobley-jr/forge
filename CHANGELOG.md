@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-04-08
+
+### Changed
+- `forge hammer` and `forge temper` in interactive mode now deterministically dispatch on the **lowest open issue** via a new `classify_lowest_open_issue` helper (replacing `find_issue_for_hammer` and `find_issue_for_temper`) — no more session picker, no more silently skipping past stuck lower-numbered issues. When the lowest issue is in the wrong state, the CLI exits with a routed message pointing at the correct sibling command (`forge temper`, `forge smelt`, or `forge hone`).
+- `agent:needs-human` renamed to `status:needs-human` so every lifecycle label lives in the `status:*` namespace. `check_labels` runs a one-time in-place rename via `gh label edit --name` that preserves every existing issue association, and loudly reports any failure. External tooling referencing `agent:needs-human` by name must update to `status:needs-human`; issue associations migrate automatically.
+
 ## [0.5.2] - 2026-04-06
 
 ### Changed
@@ -227,6 +233,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.6.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.0
 [0.5.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.2
 [0.5.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.1
 [0.5.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.0
