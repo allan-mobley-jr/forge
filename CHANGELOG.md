@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-04-08
+
+### Added
+- `forge hammer`, `forge auto-hammer`, and `run_stoke_loop` now pass status-specific prompts to the Blacksmith via a new shared `_blacksmith_prompt_for_status` helper. The rework path tells the agent to read every `[Temperer]` comment (must-fix AND non-blockers) and address every finding in one pass; the needs-human path frames the interactive recovery workflow; the hammering path explicitly names the interrupted-resume case. Unexpected status values fail loudly rather than silently degrading.
+- Temperer agents (interactive + auto) now define an explicit Must-Fix vs Non-Blocker finding taxonomy. Must-fix items block approval; non-blockers do not.
+- Temperer rework comments now include a `### Non-Blockers` table alongside `### Must-Fix Issues` when non-blocker findings exist.
+
+### Changed
+- Temperer must include **every** finding (must-fix AND non-blockers) in the REWORK comment rather than deferring "secondary" findings across cycles. Stops the Blacksmith from closing out work the Temperer still had concerns about.
+- `classify_lowest_open_issue` now emits a third tab-separated `<status>` field so callers can dispatch on the specific status label (previously collapsed into just a category).
+
 ## [0.6.0] - 2026-04-08
 
 ### Changed
@@ -233,6 +244,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.6.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.1
 [0.6.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.0
 [0.5.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.2
 [0.5.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.1
