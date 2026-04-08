@@ -56,8 +56,8 @@ Planning artifacts live in the codebase and on GitHub:
 
 Target projects use these labels (21 total, defined in `forge-lib.sh`):
 
-- **Meta:** `ai-generated`, `agent:needs-human`
-- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`
+- **Meta:** `ai-generated`
+- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
 - **Priority:** `priority:high`, `priority:medium`, `priority:low`
 - **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`, `scope:docs`

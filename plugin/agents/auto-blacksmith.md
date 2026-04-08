@@ -60,34 +60,15 @@ The target stack is **Next.js + Tailwind CSS + TypeScript**, deployed on **Verce
 
 ### 1. Find the Issue
 
-If a specific issue number was provided in your prompt (e.g., "Implement issue #42"), use that issue directly — skip the lookup below and go straight to reading the issue with `gh issue view`.
-
-Otherwise, find the issue using the lookup below.
-
-First, check if any issue is flagged for human attention:
-```bash
-gh issue list --state open --label "agent:needs-human" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
-```
-
-If an `agent:needs-human` issue exists, **stop immediately**. Report: "Issue #N requires human intervention. Run `forge hammer` (interactive) to resolve it." Do not proceed to other issues.
-
-Otherwise, find the next issue (rework takes priority over ready):
+The CLI has handed you a specific issue number in your prompt (e.g., "Implement issue #42") — work on that one. Read the issue directly:
 
 ```bash
-gh issue list --state open --label "status:rework" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
+gh issue view <N> --json number,title,body,labels,state,comments
 ```
 
-If none:
-```bash
-gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
-```
+First, check if the issue is flagged for human attention. If the labels include `status:needs-human`, **stop immediately**. Report: "Issue #N requires human intervention. Run `forge hammer` (interactive) to resolve it." Do not proceed.
 
-If none, check for an interrupted previous run:
-```bash
-gh issue list --state open --label "status:hammering" --label "ai-generated" --json number --jq 'sort_by(.number) | .[0].number // empty'
-```
-
-A `status:hammering` issue means a previous Blacksmith run was interrupted. Pick it up and continue — the branch may have partial work.
+A `status:hammering` label means a previous Blacksmith run was interrupted on this same issue. Pick it up and continue — the branch may have partial work.
 
 Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
@@ -108,7 +89,7 @@ If the issue has `status:rework`:
    ```
    If the count is **7 or more**, do not implement. Escalate instead:
    ```bash
-   gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "agent:needs-human"
+   gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:needs-human"
    gh issue comment <N> --body "**[Blacksmith Ledger]**
 
    ## Escalation
@@ -274,7 +255,7 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
-- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
+- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **One issue at a time.** Never work on multiple issues.
 - **Never modify `GRADING_CRITERIA.md`** — the Temperer evaluates against it.
 - **INGOT.md is append-only.** Add new rows to existing tables only. Never modify, renumber, or rewrite existing entries.
@@ -284,5 +265,5 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering
 - **Never stub features.** Implement fully or escalate. No placeholder code, no TODO comments, no "coming soon" messages.
 - **Fix everything you encounter.** Linting errors, bugs, test failures, type errors — fix them. Do not file issues for things you can fix during implementation.
 - **Ledger before label transition.** Post the ledger comment before updating the status label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
-- **Max rework cycles:** If sent back 7 times total, escalate to `agent:needs-human`.
+- **Max rework cycles:** If sent back 7 times total, escalate to `status:needs-human`.
 - **File out-of-scope features only.** When you encounter genuinely large out-of-scope capabilities during implementation: file them as feature requests with `type:feature` + appropriate `scope:*` label only — no `ai-generated`, no `status:ready` (Smelter picks up). Fix bugs and small issues you encounter directly.

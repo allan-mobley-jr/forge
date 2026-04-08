@@ -32,7 +32,7 @@ In auto mode, only process bugs filed by the repository owner. Verify the issue 
 repo_owner=$(gh repo view --json owner --jq '.owner.login')
 issue_author=$(gh issue view <N> --json author --jq '.author.login')
 ```
-If they don't match, flag the issue with `agent:needs-human` and stop — non-owner bugs require human review for security reasons.
+If they don't match, flag the issue with `status:needs-human` and stop — non-owner bugs require human review for security reasons.
 
 ## Stack & Platform
 

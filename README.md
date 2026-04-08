@@ -118,7 +118,7 @@ status:ready → status:hammering → status:hammered → status:tempering → s
                      └──────────── status:rework ◀──────────┘
 ```
 
-The Blacksmith always picks up the **lowest numbered open issue** — `agent:needs-human` first (interactive recovery), then `status:rework`, then `status:ready`. Only one issue is active at a time.
+The Blacksmith always picks up the **lowest numbered open issue**. In interactive mode, `forge hammer` inspects that issue's status label and either dispatches the Blacksmith (for `status:ready`, `status:rework`, `status:needs-human`, or `status:hammering`) or routes you to the right sibling command (`forge temper`, `forge smelt`, `forge hone`) when the lowest issue isn't in a hammerable state. Only one issue is active at a time.
 
 ### Rework Protocol
 
@@ -126,7 +126,7 @@ When the Temperer rejects work:
 1. It sets `status:rework` and posts a tagged comment (`**[Temperer]**`)
 2. The Blacksmith reads the feedback and fixes the issues
 3. The Blacksmith marks addressed comments with a `✅` prefix
-4. After 7 total rework cycles, the issue is escalated to `agent:needs-human`
+4. After 7 total rework cycles, the issue is escalated to `status:needs-human`
 
 ### Bootstrap (`forge init`)
 
@@ -218,13 +218,13 @@ Target projects use these labels:
 | Label | Meaning |
 |-------|---------|
 | `ai-generated` | Issue or PR filed by an agent |
-| `agent:needs-human` | Blocked — check comments for the question |
 | `status:ready` | Ready for the Blacksmith to implement |
 | `status:hammering` | Implementation in progress |
 | `status:hammered` | Implementation complete, awaiting review |
 | `status:tempering` | Review in progress |
 | `status:tempered` | Review passed, PR/merge in progress |
 | `status:rework` | Sent back to the Blacksmith |
+| `status:needs-human` | Blocked — check comments for the question |
 
 ### Descriptive labels
 
@@ -257,8 +257,8 @@ Human-filed issues (without `ai-generated`) are what trigger the auto-smelter an
 |---------|-----|
 | "This directory is already a git repository" | Run `forge init --resume`. |
 | SSH key or GitHub auth failures | `gh auth login --web --git-protocol ssh` |
-| Agent gets stuck | Check for `agent:needs-human` label. Answer the question in the comments. |
-| PR quality checks keep failing | After 7 rework cycles, the issue is escalated to `agent:needs-human`. |
+| Agent gets stuck | Check for `status:needs-human` label. Answer the question in the comments. |
+| PR quality checks keep failing | After 7 rework cycles, the issue is escalated to `status:needs-human`. |
 | "Not a Forge project" error | Run from the project root where `forge init` was run. |
 
 ## Repository Structure

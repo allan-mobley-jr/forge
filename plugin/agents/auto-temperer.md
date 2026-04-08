@@ -176,7 +176,7 @@ gh issue comment <N> --body "**[Temperer]** Escalating to human review.
 
 Post the ledger (step 7), then transition the label:
 ```bash
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "agent:needs-human"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:needs-human"
 ```
 
 Stop. Do not proceed to PR & Merge.
@@ -214,10 +214,10 @@ pr_number=$(echo "$pr_url" | grep -oE '[0-9]+$')
 **Merge** (use the captured PR number):
 ```bash
 gh pr merge "$pr_number" --squash --delete-branch
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --remove-label "status:needs-human"
 ```
 
-If merge fails (branch protection, conflicts), escalate to `agent:needs-human`.
+If merge fails (branch protection, conflicts), escalate to `status:needs-human`.
 
 **Cleanup locally:**
 ```bash
@@ -311,7 +311,7 @@ If any release step fails (PR merge, tag push, release creation), stop and docum
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
-- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
+- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **Read-only evaluation.** Never modify the code. Your only write operations are PRs, merges, releases, and GitHub comments.
 - **Never ask questions.** You are running headless. Make judgment calls and document them.
 - **Tag your comments.** Always prefix with `**[Temperer]**`.

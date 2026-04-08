@@ -668,21 +668,47 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        issue=$(find_issue_for_hammer)
-        if [ -z "$issue" ]; then
-            forge_info "No issues ready for hammering."
+        # Drop stale sessions (closed issues) so get_session below is accurate.
+        # Surface any stderr (e.g., corrupt config.json) instead of swallowing it.
+        archive_closed_sessions "blacksmith" || forge_warn "Session archival reported errors; sessions may be stale."
+
+        # Classify the lowest open issue and route accordingly
+        local classification issue category
+        classification=$(classify_lowest_open_issue)
+        if [ -z "$classification" ]; then
+            forge_info "No open issues."
             exit 0
         fi
+        issue=$(printf '%s' "$classification" | cut -f1)
+        category=$(printf '%s' "$classification" | cut -f2)
+
+        case "$category" in
+            hammerable) ;;  # fall through to dispatch
+            temperable)
+                forge_info "Issue #$issue is ready for tempering. Run: forge temper"
+                exit 0 ;;
+            feature)
+                forge_info "Issue #$issue is an unplanned feature. Run: forge smelt"
+                exit 0 ;;
+            bug)
+                forge_info "Issue #$issue is an untriaged bug. Run: forge hone"
+                exit 0 ;;
+            unknown)
+                forge_info "Issue #$issue has no actionable label."
+                exit 0 ;;
+            *)
+                forge_fail "Internal error: classify_lowest_open_issue returned unknown category '$category' for issue #$issue"
+                exit 1 ;;
+        esac
+
+        # Resume if the active session matches this issue; otherwise start fresh
+        local existing_bs_session existing_bs_issue
+        IFS=$'\t' read -r existing_bs_session _ existing_bs_issue <<< "$(get_session "blacksmith")"
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            # Auto mode: check for interrupted session first
-            local auto_bs_session
-            auto_bs_session=$(get_session "blacksmith" | cut -f1)
-            local auto_bs_issue
-            auto_bs_issue=$(get_session "blacksmith" | cut -f3)
-            if [ -n "$auto_bs_session" ] && [ "$auto_bs_issue" = "$issue" ]; then
+            if [ -n "$existing_bs_session" ] && [ "$existing_bs_issue" = "$issue" ]; then
                 agent_msg BLACKSMITH "Resuming on issue #$issue..."
-                if ! run_forge_agent "auto-blacksmith" "Continue working. Implement issue #${issue}." "" --resume-session "$auto_bs_session"; then
+                if ! run_forge_agent "auto-blacksmith" "Continue working. Implement issue #${issue}." "" --resume-session "$existing_bs_session"; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -698,10 +724,9 @@ case "${1:-}" in
                 fi
             fi
         else
-            resumed_session=$(pick_session "blacksmith")
-            agent_msg BLACKSMITH "Starting on issue #$issue..."
-            if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$resumed_session" --interactive; then
+            if [ -n "$existing_bs_session" ] && [ "$existing_bs_issue" = "$issue" ]; then
+                agent_msg BLACKSMITH "Resuming on issue #$issue..."
+                if ! run_forge_agent "Blacksmith" "Continue where you left off. Work on issue #${issue}." "" --resume-session "$existing_bs_session" --interactive; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -709,7 +734,8 @@ case "${1:-}" in
                 local session_id session_name="blacksmith-issue-${issue}"
                 session_id=$(_forge_uuid)
                 set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
-                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
+                agent_msg BLACKSMITH "Starting on issue #$issue..."
+                if ! run_forge_agent "Blacksmith" "Read INGOT.md in the project root for architectural context before starting. Greet the user, then work on issue #${issue}." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail BLACKSMITH "failed on issue #$issue."
                     exit 1
                 fi
@@ -738,21 +764,47 @@ case "${1:-}" in
         check_auth
         check_labels
 
-        issue=$(find_issue_for_temper)
-        if [ -z "$issue" ]; then
-            forge_info "No issues ready for tempering."
+        # Drop stale sessions (closed issues) so get_session below is accurate.
+        # Surface any stderr (e.g., corrupt config.json) instead of swallowing it.
+        archive_closed_sessions "temperer" || forge_warn "Session archival reported errors; sessions may be stale."
+
+        # Classify the lowest open issue and route accordingly
+        local classification issue category
+        classification=$(classify_lowest_open_issue)
+        if [ -z "$classification" ]; then
+            forge_info "No open issues."
             exit 0
         fi
+        issue=$(printf '%s' "$classification" | cut -f1)
+        category=$(printf '%s' "$classification" | cut -f2)
+
+        case "$category" in
+            temperable) ;;  # fall through to dispatch
+            hammerable)
+                forge_info "Issue #$issue is ready for hammering. Run: forge hammer"
+                exit 0 ;;
+            feature)
+                forge_info "Issue #$issue is an unplanned feature. Run: forge smelt"
+                exit 0 ;;
+            bug)
+                forge_info "Issue #$issue is an untriaged bug. Run: forge hone"
+                exit 0 ;;
+            unknown)
+                forge_info "Issue #$issue has no actionable label."
+                exit 0 ;;
+            *)
+                forge_fail "Internal error: classify_lowest_open_issue returned unknown category '$category' for issue #$issue"
+                exit 1 ;;
+        esac
+
+        # Resume if the active session matches this issue; otherwise start fresh
+        local existing_tp_session existing_tp_issue
+        IFS=$'\t' read -r existing_tp_session _ existing_tp_issue <<< "$(get_session "temperer")"
 
         if [[ "$FORGE_COMMAND" == auto-* ]]; then
-            # Auto mode: check for interrupted session first
-            local auto_tp_session
-            auto_tp_session=$(get_session "temperer" | cut -f1)
-            local auto_tp_issue
-            auto_tp_issue=$(get_session "temperer" | cut -f3)
-            if [ -n "$auto_tp_session" ] && [ "$auto_tp_issue" = "$issue" ]; then
+            if [ -n "$existing_tp_session" ] && [ "$existing_tp_issue" = "$issue" ]; then
                 agent_msg TEMPERER "Resuming on issue #$issue..."
-                if ! run_forge_agent "auto-temperer" "Continue working. Evaluate issue #${issue}." "" --resume-session "$auto_tp_session"; then
+                if ! run_forge_agent "auto-temperer" "Continue working. Evaluate issue #${issue}." "" --resume-session "$existing_tp_session"; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
                 fi
@@ -768,10 +820,9 @@ case "${1:-}" in
                 fi
             fi
         else
-            resumed_session=$(pick_session "temperer")
-            agent_msg TEMPERER "Starting on issue #$issue..."
-            if [ -n "$resumed_session" ]; then
-                if ! run_forge_agent "Temperer" "Continue where you left off. Review issue #${issue}." "" --resume-session "$resumed_session" --interactive; then
+            if [ -n "$existing_tp_session" ] && [ "$existing_tp_issue" = "$issue" ]; then
+                agent_msg TEMPERER "Resuming on issue #$issue..."
+                if ! run_forge_agent "Temperer" "Continue where you left off. Review issue #${issue}." "" --resume-session "$existing_tp_session" --interactive; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
                 fi
@@ -779,7 +830,8 @@ case "${1:-}" in
                 local session_id session_name="temperer-issue-${issue}"
                 session_id=$(_forge_uuid)
                 set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
-                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user and begin." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
+                agent_msg TEMPERER "Starting on issue #$issue..."
+                if ! run_forge_agent "Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user, then evaluate issue #${issue}." "" --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail TEMPERER "failed on issue #$issue."
                     exit 1
                 fi

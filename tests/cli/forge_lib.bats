@@ -127,6 +127,164 @@ EOF
     [[ "$output" != *"Re-created"* ]]
 }
 
+@test "check_labels migrates legacy agent:needs-human to status:needs-human" {
+    local edit_log="$TEST_TMPDIR/label_edit.log"
+    : > "$edit_log"
+
+    mock_gh_with "
+        args=\"\$*\"
+        if [[ \"\$args\" == *\"label list\"* ]]; then
+            # Legacy name present on first read; after migration, only the new
+            # name exists. Use the edit log to detect which call this is.
+            if [ -s '$edit_log' ]; then
+                echo 'ai-generated'
+                echo 'status:needs-human'
+                echo 'status:ready'
+                echo 'status:hammering'
+                echo 'status:hammered'
+                echo 'status:tempering'
+                echo 'status:tempered'
+                echo 'status:rework'
+                echo 'type:bug'
+                echo 'type:feature'
+                echo 'type:chore'
+                echo 'type:refactor'
+                echo 'priority:high'
+                echo 'priority:medium'
+                echo 'priority:low'
+                echo 'scope:ui'
+                echo 'scope:api'
+                echo 'scope:data'
+                echo 'scope:auth'
+                echo 'scope:infra'
+                echo 'scope:docs'
+            else
+                echo 'ai-generated'
+                echo 'agent:needs-human'
+                echo 'status:ready'
+                echo 'status:hammering'
+                echo 'status:hammered'
+                echo 'status:tempering'
+                echo 'status:tempered'
+                echo 'status:rework'
+                echo 'type:bug'
+                echo 'type:feature'
+                echo 'type:chore'
+                echo 'type:refactor'
+                echo 'priority:high'
+                echo 'priority:medium'
+                echo 'priority:low'
+                echo 'scope:ui'
+                echo 'scope:api'
+                echo 'scope:data'
+                echo 'scope:auth'
+                echo 'scope:infra'
+                echo 'scope:docs'
+            fi
+            exit 0
+        fi
+        if [[ \"\$args\" == *\"label edit\"* ]] && [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
+            echo \"\$args\" >> '$edit_log'
+            exit 0
+        fi
+        exit 0
+    "
+
+    run check_labels
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Migrated label agent:needs-human"* ]]
+    # Verify the rename was invoked with the correct new name
+    [[ "$(cat "$edit_log")" == *"--name status:needs-human"* ]]
+    # Should NOT report re-creation since the migration renamed in place
+    [[ "$output" != *"Re-created"* ]]
+}
+
+@test "check_labels warns when both legacy and new labels coexist" {
+    local edit_log="$TEST_TMPDIR/label_edit.log"
+    : > "$edit_log"
+
+    # Both labels exist — migration must be skipped AND the user must be warned
+    mock_gh_with "
+        args=\"\$*\"
+        if [[ \"\$args\" == *\"label list\"* ]]; then
+            echo 'ai-generated'
+            echo 'agent:needs-human'
+            echo 'status:needs-human'
+            echo 'status:ready'
+            echo 'status:hammering'
+            echo 'status:hammered'
+            echo 'status:tempering'
+            echo 'status:tempered'
+            echo 'status:rework'
+            echo 'type:bug'
+            echo 'type:feature'
+            echo 'type:chore'
+            echo 'type:refactor'
+            echo 'priority:high'
+            echo 'priority:medium'
+            echo 'priority:low'
+            echo 'scope:ui'
+            echo 'scope:api'
+            echo 'scope:data'
+            echo 'scope:auth'
+            echo 'scope:infra'
+            echo 'scope:docs'
+            exit 0
+        fi
+        if [[ \"\$args\" == *\"label edit\"* ]]; then
+            echo \"\$args\" >> '$edit_log'
+            exit 0
+        fi
+        exit 0
+    "
+
+    run check_labels
+    [[ "$status" -eq 0 ]]
+    [[ "$output" != *"Migrated label"* ]]
+    [[ "$output" == *"Both 'agent:needs-human' and 'status:needs-human' labels exist"* ]]
+    [ ! -s "$edit_log" ]
+}
+
+@test "check_labels loudly reports gh label edit failure during migration" {
+    mock_gh_with "
+        args=\"\$*\"
+        if [[ \"\$args\" == *\"label list\"* ]]; then
+            echo 'ai-generated'
+            echo 'agent:needs-human'
+            echo 'status:ready'
+            echo 'status:hammering'
+            echo 'status:hammered'
+            echo 'status:tempering'
+            echo 'status:tempered'
+            echo 'status:rework'
+            echo 'type:bug'
+            echo 'type:feature'
+            echo 'type:chore'
+            echo 'type:refactor'
+            echo 'priority:high'
+            echo 'priority:medium'
+            echo 'priority:low'
+            echo 'scope:ui'
+            echo 'scope:api'
+            echo 'scope:data'
+            echo 'scope:auth'
+            echo 'scope:infra'
+            echo 'scope:docs'
+            exit 0
+        fi
+        if [[ \"\$args\" == *\"label edit\"* ]] && [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
+            echo 'gh: permission denied' >&2
+            exit 1
+        fi
+        exit 0
+    "
+
+    run check_labels
+    # Failure is surfaced via forge_fail / forge_warn, but check_labels continues.
+    [[ "$output" == *"Failed to rename agent:needs-human"* ]]
+    [[ "$output" == *"invisible to Forge"* ]]
+}
+
 # --- FORGE_REQUIRED_LABELS constant ---
 
 @test "FORGE_REQUIRED_LABELS entries have pipe-separated format" {
@@ -355,89 +513,107 @@ EOF
     [[ "$output" == *"called: Greet the user. --agent"* ]]
 }
 
-# --- find_issue_for_hammer ---
-
-@test "find_issue_for_hammer returns needs-human issue first" {
-    mock_gh_with '
-        if [[ "$*" == *"agent:needs-human"* ]]; then
-            echo "7"
+# --- classify_lowest_open_issue ---
+#
+# Helper: mock `gh issue list` to return a single issue with the given number and labels.
+# Usage: _mock_lowest_issue <number> <comma-separated-labels>
+_mock_lowest_issue() {
+    local num="$1" labels="$2"
+    mock_gh_with "
+        if [[ \"\$*\" == *\"issue list\"* ]]; then
+            printf '%s\t%s\n' '$num' '$labels'
             exit 0
         fi
-        if [[ "$*" == *"status:rework"* ]]; then
-            echo "5"
-            exit 0
-        fi
-        if [[ "$*" == *"status:ready"* ]]; then
-            echo "3"
-            exit 0
-        fi
-    '
-    run find_issue_for_hammer
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == "7" ]]
+        echo ''
+    "
 }
 
-@test "find_issue_for_hammer prefers rework over ready" {
-    mock_gh_with '
-        if [[ "$*" == *"agent:needs-human"* ]]; then
-            echo ""
-            exit 0
-        fi
-        if [[ "$*" == *"status:rework"* ]]; then
-            echo "5"
-            exit 0
-        fi
-        if [[ "$*" == *"status:ready"* ]]; then
-            echo "3"
-            exit 0
-        fi
-    '
-    run find_issue_for_hammer
+@test "classify_lowest_open_issue: status:ready → hammerable" {
+    _mock_lowest_issue 3 "ai-generated,status:ready,type:feature"
+    run classify_lowest_open_issue
     [[ "$status" -eq 0 ]]
-    [[ "$output" == "5" ]]
+    [[ "$output" == $'3\thammerable' ]]
 }
 
-@test "find_issue_for_hammer falls back to ready" {
-    mock_gh_with '
-        if [[ "$*" == *"agent:needs-human"* ]]; then
-            echo ""
-            exit 0
-        fi
-        if [[ "$*" == *"status:rework"* ]]; then
-            echo ""
-            exit 0
-        fi
-        if [[ "$*" == *"status:ready"* ]]; then
-            echo "3"
-            exit 0
-        fi
-    '
-    run find_issue_for_hammer
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == "3" ]]
+@test "classify_lowest_open_issue: status:rework → hammerable" {
+    _mock_lowest_issue 5 "ai-generated,status:rework,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'5\thammerable' ]]
 }
 
-@test "find_issue_for_hammer returns empty when no issues" {
+@test "classify_lowest_open_issue: status:needs-human → hammerable" {
+    _mock_lowest_issue 7 "ai-generated,status:needs-human,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'7\thammerable' ]]
+}
+
+@test "classify_lowest_open_issue: status:hammering → hammerable (resume interrupted)" {
+    _mock_lowest_issue 4 "ai-generated,status:hammering,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'4\thammerable' ]]
+}
+
+@test "classify_lowest_open_issue: status:hammered → temperable" {
+    _mock_lowest_issue 9 "ai-generated,status:hammered,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'9\ttemperable' ]]
+}
+
+@test "classify_lowest_open_issue: status:tempering → temperable" {
+    _mock_lowest_issue 9 "ai-generated,status:tempering,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'9\ttemperable' ]]
+}
+
+@test "classify_lowest_open_issue: status:tempered → temperable" {
+    _mock_lowest_issue 9 "ai-generated,status:tempered,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'9\ttemperable' ]]
+}
+
+@test "classify_lowest_open_issue: human-filed type:feature → feature" {
+    _mock_lowest_issue 2 "type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'2\tfeature' ]]
+}
+
+@test "classify_lowest_open_issue: human-filed type:bug → bug" {
+    _mock_lowest_issue 2 "type:bug"
+    run classify_lowest_open_issue
+    [[ "$output" == $'2\tbug' ]]
+}
+
+@test "classify_lowest_open_issue: ai-generated type:feature without status → unknown" {
+    _mock_lowest_issue 6 "ai-generated,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'6\tunknown' ]]
+}
+
+@test "classify_lowest_open_issue: ai-generated type:bug without status → unknown" {
+    _mock_lowest_issue 6 "ai-generated,type:bug"
+    run classify_lowest_open_issue
+    [[ "$output" == $'6\tunknown' ]]
+}
+
+@test "classify_lowest_open_issue: unlabeled issue → unknown" {
+    _mock_lowest_issue 1 ""
+    run classify_lowest_open_issue
+    [[ "$output" == $'1\tunknown' ]]
+}
+
+@test "classify_lowest_open_issue: no open issues → empty" {
     mock_gh_with 'echo ""'
-    run find_issue_for_hammer
+    run classify_lowest_open_issue
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
 }
 
-# --- find_issue_for_temper ---
-
-@test "find_issue_for_temper returns lowest hammered issue" {
-    mock_gh_with 'echo "12"'
-    run find_issue_for_temper
-    [[ "$status" -eq 0 ]]
-    [[ "$output" == "12" ]]
-}
-
-@test "find_issue_for_temper returns empty when none" {
-    mock_gh_with 'echo ""'
-    run find_issue_for_temper
-    [[ "$status" -eq 0 ]]
-    [[ -z "$output" ]]
+@test "classify_lowest_open_issue: status wins over type when both present" {
+    # An ai-generated issue with status:ready should be hammerable
+    # even though it also has type:feature.
+    _mock_lowest_issue 3 "ai-generated,status:ready,type:feature,scope:ui"
+    run classify_lowest_open_issue
+    [[ "$output" == $'3\thammerable' ]]
 }
 
 # --- session management ---
@@ -902,8 +1078,8 @@ _mock_stoke_gh() {
     local issue="$1" status="$2"
     mock_gh_with "
         args=\"\$*\"
-        # agent:needs-human check — always empty
-        if [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
+        # status:needs-human check — always empty
+        if [[ \"\$args\" == *\"status:needs-human\"* ]]; then
             echo ''
             exit 0
         fi
@@ -935,9 +1111,9 @@ _mock_stoke_gh() {
     [[ "$output" == *"Queue complete"* ]]
 }
 
-@test "run_stoke_loop returns 1 when agent:needs-human is set" {
+@test "run_stoke_loop returns 1 when status:needs-human is set" {
     mock_gh_with '
-        if [[ "$*" == *"agent:needs-human"* ]]; then
+        if [[ "$*" == *"status:needs-human"* ]]; then
             echo "7"
             exit 0
         fi
@@ -946,7 +1122,7 @@ _mock_stoke_gh() {
     mock_claude_with 'exit 0'
     run run_stoke_loop
     [[ "$status" -eq 1 ]]
-    [[ "$output" == *"agent:needs-human"* ]]
+    [[ "$output" == *"status:needs-human"* ]]
     [[ "$output" == *"#7"* ]]
 }
 
