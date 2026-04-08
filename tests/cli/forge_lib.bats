@@ -528,77 +528,77 @@ _mock_lowest_issue() {
     "
 }
 
-@test "classify_lowest_open_issue: status:ready → hammerable" {
+@test "classify_lowest_open_issue: status:ready → hammerable + status:ready" {
     _mock_lowest_issue 3 "ai-generated,status:ready,type:feature"
     run classify_lowest_open_issue
     [[ "$status" -eq 0 ]]
-    [[ "$output" == $'3\thammerable' ]]
+    [[ "$output" == $'3\thammerable\tstatus:ready' ]]
 }
 
-@test "classify_lowest_open_issue: status:rework → hammerable" {
+@test "classify_lowest_open_issue: status:rework → hammerable + status:rework" {
     _mock_lowest_issue 5 "ai-generated,status:rework,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'5\thammerable' ]]
+    [[ "$output" == $'5\thammerable\tstatus:rework' ]]
 }
 
-@test "classify_lowest_open_issue: status:needs-human → hammerable" {
+@test "classify_lowest_open_issue: status:needs-human → hammerable + status:needs-human" {
     _mock_lowest_issue 7 "ai-generated,status:needs-human,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'7\thammerable' ]]
+    [[ "$output" == $'7\thammerable\tstatus:needs-human' ]]
 }
 
-@test "classify_lowest_open_issue: status:hammering → hammerable (resume interrupted)" {
+@test "classify_lowest_open_issue: status:hammering → hammerable + status:hammering" {
     _mock_lowest_issue 4 "ai-generated,status:hammering,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'4\thammerable' ]]
+    [[ "$output" == $'4\thammerable\tstatus:hammering' ]]
 }
 
-@test "classify_lowest_open_issue: status:hammered → temperable" {
+@test "classify_lowest_open_issue: status:hammered → temperable + status:hammered" {
     _mock_lowest_issue 9 "ai-generated,status:hammered,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'9\ttemperable' ]]
+    [[ "$output" == $'9\ttemperable\tstatus:hammered' ]]
 }
 
-@test "classify_lowest_open_issue: status:tempering → temperable" {
+@test "classify_lowest_open_issue: status:tempering → temperable + status:tempering" {
     _mock_lowest_issue 9 "ai-generated,status:tempering,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'9\ttemperable' ]]
+    [[ "$output" == $'9\ttemperable\tstatus:tempering' ]]
 }
 
-@test "classify_lowest_open_issue: status:tempered → temperable" {
+@test "classify_lowest_open_issue: status:tempered → temperable + status:tempered" {
     _mock_lowest_issue 9 "ai-generated,status:tempered,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'9\ttemperable' ]]
+    [[ "$output" == $'9\ttemperable\tstatus:tempered' ]]
 }
 
-@test "classify_lowest_open_issue: human-filed type:feature → feature" {
+@test "classify_lowest_open_issue: human-filed type:feature → feature + empty status" {
     _mock_lowest_issue 2 "type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'2\tfeature' ]]
+    [[ "$output" == $'2\tfeature\t' ]]
 }
 
-@test "classify_lowest_open_issue: human-filed type:bug → bug" {
+@test "classify_lowest_open_issue: human-filed type:bug → bug + empty status" {
     _mock_lowest_issue 2 "type:bug"
     run classify_lowest_open_issue
-    [[ "$output" == $'2\tbug' ]]
+    [[ "$output" == $'2\tbug\t' ]]
 }
 
-@test "classify_lowest_open_issue: ai-generated type:feature without status → unknown" {
+@test "classify_lowest_open_issue: ai-generated type:feature without status → unknown + empty status" {
     _mock_lowest_issue 6 "ai-generated,type:feature"
     run classify_lowest_open_issue
-    [[ "$output" == $'6\tunknown' ]]
+    [[ "$output" == $'6\tunknown\t' ]]
 }
 
-@test "classify_lowest_open_issue: ai-generated type:bug without status → unknown" {
+@test "classify_lowest_open_issue: ai-generated type:bug without status → unknown + empty status" {
     _mock_lowest_issue 6 "ai-generated,type:bug"
     run classify_lowest_open_issue
-    [[ "$output" == $'6\tunknown' ]]
+    [[ "$output" == $'6\tunknown\t' ]]
 }
 
-@test "classify_lowest_open_issue: unlabeled issue → unknown" {
+@test "classify_lowest_open_issue: unlabeled issue → unknown + empty status" {
     _mock_lowest_issue 1 ""
     run classify_lowest_open_issue
-    [[ "$output" == $'1\tunknown' ]]
+    [[ "$output" == $'1\tunknown\t' ]]
 }
 
 @test "classify_lowest_open_issue: no open issues → empty" {
@@ -613,7 +613,94 @@ _mock_lowest_issue() {
     # even though it also has type:feature.
     _mock_lowest_issue 3 "ai-generated,status:ready,type:feature,scope:ui"
     run classify_lowest_open_issue
-    [[ "$output" == $'3\thammerable' ]]
+    [[ "$output" == $'3\thammerable\tstatus:ready' ]]
+}
+
+# --- _blacksmith_prompt_for_status ---
+
+@test "_blacksmith_prompt_for_status: status:ready → plain implement prompt" {
+    run _blacksmith_prompt_for_status "status:ready" 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "Implement issue #42." ]]
+}
+
+@test "_blacksmith_prompt_for_status: status:rework → rework-aware prompt that names Temperer feedback" {
+    run _blacksmith_prompt_for_status "status:rework" 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"status:rework"* ]]
+    [[ "$output" == *"**[Temperer]**"* ]]
+    [[ "$output" == *"must-fix"* ]]
+    [[ "$output" == *"non-blockers"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_blacksmith_prompt_for_status: status:needs-human → human-recovery prompt" {
+    run _blacksmith_prompt_for_status "status:needs-human" 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"status:needs-human"* ]]
+    [[ "$output" == *"**[Blacksmith Ledger]**"* ]]
+    [[ "$output" == *"**[Temperer]**"* ]]
+    [[ "$output" == *"collaborate with the user"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_blacksmith_prompt_for_status: status:hammering → resume interrupted prompt" {
+    run _blacksmith_prompt_for_status "status:hammering" 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"status:hammering"* ]]
+    [[ "$output" == *"interrupted"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_blacksmith_prompt_for_status: empty status → plain implement prompt (defensive fallback)" {
+    run _blacksmith_prompt_for_status "" 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "Implement issue #42." ]]
+}
+
+@test "_blacksmith_prompt_for_status: unknown status → loud failure" {
+    # An unexpected status value must not silently degrade — it should fail
+    # loudly so a caller bug or stale label is surfaced immediately.
+    run _blacksmith_prompt_for_status "status:mystery" 42
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"unexpected status"* ]]
+    [[ "$output" == *"status:mystery"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+# --- Temperer ↔ Blacksmith taxonomy drift guard ---
+#
+# The Blacksmith rework prompt (see _blacksmith_prompt_for_status status:rework)
+# literally references the Temperer's "must-fix" and "non-blockers" categories.
+# If the Temperer agent doc ever renames either category, the Blacksmith will
+# tell the agent to look for labels that no longer exist, and no other test
+# will catch it. Pin the contract.
+
+@test "temperer.md keeps must-fix and non-blocker taxonomy in sync with Blacksmith prompt" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/temperer.md"
+    grep -qi "must-fix" "$doc"
+    grep -qi "non-blocker" "$doc"
+}
+
+@test "auto-temperer.md keeps must-fix and non-blocker taxonomy in sync with Blacksmith prompt" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/auto-temperer.md"
+    grep -qi "must-fix" "$doc"
+    grep -qi "non-blocker" "$doc"
+}
+
+# The verdict vocabulary is "REWORK", not "REJECT". Mixed vocabulary confused
+# the agent once already (caught by Copilot review on PR #314). Pin it.
+@test "temperer.md uses REWORK as the verdict name (not REJECT)" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/temperer.md"
+    grep -q "REWORK" "$doc"
+    # REJECT must not appear as an uppercase verdict token
+    ! grep -q "REJECT" "$doc"
+}
+
+@test "auto-temperer.md uses REWORK as the verdict name (not REJECT)" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/auto-temperer.md"
+    grep -q "REWORK" "$doc"
+    ! grep -q "REJECT" "$doc"
 }
 
 # --- session management ---
@@ -1135,9 +1222,11 @@ _mock_stoke_gh() {
     [[ "$output" == *"Hammering issue #10"* ]]
     [[ "$output" == *"forge:auto-blacksmith"* ]]
     [[ "$output" == *"Implement issue #10"* ]]
+    # A fresh ready dispatch must not carry rework framing
+    [[ "$output" != *"status:rework"* ]]
 }
 
-@test "run_stoke_loop dispatches auto-blacksmith for status:rework" {
+@test "run_stoke_loop dispatches auto-blacksmith for status:rework with rework-aware prompt" {
     _mock_stoke_gh 5 "status:rework"
     mock_claude_with 'echo "called: $*"'
     _create_agent_file "auto-blacksmith"
@@ -1145,7 +1234,12 @@ _mock_stoke_gh() {
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"Hammering issue #5"* ]]
     [[ "$output" == *"forge:auto-blacksmith"* ]]
-    [[ "$output" == *"Implement issue #5"* ]]
+    # The rework dispatch must send a status-specific prompt, not the generic
+    # "Implement issue #N" used for status:ready.
+    [[ "$output" == *"status:rework"* ]]
+    [[ "$output" == *"must-fix"* ]]
+    [[ "$output" == *"non-blockers"* ]]
+    [[ "$output" == *"#5"* ]]
 }
 
 @test "run_stoke_loop dispatches auto-temperer for status:hammered" {
@@ -1211,6 +1305,43 @@ EOF
     [[ "$output" == *"Resuming"* ]]
     [[ "$output" == *"--resume"* ]]
     [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
+}
+
+@test "run_stoke_loop resume path still routes rework through the helper" {
+    # Guards the resume branch in run_stoke_loop: when resuming a matching
+    # session on a status:rework issue, the "Continue working. " prefix must
+    # be prepended to the rework-aware prompt, not a stale generic one. A
+    # refactor that accidentally hardcoded the ready-style "Implement issue"
+    # prompt on the resume branch would not fail the fresh-dispatch rework
+    # test above — this one catches it.
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_session "blacksmith" "blacksmith-issue-5" "cccccccc-1111-2222-3333-444444444444" "5"
+    _mock_stoke_gh 5 "status:rework"
+    mock_claude_with 'echo "called: $*"'
+    _create_agent_file "auto-blacksmith"
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    # Should resume (--resume), not start fresh
+    [[ "$output" == *"--resume"* ]]
+    [[ "$output" == *"cccccccc-1111-2222-3333-444444444444"* ]]
+    # The resumed prompt must carry both the "Continue working" prefix AND
+    # the rework-specific helper output — proving the prefix-prepending wiring
+    # still routes through _blacksmith_prompt_for_status on resume.
+    [[ "$output" == *"Continue working"* ]]
+    [[ "$output" == *"status:rework"* ]]
+    [[ "$output" == *"must-fix"* ]]
+    [[ "$output" == *"non-blockers"* ]]
 }
 
 @test "run_stoke_loop starts fresh session when issue differs" {
