@@ -243,7 +243,7 @@ _resolve_smelter_agent() {
 # human-filed type:bug issue (no ai-generated label), or empty.
 _find_oldest_human_bug() {
     gh issue list --state open --label "type:bug" --json number,labels --jq '
-        [.[] | select(.labels | map(.name) | (any(. == "ai-generated") | not) and (any(. == "agent:needs-human") | not))]
+        [.[] | select(.labels | map(.name) | (any(. == "ai-generated") | not) and (any(. == "status:needs-human") | not))]
         | sort_by(.number) | .[0].number // empty
     ' 2>/dev/null || true
 }
@@ -661,7 +661,6 @@ pick_session() {
 FORGE_REQUIRED_LABELS=(
     # Meta labels
     "ai-generated|EEEEEE|Issue or PR filed by agent"
-    "agent:needs-human|d93f0b|Blocked on human decision"
     # Status labels — the core issue lifecycle
     "status:ready|0e8a16|Ready for Blacksmith"
     "status:hammering|c5def5|Implementation in progress"
@@ -669,6 +668,7 @@ FORGE_REQUIRED_LABELS=(
     "status:tempering|fbca04|Review in progress"
     "status:tempered|0e8a16|Review passed"
     "status:rework|d93f0b|Sent back to Blacksmith"
+    "status:needs-human|d93f0b|Blocked on human decision"
     # Descriptive labels — categorize the work
     "type:bug|d73a4a|Something is broken"
     "type:feature|0075ca|New functionality"
@@ -691,6 +691,29 @@ check_labels() {
     forge_info "Checking labels..."
     local existing_labels
     existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
+
+    # One-time migration: agent:needs-human → status:needs-human
+    # `gh label edit --name` re-keys in place, preserving all existing issue associations.
+    # Surface failures loudly: a silent failure here would orphan every issue currently
+    # tagged with the legacy label, leaving them invisible to the pipeline.
+    if echo "$existing_labels" | grep -qx "agent:needs-human"; then
+        if echo "$existing_labels" | grep -qx "status:needs-human"; then
+            forge_warn "Both 'agent:needs-human' and 'status:needs-human' labels exist."
+            forge_warn "Forge only uses 'status:needs-human'. Reassign any orphaned issues and delete the legacy label:"
+            forge_warn "  gh label delete agent:needs-human --yes"
+        else
+            local edit_err
+            if edit_err=$(gh label edit "agent:needs-human" --name "status:needs-human" 2>&1); then
+                forge_info "Migrated label agent:needs-human → status:needs-human"
+                # Refresh the label list so the create loop sees the new name
+                existing_labels=$(gh label list --json name --jq '.[].name' -L 200 2>/dev/null || true)
+            else
+                forge_fail "Failed to rename agent:needs-human → status:needs-human: $edit_err"
+                forge_warn "Any open issues tagged agent:needs-human will be invisible to Forge until this is resolved."
+            fi
+        fi
+    fi
+
     local recreated=0
 
     for entry in "${FORGE_REQUIRED_LABELS[@]}"; do
@@ -834,42 +857,50 @@ run_forge_agent() {
 # 2>/dev/null still hides the error message. Removing both makes gh's
 # stderr progress output noisy. Accepted trade-off.
 
-# find_issue_for_hammer — find the lowest open issue for the Blacksmith.
-# Priority: agent:needs-human first (interactive recovery), then status:rework, then status:ready.
-find_issue_for_hammer() {
-    local needs_human_issue
-    needs_human_issue=$(gh issue list --state open --label "agent:needs-human" --label "ai-generated" --json number --jq '
-        sort_by(.number) | .[0].number // empty
+# classify_lowest_open_issue — classify the lowest-numbered open issue.
+# Prints "<number>\t<category>" where category is one of:
+#   hammerable — has status:ready|rework|needs-human|hammering → forge hammer
+#   temperable — has status:hammered|tempering|tempered → forge temper
+#   feature    — human-filed type:feature (no ai-generated) → forge smelt
+#   bug        — human-filed type:bug (no ai-generated) → forge hone
+#   unknown    — open but no actionable label (ai-generated without a status, etc.)
+# Prints nothing (returns 0) when there are no open issues.
+classify_lowest_open_issue() {
+    local data
+    data=$(gh issue list --state open --json number,labels -L 200 --jq '
+        sort_by(.number)
+        | if length > 0 then
+            .[0] | "\(.number)\t\(.labels | map(.name) | join(","))"
+          else
+            empty
+          end
     ' 2>/dev/null || true)
-    if [ -n "$needs_human_issue" ]; then
-        echo "$needs_human_issue"
-        return
-    fi
 
-    local rework_issue
-    rework_issue=$(gh issue list --state open --label "status:rework" --label "ai-generated" --json number --jq '
-        sort_by(.number) | .[0].number // empty
-    ' 2>/dev/null || true)
-    if [ -n "$rework_issue" ]; then
-        echo "$rework_issue"
-        return
-    fi
+    [ -z "$data" ] && return 0
 
-    local ready_issue
-    ready_issue=$(gh issue list --state open --label "status:ready" --label "ai-generated" --json number --jq '
-        sort_by(.number) | .[0].number // empty
-    ' 2>/dev/null || true)
-    if [ -n "$ready_issue" ]; then
-        echo "$ready_issue"
-        return
-    fi
-}
+    local number labels
+    IFS=$'\t' read -r number labels <<< "$data"
 
-# find_issue_for_temper — find the lowest open issue with status:hammered.
-find_issue_for_temper() {
-    gh issue list --state open --label "status:hammered" --label "ai-generated" --json number --jq '
-        sort_by(.number) | .[0].number // empty
-    ' 2>/dev/null || true
+    # Pad for substring matching: ",label1,label2,"
+    local padded=",${labels},"
+
+    local category
+    case "$padded" in
+        *,status:ready,*|*,status:rework,*|*,status:needs-human,*|*,status:hammering,*)
+            category="hammerable" ;;
+        *,status:hammered,*|*,status:tempering,*|*,status:tempered,*)
+            category="temperable" ;;
+        *,ai-generated,*)
+            category="unknown" ;;
+        *,type:feature,*)
+            category="feature" ;;
+        *,type:bug,*)
+            category="bug" ;;
+        *)
+            category="unknown" ;;
+    esac
+
+    printf '%s\t%s\n' "$number" "$category"
 }
 
 # --- Stoke loop ---
@@ -883,12 +914,12 @@ run_stoke_loop() {
     while true; do
         # Check if any issue needs human intervention
         local blocked_issue
-        blocked_issue=$(gh issue list --state open --label "ai-generated" --label "agent:needs-human" --json number --jq '
+        blocked_issue=$(gh issue list --state open --label "ai-generated" --label "status:needs-human" --json number --jq '
             sort_by(.number) | .[0].number // empty
         ' 2>/dev/null || true)
 
         if [ -n "$blocked_issue" ]; then
-            forge_warn "Issue #$blocked_issue is labeled agent:needs-human. Cannot proceed."
+            forge_warn "Issue #$blocked_issue is labeled status:needs-human. Cannot proceed."
             forge_info "Resolve the issue manually, then re-run."
             return 1
         fi
