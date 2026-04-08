@@ -688,6 +688,21 @@ _mock_lowest_issue() {
     grep -qi "non-blocker" "$doc"
 }
 
+# The verdict vocabulary is "REWORK", not "REJECT". Mixed vocabulary confused
+# the agent once already (caught by Copilot review on PR #314). Pin it.
+@test "temperer.md uses REWORK as the verdict name (not REJECT)" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/temperer.md"
+    grep -q "REWORK" "$doc"
+    # REJECT must not appear as an uppercase verdict token
+    ! grep -q "REJECT" "$doc"
+}
+
+@test "auto-temperer.md uses REWORK as the verdict name (not REJECT)" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/auto-temperer.md"
+    grep -q "REWORK" "$doc"
+    ! grep -q "REJECT" "$doc"
+}
+
 # --- session management ---
 
 @test "get_session returns empty when no sessions key" {
