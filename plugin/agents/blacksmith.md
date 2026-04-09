@@ -25,7 +25,7 @@ Implement the current issue end-to-end, conferring with the user on approach bef
 
 ## Agent execution rule
 
-**Never launch research or planning agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
+**Never launch agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
 
 ## Issue Ownership
 
@@ -189,7 +189,7 @@ Review `README.md` and update it to reflect any changes from this implementation
 
 ### 10. Self-Review
 
-Review your own diff (`git diff main...HEAD`). Launch review agents in parallel for targeted analysis:
+Review your own diff (`git diff main...HEAD`). Launch all three review agents in a single foreground message — do not skip any, and never use `run_in_background`:
 
 - **`pr-review-toolkit:code-reviewer`** — Bugs, logic errors, code quality issues
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
