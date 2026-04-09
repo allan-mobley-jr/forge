@@ -27,7 +27,7 @@ Dream big. Your job is to envision, not just transcribe. When a user describes a
 
 ## Agent execution rule
 
-**Never launch research or planning agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
+**Never launch agents with `run_in_background: true`.** All agents must run in the foreground so their results are available before proceeding. "In parallel" means multiple foreground agent calls in a single message — not background execution. Do not advance to the next step until every launched agent has returned its results.
 
 ## Issue Ownership
 

@@ -1584,3 +1584,37 @@ EOF
     run list_sessions "smelter"
     [[ "$output" == *"smelter-ingot"* ]]
 }
+
+# --- version consistency ---
+#
+# All version files must agree. A partial bump (e.g., forgetting to update
+# marketplace.json) would ship silently with no test failure. This test
+# catches the drift. (Filed as #312.)
+
+@test "version strings are consistent across plugin.json, marketplace.json, and CHANGELOG" {
+    ensure_jq
+
+    local plugin_ver marketplace_meta_ver marketplace_plugin_ver changelog_ver
+
+    # Use jq -er so missing keys exit non-zero instead of printing "null"
+    run jq -er '.version' "$FORGE_TEST_DIR/plugin/.claude-plugin/plugin.json"
+    [[ "$status" -eq 0 ]]
+    plugin_ver="$output"
+
+    run jq -er '.metadata.version' "$FORGE_TEST_DIR/.claude-plugin/marketplace.json"
+    [[ "$status" -eq 0 ]]
+    marketplace_meta_ver="$output"
+
+    run jq -er '.plugins[0].version' "$FORGE_TEST_DIR/.claude-plugin/marketplace.json"
+    [[ "$status" -eq 0 ]]
+    marketplace_plugin_ver="$output"
+
+    # Filter to semver headings (X.Y.Z) to avoid matching [Unreleased] or similar
+    changelog_ver=$(grep -E -m1 '^## \[[0-9]+\.[0-9]+\.[0-9]+' "$FORGE_TEST_DIR/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
+    [[ -n "$changelog_ver" ]]
+
+    # All four must match
+    [[ "$plugin_ver" == "$marketplace_meta_ver" ]]
+    [[ "$plugin_ver" == "$marketplace_plugin_ver" ]]
+    [[ "$plugin_ver" == "$changelog_ver" ]]
+}
