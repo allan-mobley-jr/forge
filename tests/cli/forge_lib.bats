@@ -1596,15 +1596,21 @@ EOF
 
     local plugin_ver marketplace_meta_ver marketplace_plugin_ver changelog_ver
 
-    plugin_ver=$(jq -r '.version' "$FORGE_TEST_DIR/plugin/.claude-plugin/plugin.json")
-    marketplace_meta_ver=$(jq -r '.metadata.version' "$FORGE_TEST_DIR/.claude-plugin/marketplace.json")
-    marketplace_plugin_ver=$(jq -r '.plugins[0].version' "$FORGE_TEST_DIR/.claude-plugin/marketplace.json")
-    changelog_ver=$(grep -m1 '^## \[' "$FORGE_TEST_DIR/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
+    # Use jq -er so missing keys exit non-zero instead of printing "null"
+    run jq -er '.version' "$FORGE_TEST_DIR/plugin/.claude-plugin/plugin.json"
+    [[ "$status" -eq 0 ]]
+    plugin_ver="$output"
 
-    # All four must be non-empty
-    [[ -n "$plugin_ver" ]]
-    [[ -n "$marketplace_meta_ver" ]]
-    [[ -n "$marketplace_plugin_ver" ]]
+    run jq -er '.metadata.version' "$FORGE_TEST_DIR/.claude-plugin/marketplace.json"
+    [[ "$status" -eq 0 ]]
+    marketplace_meta_ver="$output"
+
+    run jq -er '.plugins[0].version' "$FORGE_TEST_DIR/.claude-plugin/marketplace.json"
+    [[ "$status" -eq 0 ]]
+    marketplace_plugin_ver="$output"
+
+    # Filter to semver headings (X.Y.Z) to avoid matching [Unreleased] or similar
+    changelog_ver=$(grep -E -m1 '^## \[[0-9]+\.[0-9]+\.[0-9]+' "$FORGE_TEST_DIR/CHANGELOG.md" | sed 's/^## \[\([^]]*\)\].*/\1/')
     [[ -n "$changelog_ver" ]]
 
     # All four must match
