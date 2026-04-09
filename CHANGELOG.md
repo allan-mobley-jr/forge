@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-04-09
+
+### Fixed
+- Agent execution rule in all 12 craftsman agent files now bans ALL background agents — previously the rule said "research or planning" (or "research or review" in Temperer variants), leaving review agents uncovered. The Blacksmith was backgrounding its self-review agents and skipping `pr-test-analyzer` entirely. Blacksmith self-review step now explicitly requires all three review agents in a single foreground message.
+
+### Added
+- Version consistency test (`tests/cli/forge_lib.bats`) that asserts `plugin.json`, `marketplace.json` (both entries), and `CHANGELOG.md` all carry the same version string. Uses `jq -er` for null-safe extraction and semver-filtered CHANGELOG heading.
+
 ## [0.6.1] - 2026-04-08
 
 ### Added
@@ -244,6 +252,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.6.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.2
 [0.6.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.1
 [0.6.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.0
 [0.5.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.5.2
