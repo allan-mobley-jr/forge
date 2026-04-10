@@ -1197,11 +1197,6 @@ with open(cfg_path, 'w') as f:
             exit 0
         fi
 
-        if ! git merge-base --is-ancestor origin/production origin/main; then
-            echo -e "${RED}Error:${NC} production has diverged from main. Resolve manually."
-            exit 1
-        fi
-
         # Show what's being deployed
         echo ""
         echo "Commits to deploy:"
@@ -1215,7 +1210,12 @@ with open(cfg_path, 'w') as f:
             exit 0
         fi
 
-        git push origin origin/main:refs/heads/production
+        # --force-with-lease: production is solely a deployment trigger and
+        # should always mirror main after deploy. Force is needed when
+        # production has diverged (e.g., an initial setup artifact). The
+        # lease check guards against a concurrent push to production between
+        # our fetch and this push.
+        git push --force-with-lease origin origin/main:refs/heads/production
         echo -e "${GREEN}Production updated. Vercel will deploy automatically.${NC}"
         ;;
 
