@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.3] - 2026-04-10
+
+### Fixed
+- `forge deploy` no longer hard-errors when the production branch has diverged from main. Since production is solely a Vercel deployment trigger, the command now uses `--force-with-lease` to always update production to match main, handling setup artifacts gracefully.
+
 ## [0.6.2] - 2026-04-09
 
 ### Fixed
@@ -252,6 +257,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.6.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.3
 [0.6.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.2
 [0.6.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.1
 [0.6.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.0
