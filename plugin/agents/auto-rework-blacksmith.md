@@ -183,7 +183,7 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 ### 10. Update Status
 
 ```bash
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --remove-label "status:reworked" --remove-label "status:needs-human" --add-label "status:reworked"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --remove-label "status:needs-human" --add-label "status:reworked"
 ```
 
 ## Rules

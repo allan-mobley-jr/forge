@@ -110,7 +110,7 @@ EOF
 
 **Do NOT add `ai-generated` or any `status:*` labels.** Workshop issues stay off the pipeline queue.
 
-Note the issue number — you'll use it for the branch, ledger, and all subsequent references.
+Note the issue number — you'll use it for the branch, ledger, and all subsequent references. The CLI automatically tracks which workshop issue was filed when the session exits.
 
 ### 5. Implement
 

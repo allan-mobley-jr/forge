@@ -758,6 +758,18 @@ case "${1:-}" in
                     exit 1
                 fi
             fi
+            # After the agent exits, check if it filed a workshop issue that we
+            # need to track. If the session has no issue number, look for the
+            # most recently created workshop-labeled issue in the repo.
+            IFS=$'\t' read -r ws_session _ ws_issue <<< "$(get_workshop_session "blacksmith")"
+            if [ -n "$ws_session" ] && [ -z "$ws_issue" ]; then
+                local filed_issue
+                filed_issue=$(gh issue list --state open --label "workshop" --json number --jq 'sort_by(.number) | last | .number // empty' 2>/dev/null || true)
+                if [ -n "$filed_issue" ]; then
+                    update_workshop_session_issue "blacksmith" "$filed_issue"
+                    forge_info "Workshop issue #$filed_issue tracked."
+                fi
+            fi
             agent_ok BLACKSMITH "workshop complete."
             exit 0
         fi
