@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-04-14
+
+### Added
+- Rework agent split: 4 new dedicated agents (Rework-Blacksmith, auto-Rework-Blacksmith, Rework-Temperer, auto-Rework-Temperer) that resume the original session with focused rework instructions via `--agent` + `--resume`.
+- Workshop mode (`forge hammer new` / `forge temper new`) for ad-hoc interactive work outside the pipeline queue. Workshop issues use a `workshop` label and stay off the state machine.
+- Focused commands (`forge hammer <N>` / `forge temper <N>`) to target specific pipeline issues by number, bypassing the queue.
+- `status:reworked` label in the state machine to distinguish rework completions from first-pass completions. Rework-Temperer picks up `status:reworked`; regular Temperer picks up `status:hammered`.
+- `workshop` label for ad-hoc workshop issues.
+- `classify_issue_by_number` helper in forge-lib.sh for focused command dispatch, with a drift-guard test ensuring its case arms stay in sync with `classify_lowest_open_issue`.
+- Workshop session management (`get_workshop_session`, `set_workshop_session`, `update_workshop_session_issue`) stored under `sessions.workshop-*` in config.json. CLI auto-detects the workshop issue number after the Workshop-Blacksmith session exits.
+
+### Changed
+- First-pass Temperer now treats all findings as blocking — the approval gate is "zero findings" instead of "zero must-fix items." The must-fix vs non-blocker distinction now lives exclusively in the Rework-Temperer for subsequent passes.
+- Temperer rework comment format changed from two tables (`Must-Fix Issues` + `Non-Blockers`) to a single `Issues Found` table on first pass.
+- Existing Blacksmith/Temperer agents simplified to first-pass only — rework detection, human recovery, rework ledger templates, and "max rework cycles" rule moved to dedicated rework agents.
+- Blacksmith "file out-of-scope features" rule replaced with "expand scope to fully implement" — build supporting functionality rather than filing follow-ups.
+- Strengthened E2E testing language across all agents: thorough user-perspective walkthroughs of affected pages (edge cases, error states, adjacent functionality) instead of shallow spot checks.
+- Stoke loop now routes `status:rework` to auto-Rework-Blacksmith and `status:reworked` to auto-Rework-Temperer.
+
+### Fixed
+- `run_forge_agent` now always passes `--agent` on resume (not just on fresh sessions). Previously, agent system prompts were lost when resuming sessions via `--resume`. This also enables cross-agent session resumption (e.g., Rework-Blacksmith resuming a Blacksmith session).
+
 ## [0.6.3] - 2026-04-10
 
 ### Fixed
@@ -257,6 +279,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.7.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.7.0
 [0.6.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.3
 [0.6.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.2
 [0.6.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.1
