@@ -13,10 +13,16 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-smelter.md  — Auto-Smelter: headless bootstrap from feature request
     smelter-feature.md     — Smelter-Feature: interactive feature planning
     auto-smelter-feature.md — Auto-Smelter-Feature: headless feature planning
-    blacksmith.md    — Blacksmith: interactive implementation
-    auto-blacksmith.md — Auto-Blacksmith: headless implementation
-    temperer.md      — Temperer: interactive evaluation + PR + merge + release
-    auto-temperer.md — Auto-Temperer: headless evaluation + PR + merge + release
+    blacksmith.md    — Blacksmith: interactive first-pass implementation
+    auto-blacksmith.md — Auto-Blacksmith: headless first-pass implementation
+    rework-blacksmith.md — Rework-Blacksmith: interactive rework (addresses Temperer feedback)
+    auto-rework-blacksmith.md — Auto-Rework-Blacksmith: headless rework
+    temperer.md      — Temperer: interactive first-pass evaluation + PR + merge + release
+    auto-temperer.md — Auto-Temperer: headless first-pass evaluation + PR + merge + release
+    rework-temperer.md — Rework-Temperer: interactive rework re-review
+    auto-rework-temperer.md — Auto-Rework-Temperer: headless rework re-review
+    workshop-blacksmith.md — Workshop-Blacksmith: interactive ad-hoc implementation
+    workshop-temperer.md — Workshop-Temperer: interactive ad-hoc evaluation
     honer.md             — Honer: interactive bug triage
     honer-audit.md       — Honer-Audit: interactive codebase audit
     auto-honer.md        — Auto-Honer: headless bug triage
@@ -40,7 +46,7 @@ Planning artifacts live in the codebase and on GitHub:
 ## Conventions
 
 - Agents use YAML frontmatter with `name`, `description`, `tools`
-- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four (bootstrap + feature variants) and the Honer has four (bug triage + audit variants).
+- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four (bootstrap + feature variants), the Honer has four (bug triage + audit variants), the Blacksmith and Temperer each have four (first-pass + rework variants), and the Workshop agents are interactive only (no auto variants).
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
@@ -54,13 +60,14 @@ Planning artifacts live in the codebase and on GitHub:
 
 ## Labels
 
-Target projects use these labels (21 total, defined in `forge-lib.sh`):
+Target projects use these labels (23 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`
-- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`
+- **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:reworked`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
 - **Priority:** `priority:high`, `priority:medium`, `priority:low`
 - **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`, `scope:docs`
+- **Workshop:** `workshop`
 
 When creating issues or PRs for **this repo**, apply relevant labels:
 

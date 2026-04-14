@@ -142,6 +142,7 @@ EOF
                 echo 'status:ready'
                 echo 'status:hammering'
                 echo 'status:hammered'
+                echo 'status:reworked'
                 echo 'status:tempering'
                 echo 'status:tempered'
                 echo 'status:rework'
@@ -158,12 +159,14 @@ EOF
                 echo 'scope:auth'
                 echo 'scope:infra'
                 echo 'scope:docs'
+                echo 'workshop'
             else
                 echo 'ai-generated'
                 echo 'agent:needs-human'
                 echo 'status:ready'
                 echo 'status:hammering'
                 echo 'status:hammered'
+                echo 'status:reworked'
                 echo 'status:tempering'
                 echo 'status:tempered'
                 echo 'status:rework'
@@ -180,6 +183,7 @@ EOF
                 echo 'scope:auth'
                 echo 'scope:infra'
                 echo 'scope:docs'
+                echo 'workshop'
             fi
             exit 0
         fi
@@ -213,6 +217,7 @@ EOF
             echo 'status:ready'
             echo 'status:hammering'
             echo 'status:hammered'
+            echo 'status:reworked'
             echo 'status:tempering'
             echo 'status:tempered'
             echo 'status:rework'
@@ -229,6 +234,7 @@ EOF
             echo 'scope:auth'
             echo 'scope:infra'
             echo 'scope:docs'
+            echo 'workshop'
             exit 0
         fi
         if [[ \"\$args\" == *\"label edit\"* ]]; then
@@ -254,6 +260,7 @@ EOF
             echo 'status:ready'
             echo 'status:hammering'
             echo 'status:hammered'
+            echo 'status:reworked'
             echo 'status:tempering'
             echo 'status:tempered'
             echo 'status:rework'
@@ -270,6 +277,7 @@ EOF
             echo 'scope:auth'
             echo 'scope:infra'
             echo 'scope:docs'
+            echo 'workshop'
             exit 0
         fi
         if [[ \"\$args\" == *\"label edit\"* ]] && [[ \"\$args\" == *\"agent:needs-human\"* ]]; then
@@ -488,8 +496,8 @@ EOF
     [[ "$output" == *"--resume"* ]]
     [[ "$output" == *"Continue."* ]]
     [[ "$output" != *"-p"* ]]
-    # Prompt must appear before --resume flag
-    [[ "$output" == *"called: Continue. --resume"* ]]
+    # Prompt must appear before --agent and --resume flags
+    [[ "$output" == *"called: Continue. --agent forge:Smelter --resume"* ]]
 }
 
 @test "run_forge_agent --interactive with empty prompt passes no prompt" {
@@ -559,6 +567,12 @@ _mock_lowest_issue() {
     [[ "$output" == $'9\ttemperable\tstatus:hammered' ]]
 }
 
+@test "classify_lowest_open_issue: status:reworked → temperable + status:reworked" {
+    _mock_lowest_issue 8 "ai-generated,status:reworked,type:feature"
+    run classify_lowest_open_issue
+    [[ "$output" == $'8\ttemperable\tstatus:reworked' ]]
+}
+
 @test "classify_lowest_open_issue: status:tempering → temperable + status:tempering" {
     _mock_lowest_issue 9 "ai-generated,status:tempering,type:feature"
     run classify_lowest_open_issue
@@ -624,24 +638,41 @@ _mock_lowest_issue() {
     [[ "$output" == "Implement issue #42." ]]
 }
 
-@test "_blacksmith_prompt_for_status: status:rework → rework-aware prompt that names Temperer feedback" {
+@test "_blacksmith_prompt_for_status: status:rework → loud failure (rework routes to different agent)" {
     run _blacksmith_prompt_for_status "status:rework" 42
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"unexpected status"* ]]
+}
+
+@test "_blacksmith_prompt_for_status: status:needs-human → loud failure (needs-human routes to different agent)" {
+    run _blacksmith_prompt_for_status "status:needs-human" 42
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"unexpected status"* ]]
+}
+
+# --- _rework_blacksmith_prompt_for_status ---
+
+@test "_rework_blacksmith_prompt_for_status: status:rework → rework-aware prompt that names Temperer feedback" {
+    run _rework_blacksmith_prompt_for_status "status:rework" 42
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"status:rework"* ]]
     [[ "$output" == *"**[Temperer]**"* ]]
-    [[ "$output" == *"must-fix"* ]]
-    [[ "$output" == *"non-blockers"* ]]
     [[ "$output" == *"#42"* ]]
 }
 
-@test "_blacksmith_prompt_for_status: status:needs-human → human-recovery prompt" {
-    run _blacksmith_prompt_for_status "status:needs-human" 42
+@test "_rework_blacksmith_prompt_for_status: status:needs-human → human-recovery prompt" {
+    run _rework_blacksmith_prompt_for_status "status:needs-human" 42
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"status:needs-human"* ]]
     [[ "$output" == *"**[Blacksmith Ledger]**"* ]]
     [[ "$output" == *"**[Temperer]**"* ]]
-    [[ "$output" == *"collaborate with the user"* ]]
     [[ "$output" == *"#42"* ]]
+}
+
+@test "_rework_blacksmith_prompt_for_status: unknown status → loud failure" {
+    run _rework_blacksmith_prompt_for_status "status:ready" 42
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"unexpected status"* ]]
 }
 
 @test "_blacksmith_prompt_for_status: status:hammering → resume interrupted prompt" {
@@ -668,24 +699,34 @@ _mock_lowest_issue() {
     [[ "$output" == *"#42"* ]]
 }
 
-# --- Temperer ↔ Blacksmith taxonomy drift guard ---
+# --- Rework agent taxonomy drift guard ---
 #
-# The Blacksmith rework prompt (see _blacksmith_prompt_for_status status:rework)
-# literally references the Temperer's "must-fix" and "non-blockers" categories.
-# If the Temperer agent doc ever renames either category, the Blacksmith will
-# tell the agent to look for labels that no longer exist, and no other test
-# will catch it. Pin the contract.
+# The Rework-Temperer agents use must-fix/non-blocker taxonomy (unlike the
+# first-pass Temperer which treats all findings equally). The Rework-Blacksmith
+# agents must understand this taxonomy. Pin the contract.
 
-@test "temperer.md keeps must-fix and non-blocker taxonomy in sync with Blacksmith prompt" {
-    local doc="$FORGE_TEST_DIR/plugin/agents/temperer.md"
+@test "rework-temperer.md uses must-fix and non-blocker taxonomy" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/rework-temperer.md"
     grep -qi "must-fix" "$doc"
     grep -qi "non-blocker" "$doc"
 }
 
-@test "auto-temperer.md keeps must-fix and non-blocker taxonomy in sync with Blacksmith prompt" {
-    local doc="$FORGE_TEST_DIR/plugin/agents/auto-temperer.md"
+@test "auto-rework-temperer.md uses must-fix and non-blocker taxonomy" {
+    local doc="$FORGE_TEST_DIR/plugin/agents/auto-rework-temperer.md"
     grep -qi "must-fix" "$doc"
     grep -qi "non-blocker" "$doc"
+}
+
+# --- classify_issue_by_number / classify_lowest_open_issue drift guard ---
+#
+# Both functions must have identical status label case arms. Extract and compare.
+@test "classify_issue_by_number case arms match classify_lowest_open_issue" {
+    local lib="$FORGE_TEST_DIR/bin/forge-lib.sh"
+    # Extract case arms from both functions (status:* patterns)
+    local lowest_arms reworked_arms
+    lowest_arms=$(sed -n '/^classify_lowest_open_issue/,/^}/{ /\*,status:/s/.*\*,\(status:[a-z-]*\),.*/\1/p }' "$lib" | sort)
+    reworked_arms=$(sed -n '/^classify_issue_by_number/,/^}/{ /\*,status:/s/.*\*,\(status:[a-z-]*\),.*/\1/p }' "$lib" | sort)
+    [[ "$lowest_arms" == "$reworked_arms" ]]
 }
 
 # The verdict vocabulary is "REWORK", not "REJECT". Mixed vocabulary confused
@@ -916,7 +957,9 @@ EOF
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"--resume"* ]]
     [[ "$output" == *"bbbbbbbb-2222-3333-4444-555555555555"* ]]
-    [[ "$output" != *"--agent"* ]]
+    # --agent is now always passed (even on resume) to re-inject the system prompt
+    [[ "$output" == *"--agent"* ]]
+    [[ "$output" == *"forge:Smelter"* ]]
     [[ "$output" == *"-p"* ]]
 }
 
@@ -1226,20 +1269,27 @@ _mock_stoke_gh() {
     [[ "$output" != *"status:rework"* ]]
 }
 
-@test "run_stoke_loop dispatches auto-blacksmith for status:rework with rework-aware prompt" {
+@test "run_stoke_loop dispatches auto-rework-blacksmith for status:rework" {
     _mock_stoke_gh 5 "status:rework"
     mock_claude_with 'echo "called: $*"'
-    _create_agent_file "auto-blacksmith"
+    _create_agent_file "auto-rework-blacksmith"
     run run_stoke_loop
     [[ "$status" -eq 0 ]]
-    [[ "$output" == *"Hammering issue #5"* ]]
-    [[ "$output" == *"forge:auto-blacksmith"* ]]
-    # The rework dispatch must send a status-specific prompt, not the generic
-    # "Implement issue #N" used for status:ready.
+    [[ "$output" == *"Reworking issue #5"* ]]
+    [[ "$output" == *"forge:auto-rework-blacksmith"* ]]
     [[ "$output" == *"status:rework"* ]]
-    [[ "$output" == *"must-fix"* ]]
-    [[ "$output" == *"non-blockers"* ]]
     [[ "$output" == *"#5"* ]]
+}
+
+@test "run_stoke_loop dispatches auto-rework-temperer for status:reworked" {
+    _mock_stoke_gh 8 "status:reworked"
+    mock_claude_with 'echo "called: $*"'
+    _create_agent_file "auto-rework-temperer"
+    run run_stoke_loop
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"Re-reviewing issue #8"* ]]
+    [[ "$output" == *"forge:auto-rework-temperer"* ]]
+    [[ "$output" == *"#8"* ]]
 }
 
 @test "run_stoke_loop dispatches auto-temperer for status:hammered" {
@@ -1307,13 +1357,10 @@ EOF
     [[ "$output" == *"aaaaaaaa-1111-2222-3333-444444444444"* ]]
 }
 
-@test "run_stoke_loop resume path still routes rework through the helper" {
-    # Guards the resume branch in run_stoke_loop: when resuming a matching
-    # session on a status:rework issue, the "Continue working. " prefix must
-    # be prepended to the rework-aware prompt, not a stale generic one. A
-    # refactor that accidentally hardcoded the ready-style "Implement issue"
-    # prompt on the resume branch would not fail the fresh-dispatch rework
-    # test above — this one catches it.
+@test "run_stoke_loop resume path routes rework to auto-rework-blacksmith" {
+    # When resuming a matching session on a status:rework issue, the stoke loop
+    # must use auto-rework-blacksmith (not auto-blacksmith) and pass a rework-
+    # specific prompt.
     mkdir -p "$FORGE_CONFIG_DIR"
     cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
 {
@@ -1329,19 +1376,15 @@ EOF
     set_session "blacksmith" "blacksmith-issue-5" "cccccccc-1111-2222-3333-444444444444" "5"
     _mock_stoke_gh 5 "status:rework"
     mock_claude_with 'echo "called: $*"'
-    _create_agent_file "auto-blacksmith"
+    _create_agent_file "auto-rework-blacksmith"
     run run_stoke_loop
     [[ "$status" -eq 0 ]]
-    # Should resume (--resume), not start fresh
+    # Should resume with rework agent
     [[ "$output" == *"--resume"* ]]
     [[ "$output" == *"cccccccc-1111-2222-3333-444444444444"* ]]
-    # The resumed prompt must carry both the "Continue working" prefix AND
-    # the rework-specific helper output — proving the prefix-prepending wiring
-    # still routes through _blacksmith_prompt_for_status on resume.
+    [[ "$output" == *"forge:auto-rework-blacksmith"* ]]
     [[ "$output" == *"Continue working"* ]]
     [[ "$output" == *"status:rework"* ]]
-    [[ "$output" == *"must-fix"* ]]
-    [[ "$output" == *"non-blockers"* ]]
 }
 
 @test "run_stoke_loop starts fresh session when issue differs" {

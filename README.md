@@ -113,20 +113,23 @@ Named sessions persist across issues within a milestone. The CLI resumes session
 Issues flow through status labels. Agents own all label transitions.
 
 ```
-status:ready → status:hammering → status:hammered → status:tempering → status:tempered → merged
-                     ↑                                      │
-                     └──────────── status:rework ◀──────────┘
+First pass:   status:ready → status:hammering → status:hammered → status:tempering → status:tempered → merged
+                                                       ↑                                    │
+Rework:       status:rework → status:hammering → status:reworked → status:tempering ────────┘
 ```
 
-The Blacksmith always picks up the **lowest numbered open issue**. In interactive mode, `forge hammer` inspects that issue's status label and either dispatches the Blacksmith (for `status:ready`, `status:rework`, `status:needs-human`, or `status:hammering`) or routes you to the right sibling command (`forge temper`, `forge smelt`, `forge hone`) when the lowest issue isn't in a hammerable state. Only one issue is active at a time.
+The CLI dispatches different agents based on the issue's status label. First-pass work routes to the Blacksmith/Temperer. Rework routes to the Rework-Blacksmith/Rework-Temperer, which resume the original session with focused rework instructions.
+
+In interactive mode, `forge hammer` picks the lowest numbered open issue, or you can target a specific issue with `forge hammer <N>`. Workshop mode (`forge hammer new`) allows ad-hoc work outside the queue.
 
 ### Rework Protocol
 
 When the Temperer rejects work:
 1. It sets `status:rework` and posts a tagged comment (`**[Temperer]**`)
-2. The Blacksmith reads the feedback and fixes the issues
-3. The Blacksmith marks addressed comments with a `✅` prefix
-4. After 7 total rework cycles, the issue is escalated to `status:needs-human`
+2. The Rework-Blacksmith reads the feedback and fixes the issues
+3. It marks addressed comments with a `✅` prefix and sets `status:reworked`
+4. The Rework-Temperer re-reviews, focusing on whether feedback was addressed
+5. After 7 total rework cycles, the issue is escalated to `status:needs-human`
 
 ### Bootstrap (`forge init`)
 
@@ -220,11 +223,13 @@ Target projects use these labels:
 | `ai-generated` | Issue or PR filed by an agent |
 | `status:ready` | Ready for the Blacksmith to implement |
 | `status:hammering` | Implementation in progress |
-| `status:hammered` | Implementation complete, awaiting review |
+| `status:hammered` | First-pass implementation complete, awaiting review |
+| `status:reworked` | Rework complete, awaiting re-review |
 | `status:tempering` | Review in progress |
 | `status:tempered` | Review passed, PR/merge in progress |
-| `status:rework` | Sent back to the Blacksmith |
+| `status:rework` | Sent back to the Rework-Blacksmith |
 | `status:needs-human` | Blocked — check comments for the question |
+| `workshop` | Ad-hoc workshop issue (outside the pipeline queue) |
 
 ### Descriptive labels
 
