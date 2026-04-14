@@ -526,6 +526,63 @@ if changed:
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "$role" "$closed_json"
 }
 
+# --- Workshop session management ---
+# Workshop sessions are stored under projects.<name>.sessions with role names
+# "workshop-blacksmith" and "workshop-temperer". This reuses the existing
+# get_session / set_session / list_sessions / pick_session infrastructure
+# while keeping workshop sessions namespaced separately from pipeline agents.
+#
+# Thin wrappers for clarity at call sites:
+
+# get_workshop_session — read the active workshop session for a role.
+# Usage: get_workshop_session <role>   (role is "blacksmith" or "temperer")
+get_workshop_session() {
+    get_session "workshop-$1"
+}
+
+# set_workshop_session — write workshop session for a role.
+# Usage: set_workshop_session <role> <session_name> <session_id> [issue_number]
+set_workshop_session() {
+    local role="$1"; shift
+    set_session "workshop-$role" "$@"
+}
+
+# update_workshop_session_issue — update the issue number on the active workshop session.
+# Called after the Workshop-Blacksmith files an issue so the Temperer can find it.
+# Usage: update_workshop_session_issue <role> <issue_number>
+update_workshop_session_issue() {
+    local role="$1"
+    local issue="$2"
+    local project_name
+    project_name=$(_forge_project_name)
+    python3 -c "
+import json, sys
+cfg_path, proj, role, iss = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+try:
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError) as e:
+    print(f'Error: {cfg_path}: {e}', file=sys.stderr)
+    sys.exit(1)
+sess = cfg.get('projects', {}).get(proj, {}).get('sessions', {}).get(role)
+if not isinstance(sess, dict):
+    sys.exit(0)
+active = sess.get('active')
+if active:
+    for h in sess.get('history', []):
+        if h.get('session_id') == active:
+            try:
+                h['issue'] = int(iss)
+            except ValueError:
+                print(f'Error: invalid issue number \"{iss}\" — must be numeric', file=sys.stderr)
+                sys.exit(1)
+            break
+    with open(cfg_path, 'w') as f:
+        json.dump(cfg, f, indent=2)
+        f.write('\n')
+" "$FORGE_CONFIG_DIR/config.json" "$project_name" "workshop-$role" "$issue"
+}
+
 # pick_session — interactive session picker with arrow keys and number input.
 # Usage: pick_session <agent_role> [mode]
 # mode: "all" = show all sessions including archived (for sessions command),
@@ -665,6 +722,7 @@ FORGE_REQUIRED_LABELS=(
     "status:ready|0e8a16|Ready for Blacksmith"
     "status:hammering|c5def5|Implementation in progress"
     "status:hammered|1d76db|Implementation complete"
+    "status:reworked|1d76db|Rework complete"
     "status:tempering|fbca04|Review in progress"
     "status:tempered|0e8a16|Review passed"
     "status:rework|d93f0b|Sent back to Blacksmith"
@@ -683,6 +741,8 @@ FORGE_REQUIRED_LABELS=(
     "scope:auth|d93f0b|Authentication or authorization"
     "scope:infra|ededed|CI, deploy, or config changes"
     "scope:docs|0075ca|Documentation updates"
+    # Workshop label — ad-hoc interactive work outside the pipeline
+    "workshop|c5def5|Ad-hoc workshop issue"
 )
 
 # --- Label management ---
@@ -824,11 +884,16 @@ run_forge_agent() {
         cmd+=("$prompt")
     fi
 
-    # Mode: resume existing session vs start new one
+    # Mode: resume existing session vs start new one.
+    # --agent is always passed so the agent system prompt is re-injected on
+    # resume (Claude Code sessions preserve conversation history but NOT the
+    # agent system prompt). This also enables resuming a session with a
+    # different agent than the one that started it (e.g., Rework-Blacksmith
+    # resuming a Blacksmith session).
+    cmd+=(--agent "forge:${agent_name}")
     if [ -n "$resume_session" ]; then
         cmd+=(--resume "$resume_session")
     else
-        cmd+=(--agent "forge:${agent_name}")
         [ -n "$session_id" ] && cmd+=(--session-id "$session_id")
         [ -n "$session_name" ] && cmd+=(-n "$session_name")
     fi
@@ -889,7 +954,7 @@ classify_lowest_open_issue() {
     # Single pass over the label set: each status:* label determines both
     # the category and the status field, so the two are set together.
     # Status precedence (ready > rework > needs-human > hammering > hammered
-    # > tempering > tempered) matches the hammer/temper dispatch priority.
+    # > reworked > tempering > tempered) matches the hammer/temper dispatch priority.
     local category status=""
     case "$padded" in
         *,status:ready,*)        category="hammerable"; status="status:ready" ;;
@@ -897,6 +962,7 @@ classify_lowest_open_issue() {
         *,status:needs-human,*)  category="hammerable"; status="status:needs-human" ;;
         *,status:hammering,*)    category="hammerable"; status="status:hammering" ;;
         *,status:hammered,*)     category="temperable"; status="status:hammered" ;;
+        *,status:reworked,*)     category="temperable"; status="status:reworked" ;;
         *,status:tempering,*)    category="temperable"; status="status:tempering" ;;
         *,status:tempered,*)     category="temperable"; status="status:tempered" ;;
         *,ai-generated,*)        category="unknown" ;;
@@ -908,26 +974,59 @@ classify_lowest_open_issue() {
     printf '%s\t%s\t%s\n' "$number" "$category" "$status"
 }
 
-# _blacksmith_prompt_for_status — build the headless Blacksmith prompt for a given status.
+# classify_issue_by_number — classify a specific issue by number.
+# Same output format and classification logic as classify_lowest_open_issue:
+#   <number>\t<category>\t<status>
+# Prints nothing (returns 0) when the issue doesn't exist or is closed.
+# NOTE: The case arms here MUST stay in sync with classify_lowest_open_issue.
+# A drift guard test verifies this.
+classify_issue_by_number() {
+    local number="$1"
+    local data
+    data=$(gh issue view "$number" --json number,labels,state --jq '
+        select(.state == "OPEN")
+        | "\(.number)\t\(.labels | map(.name) | join(","))"
+    ' 2>/dev/null || true)
+
+    [ -z "$data" ] && return 0
+
+    local num labels
+    IFS=$'\t' read -r num labels <<< "$data"
+
+    local padded=",${labels},"
+
+    # Case arms kept in sync with classify_lowest_open_issue — see drift guard test.
+    local category status=""
+    case "$padded" in
+        *,status:ready,*)        category="hammerable"; status="status:ready" ;;
+        *,status:rework,*)       category="hammerable"; status="status:rework" ;;
+        *,status:needs-human,*)  category="hammerable"; status="status:needs-human" ;;
+        *,status:hammering,*)    category="hammerable"; status="status:hammering" ;;
+        *,status:hammered,*)     category="temperable"; status="status:hammered" ;;
+        *,status:reworked,*)     category="temperable"; status="status:reworked" ;;
+        *,status:tempering,*)    category="temperable"; status="status:tempering" ;;
+        *,status:tempered,*)     category="temperable"; status="status:tempered" ;;
+        *,ai-generated,*)        category="unknown" ;;
+        *,type:feature,*)        category="feature" ;;
+        *,type:bug,*)            category="bug" ;;
+        *)                       category="unknown" ;;
+    esac
+
+    printf '%s\t%s\t%s\n' "$num" "$category" "$status"
+}
+
+# _blacksmith_prompt_for_status — build the Blacksmith prompt for a given status.
 # Usage: _blacksmith_prompt_for_status <status> <issue>
 # Prints the prompt body to stdout. Callers in forge.sh / run_stoke_loop are
 # responsible for prepending context (INGOT.md instruction for fresh sessions,
 # "Continue working. " for resumes) and, for the interactive dispatch, the
 # "Greet the user, then …" framing.
 #
-# The prompts are deliberately status-specific so the agent knows up front
-# whether it's starting fresh, resuming an interrupted run, addressing rework
-# feedback, or collaborating on a needs-human recovery — rather than having
-# to infer that by re-querying labels.
+# NOTE: status:rework and status:needs-human are handled by the Rework-Blacksmith
+# agent, not this function. Those statuses route to different agents entirely.
 _blacksmith_prompt_for_status() {
     local status="$1" issue="$2"
     case "$status" in
-        status:rework)
-            echo "Issue #${issue} has status:rework — the Temperer rejected a prior pass. Read every comment tagged \"**[Temperer]**\" that isn't prefixed with ✅ (including both must-fix items and non-blockers) and address every finding in this pass."
-            ;;
-        status:needs-human)
-            echo "Issue #${issue} has status:needs-human — automated rework cycles failed. Read all \"**[Blacksmith Ledger]**\" comments and \"**[Temperer]**\" feedback, present a summary of what was tried and what kept failing, and collaborate with the user on a new approach before resuming implementation."
-            ;;
         status:hammering)
             echo "Issue #${issue} has status:hammering — a previous Blacksmith run was interrupted. Check the linked branch for partial work and pick up where you left off."
             ;;
@@ -935,12 +1034,25 @@ _blacksmith_prompt_for_status() {
             echo "Implement issue #${issue}."
             ;;
         *)
-            # Loud failure: every caller is expected to pass one of the known
-            # hammerable statuses (or empty, treated as ready). An unexpected
-            # value here means a caller bug or a stale status label in the
-            # target repo — silently degrading to a plain "Implement" prompt
-            # would strip rework/needs-human/hammering context without warning.
             forge_fail "_blacksmith_prompt_for_status: unexpected status '$status' for issue #${issue}"
+            exit 1
+            ;;
+    esac
+}
+
+# _rework_blacksmith_prompt_for_status — build the Rework-Blacksmith prompt for a given status.
+# Usage: _rework_blacksmith_prompt_for_status <status> <issue>
+_rework_blacksmith_prompt_for_status() {
+    local status="$1" issue="$2"
+    case "$status" in
+        status:rework)
+            echo "Issue #${issue} has status:rework — the Temperer rejected a prior pass. Read every comment tagged \"**[Temperer]**\" that isn't prefixed with ✅ and address every finding in this pass."
+            ;;
+        status:needs-human)
+            echo "Issue #${issue} has status:needs-human — automated rework cycles failed. Read all \"**[Blacksmith Ledger]**\" comments and \"**[Temperer]**\" feedback, present a summary of what was tried and what kept failing, and collaborate with the user on a new approach before resuming implementation."
+            ;;
+        *)
+            forge_fail "_rework_blacksmith_prompt_for_status: unexpected status '$status' for issue #${issue}"
             exit 1
             ;;
     esac
@@ -990,10 +1102,8 @@ run_stoke_loop() {
         fi
 
         case "$status" in
-            status:ready|status:rework|status:hammering)
-                # Build the status-specific task prompt (rework → read Temperer
-                # feedback, hammering → resume interrupted work, ready → plain
-                # implement). Shared with the interactive forge hammer path.
+            status:ready|status:hammering)
+                # First-pass Blacksmith: fresh implementation or resume interrupted work
                 local bs_prompt
                 bs_prompt=$(_blacksmith_prompt_for_status "$status" "$issue")
                 local bs_session bs_issue
@@ -1001,7 +1111,6 @@ run_stoke_loop() {
                 bs_issue=$(get_session "blacksmith" | cut -f3)
 
                 if [ -n "$bs_session" ] && [ "$bs_issue" = "$issue" ]; then
-                    # Resume existing session — same issue
                     agent_msg BLACKSMITH "Resuming on issue #$issue ($status)..."
                     run_forge_agent "auto-blacksmith" "Continue working. $bs_prompt" "Hammering #${issue}..." \
                         --resume-session "$bs_session" || {
@@ -1009,7 +1118,6 @@ run_stoke_loop() {
                         return 1
                     }
                 else
-                    # Fresh session for this issue
                     local session_id session_name="blacksmith-issue-${issue}"
                     session_id=$(_forge_uuid)
                     set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
@@ -1022,8 +1130,38 @@ run_stoke_loop() {
                 fi
                 forge_separator
                 ;;
+            status:rework)
+                # Rework-Blacksmith: address Temperer feedback.
+                # Resumes the original Blacksmith session with a different agent.
+                local rbs_prompt
+                rbs_prompt=$(_rework_blacksmith_prompt_for_status "$status" "$issue")
+                local bs_session bs_issue
+                bs_session=$(get_session "blacksmith" | cut -f1)
+                bs_issue=$(get_session "blacksmith" | cut -f3)
+
+                if [ -n "$bs_session" ] && [ "$bs_issue" = "$issue" ]; then
+                    agent_msg BLACKSMITH "Reworking issue #$issue..."
+                    run_forge_agent "auto-rework-blacksmith" "Continue working. $rbs_prompt" "Reworking #${issue}..." \
+                        --resume-session "$bs_session" || {
+                        agent_fail BLACKSMITH "rework failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                else
+                    # No prior session — start fresh rework session
+                    local session_id session_name="blacksmith-issue-${issue}"
+                    session_id=$(_forge_uuid)
+                    set_session "blacksmith" "$session_name" "$session_id" "$issue" 2>/dev/null || true
+                    agent_msg BLACKSMITH "Reworking issue #$issue (fresh session)..."
+                    run_forge_agent "auto-rework-blacksmith" "Read INGOT.md in the project root for architectural context before starting. $rbs_prompt" "Reworking #${issue}..." \
+                        --session-id "$session_id" --session-name "$session_name" || {
+                        agent_fail BLACKSMITH "rework failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                fi
+                forge_separator
+                ;;
             status:hammered|status:tempering|status:tempered)
-                # Determine prompt based on status
+                # First-pass Temperer: evaluate implementation
                 local tp_prompt
                 case "$status" in
                     status:tempered)
@@ -1039,7 +1177,6 @@ run_stoke_loop() {
                 tp_issue=$(get_session "temperer" | cut -f3)
 
                 if [ -n "$tp_session" ] && [ "$tp_issue" = "$issue" ]; then
-                    # Resume existing session — same issue
                     agent_msg TEMPERER "Resuming on issue #$issue ($status)..."
                     run_forge_agent "auto-temperer" "Continue working. $tp_prompt" "Tempering #${issue}..." \
                         --resume-session "$tp_session" || {
@@ -1047,7 +1184,6 @@ run_stoke_loop() {
                         return 1
                     }
                 else
-                    # Fresh session for this issue
                     local session_id session_name="temperer-issue-${issue}"
                     session_id=$(_forge_uuid)
                     set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
@@ -1055,6 +1191,34 @@ run_stoke_loop() {
                     run_forge_agent "auto-temperer" "Read INGOT.md in the project root for architectural context before starting. $tp_prompt" "Tempering #${issue}..." \
                         --session-id "$session_id" --session-name "$session_name" || {
                         agent_fail TEMPERER "failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                fi
+                forge_separator
+                ;;
+            status:reworked)
+                # Rework-Temperer: re-review reworked implementation.
+                # Resumes the original Temperer session with a different agent.
+                local rtp_prompt="Re-review issue #${issue} — the Rework-Blacksmith has addressed your feedback. Verify each finding was addressed and check for new issues in changed areas."
+                local tp_session tp_issue
+                tp_session=$(get_session "temperer" | cut -f1)
+                tp_issue=$(get_session "temperer" | cut -f3)
+
+                if [ -n "$tp_session" ] && [ "$tp_issue" = "$issue" ]; then
+                    agent_msg TEMPERER "Re-reviewing issue #$issue..."
+                    run_forge_agent "auto-rework-temperer" "Continue working. $rtp_prompt" "Re-reviewing #${issue}..." \
+                        --resume-session "$tp_session" || {
+                        agent_fail TEMPERER "re-review failed on issue #$issue. Stopping."
+                        return 1
+                    }
+                else
+                    local session_id session_name="temperer-issue-${issue}"
+                    session_id=$(_forge_uuid)
+                    set_session "temperer" "$session_name" "$session_id" "$issue" 2>/dev/null || true
+                    agent_msg TEMPERER "Re-reviewing issue #$issue (fresh session)..."
+                    run_forge_agent "auto-rework-temperer" "Read INGOT.md in the project root for architectural context before starting. $rtp_prompt" "Re-reviewing #${issue}..." \
+                        --session-id "$session_id" --session-name "$session_name" || {
+                        agent_fail TEMPERER "re-review failed on issue #$issue. Stopping."
                         return 1
                     }
                 fi

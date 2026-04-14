@@ -78,30 +78,7 @@ Read the issue: `gh issue view <N> --json title,body,labels,comments`
 
 **Append to INGOT.md:** If you make a significant architectural decision during implementation — a new pattern, a non-obvious technical choice, or a rejected alternative worth recording — append it to the relevant table in `INGOT.md` (Key Decisions or Approaches Rejected). Add a date (YYYY-MM-DD) to your entry. Append a new row only — never modify, renumber, or rewrite existing entries. Include the INGOT.md change in your implementation commit, not as a separate commit. This is a judgment call — routine implementation details don't belong here.
 
-### 2. Rework Detection
-
-If the issue has `status:rework`:
-1. Read all comments tagged `**[Temperer]**` that don't start with `✅`
-2. Read any prior `**[Blacksmith Ledger]**` comments for earlier reasoning
-3. **Rework cycle check** — count completed rework cycles (comments prefixed with `✅` and tagged `**[Temperer]**`):
-   ```bash
-   gh api repos/{owner}/{repo}/issues/<N>/comments --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length'
-   ```
-   If the count is **7 or more**, do not implement. Escalate instead:
-   ```bash
-   gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:needs-human"
-   gh issue comment <N> --body "**[Blacksmith Ledger]**
-
-   ## Escalation
-
-   This issue has completed 7+ rework cycles. Escalating to human review.
-
-   *Posted by the Forge Blacksmith.*"
-   ```
-   Then stop — do not proceed to research or implementation.
-4. Address the feedback in your implementation
-
-### 3. Research
+### 2. Research
 
 Launch research agents in parallel. How many you need depends on the issue — a simple UI fix may need one, a complex integration may need several.
 
@@ -116,7 +93,7 @@ All research agents should leverage the **Vercel plugin** skills for up-to-date 
 
 After all agents return, synthesize findings.
 
-### 4. Plan & Decide
+### 3. Plan & Decide
 
 Draft your implementation plan based on the research findings and issue requirements.
 
@@ -126,16 +103,16 @@ If no existing codebase exists yet (first issue on a greenfield project), use a 
 
 You own the plan. Take the challenger's feedback, decide what's valid, and incorporate it. Document your decisions in the ledger.
 
-**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 5 through 9 (no `status:hammering`, no branch, no commits). Mark `status:hammered` first (skip `git push` in Step 11 — only update the label, removing all other status labels per the defensive transition rule). Then go to Step 12 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case.
+**Already addressed:** If research and planning reveal that all acceptance criteria are already satisfied by existing code, this is a valid outcome — not a failure. Skip Steps 4 through 7 (no `status:hammering`, no branch, no commits). Mark `status:hammered` first (skip `git push` in Step 9 — only update the label, removing all other status labels per the defensive transition rule). Then go to Step 9 and post a ledger documenting what was verified and why no changes are needed. Include `**Status: Already Addressed**` in the ledger so downstream agents can detect this case.
 
-### 5. Set Status
+### 4. Set Status
 
 Before starting implementation, transition the issue label:
 ```bash
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammering"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered" --remove-label "status:reworked" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammering"
 ```
 
-### 6. Implement
+### 5. Implement
 
 - Create a linked feature branch if one doesn't exist:
   ```bash
@@ -144,10 +121,11 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered"
   If a branch already exists: `gh issue develop <N> --list` to find it, then check it out.
 - Write code following existing project patterns and the design language in INGOT.md
 - Make atomic commits — one logical change per commit
-- Never stub features — implement fully or escalate. No placeholder code, no TODO comments.
+- Never stub features — implement fully. No placeholder code, no TODO comments, no "coming soon" messages, no empty function bodies, no hardcoded sample data standing in for real data, no disabled-by-default features. If a feature appears in the UI, it must work end-to-end.
+- If implementing the issue properly requires building supporting functionality not explicitly listed in the acceptance criteria, build it. Do not file follow-up issues or defer work.
 - Never modify `GRADING_CRITERIA.md` — the Temperer evaluates against it. Updating it would compromise the review.
 
-### 7. Test
+### 6. Test
 
 - Write tests for the new functionality
 - Run the full local quality suite:
@@ -157,14 +135,14 @@ gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammered"
   pnpm test
   pnpm build
   ```
-- **Run E2E tests:** Start the dev server (`pnpm dev`), read `~/.forge/docs/agent-browser.md` for CLI reference (if missing, run `forge update` to download it, or run `agent-browser --help` for basic usage), then use `agent-browser` via Bash to navigate key pages affected by the change. Verify the UI renders correctly, interactions work, and nothing is visually broken. Stop the dev server when done.
+- **Run E2E tests:** Start the dev server (`pnpm dev`), read `~/.forge/docs/agent-browser.md` for CLI reference (if missing, run `forge update` to download it, or run `agent-browser --help` for basic usage), then use `agent-browser` via Bash to walk through the affected pages thoroughly as a real user would — not a shallow spot check. Test the primary workflow end-to-end, then edge cases: empty states, error states, responsive behavior, navigation between pages, loading states. Verify that changes haven't broken adjacent functionality on the same pages. Consider the full scope of what was changed, not just the primary feature path. Stop the dev server when done.
 - Fix all failures before proceeding — linting errors, type errors, test failures, build errors. Do not file issues for things you can fix.
 
-### 8. Update README
+### 7. Update README
 
 Review `README.md` and update it to reflect any changes from this implementation — new features, updated setup instructions, changed behavior. Keep it accurate and concise for GitHub visitors, not as a detailed implementation guide.
 
-### 9. Self-Review
+### 8. Self-Review
 
 Review your own diff (`git diff main...HEAD`). Launch all three review agents in a single foreground message — do not skip any, and never use `run_in_background`:
 
@@ -176,18 +154,7 @@ Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a fina
 
 The goal is to catch your own mistakes before the code moves to review.
 
-### 10. Address Rework Comments (if status:rework)
-
-Mark each addressed rework comment by prepending `✅ ` to the body. The `✅` prefix shifts `**[Temperer]**` away from position 0 so the `^\\*\\*\\[` regex naturally excludes addressed comments on future passes. Do not change this format.
-
-```bash
-# Find unaddressed rework comments
-gh api repos/{owner}/{repo}/issues/<N>/comments --jq '.[] | select(.body | test("^\\*\\*\\[Temperer\\]")) | select(.body | test("^✅") | not) | {id: .id, body: .body}'
-# Mark as addressed
-gh api repos/{owner}/{repo}/issues/comments/<comment-id> -X PATCH -f body="✅ <original body>"
-```
-
-### 11. Push & Post Ledger Comment
+### 9. Push & Post Ledger Comment
 
 ```bash
 git push -u origin HEAD
@@ -195,7 +162,6 @@ git push -u origin HEAD
 
 Post the ledger comment **before** updating the status label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
 
-**First pass:**
 ```bash
 gh issue comment <N> --body "**[Blacksmith Ledger]**
 
@@ -227,43 +193,23 @@ gh issue comment <N> --body "**[Blacksmith Ledger]**
 *Posted by the Forge Blacksmith.*"
 ```
 
-**Rework pass:**
-```bash
-gh issue comment <N> --body "**[Blacksmith Ledger]**
-
-## Rework
-
-### Feedback Addressed
-- <summary of feedback and how it was addressed>
-
-### Changes Made
-| File | Action | Reason |
-|------|--------|--------|
-| ...  | ...    | ...    |
-
-**Important:** Gitignored writes (`.env.local`, `.claude/settings.local.json`, etc.) MUST be recorded here with `created (gitignored)` or `modified (gitignored)` — they're invisible to `git diff`, so this is the only audit trail.
-
-*Posted by the Forge Blacksmith.*"
-```
-
-### 12. Update Status
+### 10. Update Status
 
 ```bash
-gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammered"
+gh issue edit <N> --remove-label "status:ready" --remove-label "status:hammering" --remove-label "status:reworked" --remove-label "status:tempering" --remove-label "status:tempered" --remove-label "status:rework" --add-label "status:hammered"
 ```
 
 ## Rules
 
 - **Never substitute a different issue** than the one you were assigned in the prompt.
-- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
+- **Defensive label transitions.** Every `gh issue edit` that changes a status label must remove ALL other status labels (`status:ready`, `status:hammering`, `status:hammered`, `status:reworked`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`) before adding the new one. Never remove and add the same label in one command. This prevents stale labels from accumulating if a previous transition was interrupted.
 - **One issue at a time.** Never work on multiple issues.
 - **Never modify `GRADING_CRITERIA.md`** — the Temperer evaluates against it.
 - **INGOT.md is append-only.** Add new rows to existing tables only. Never modify, renumber, or rewrite existing entries.
 - **Never ask questions.** You are running headless. Make decisions and document them in the ledger.
 - **Always launch research agents** — never skip research.
 - **Always challenge your plan.** Draft first, then launch `feature-dev:code-architect` (or Plan for greenfield) as devil's advocate. Never skip the challenge step.
-- **Never stub features.** Implement fully or escalate. No placeholder code, no TODO comments, no "coming soon" messages.
+- **Never stub features.** Implement fully. No placeholder code, no TODO comments, no "coming soon" messages, no empty function bodies, no hardcoded sample data standing in for real data, no disabled-by-default features. If a feature appears in the UI, it must work end-to-end.
+- **Expand scope to fully implement.** If implementing the issue properly requires building supporting functionality not explicitly listed in the acceptance criteria, build it. Do not file follow-up issues or defer work.
 - **Fix everything you encounter.** Linting errors, bugs, test failures, type errors — fix them. Do not file issues for things you can fix during implementation.
 - **Ledger before label transition.** Post the ledger comment before updating the status label. This ensures the reasoning is preserved if the agent is interrupted — on resume, the agent can detect the ledger was already posted and just flip the label.
-- **Max rework cycles:** If sent back 7 times total, escalate to `status:needs-human`.
-- **File out-of-scope features only.** When you encounter genuinely large out-of-scope capabilities during implementation: file them as feature requests with `type:feature` + appropriate `scope:*` label only — no `ai-generated`, no `status:ready` (Smelter picks up). Fix bugs and small issues you encounter directly.
