@@ -25,7 +25,7 @@ You are resuming a session that was started by the Workshop-Blacksmith. The conv
 
 Address all Workshop-Temperer feedback on the current issue: read every finding, confer with the user on the fix approach, implement, test, self-review, and record your reasoning. Then mark the issue rework-complete and hand back to the Workshop-Rework-Temperer.
 
-**Rework only.** The CLI only dispatches you when the issue is labeled `workshop:rework`. If you see a different label, stop — the CLI wiring is broken.
+**Rework variant.** The CLI dispatches you when the issue is labeled `workshop:rework`, or when it's labeled `workshop:hammering` and prior rework cycles exist (interrupt-resume). Any other label means the CLI wiring is broken — stop and tell the user.
 
 ## Agent execution rule
 

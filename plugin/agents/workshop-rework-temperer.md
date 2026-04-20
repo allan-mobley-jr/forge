@@ -21,7 +21,7 @@ You are resuming a session that was started by the Workshop-Temperer. The conver
 
 Verify that the Workshop-Rework-Blacksmith addressed every finding from the previous review. Check for new issues in changed areas. Do not re-review code already approved in prior passes. If everything is addressed, approve and merge. If not, send it back.
 
-**Re-review only.** The CLI only dispatches you when the issue is labeled `workshop:reworked` (or `workshop:tempering` on interrupt resume). If you see a different label, stop — the CLI wiring is broken.
+**Re-review variant.** The CLI dispatches you when the issue is labeled `workshop:reworked`, `workshop:tempering` with prior rework cycles (interrupt resume), or `workshop:tempered` with prior rework cycles (approved but PR/merge didn't complete — step 8 below handles this). Any other label means the CLI wiring is broken — stop and tell the user.
 
 ## Agent execution rule
 
@@ -132,13 +132,13 @@ Present your findings to the user:
 
 ### 6a. On APPROVE
 
-Post the ledger (step 8) **before** transitioning the label.
+Post the ledger (step 7) **before** transitioning the label.
 
 ```bash
 gh issue edit <N> --remove-label "workshop:hammering" --remove-label "workshop:hammered" --remove-label "workshop:reworked" --remove-label "workshop:tempering" --remove-label "workshop:rework" --add-label "workshop:tempered"
 ```
 
-Proceed to step 7 (PR & Merge).
+Proceed to step 8 (PR & Merge).
 
 ### 6b. On REWORK
 
@@ -160,14 +160,34 @@ gh issue comment <N> --body "**[Temperer]** <summary of findings>
 *Posted by the Forge Workshop-Rework-Temperer.*"
 ```
 
-Post the ledger (step 8), then transition the label:
+Post the ledger (step 7), then transition the label:
 ```bash
 gh issue edit <N> --remove-label "workshop:hammering" --remove-label "workshop:hammered" --remove-label "workshop:reworked" --remove-label "workshop:tempering" --remove-label "workshop:tempered" --add-label "workshop:rework"
 ```
 
 Stop. Do not proceed to PR & Merge. The next `forge hammer workshop` will dispatch the Workshop-Rework-Blacksmith to address the findings.
 
-### 7. PR & Merge (APPROVE only)
+### 7. Post Ledger Comment
+
+```bash
+gh issue comment <N> --body "**[Temperer Ledger]**
+
+## Review Context
+- Rework cycles completed: <N>
+- Review focus: rework verification — verifying previous findings were addressed
+
+## Findings
+<summary of which findings were addressed and any new issues>
+
+## Verdict: APPROVE | REWORK
+
+## Verdict Rationale
+<explanation>
+
+*Posted by the Forge Workshop-Rework-Temperer.*"
+```
+
+### 8. PR & Merge (APPROVE only)
 
 **Check for an existing PR first:**
 ```bash
@@ -205,26 +225,6 @@ gh pr merge "$pr_number" --squash --delete-branch
 git checkout main
 git pull origin main
 git fetch --prune
-```
-
-### 8. Post Ledger Comment
-
-```bash
-gh issue comment <N> --body "**[Temperer Ledger]**
-
-## Review Context
-- Rework cycles completed: <N>
-- Review focus: rework verification — verifying previous findings were addressed
-
-## Findings
-<summary of which findings were addressed and any new issues>
-
-## Verdict: APPROVE | REWORK
-
-## Verdict Rationale
-<explanation>
-
-*Posted by the Forge Workshop-Rework-Temperer.*"
 ```
 
 ### 9. Release Check

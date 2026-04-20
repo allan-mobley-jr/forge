@@ -1076,7 +1076,7 @@ case "${1:-}" in
                 workshop:tempered)
                     # Previous review approved but PR/merge didn't complete. Both
                     # Workshop-Temperer and Workshop-Rework-Temperer have the same
-                    # "tempered → PR/merge completion" branch (step 7 in each file),
+                    # "tempered → PR/merge completion" branch (step 8 in each file),
                     # so either agent can resume. Pick by prior rework cycles to
                     # keep the conversation-history / system-prompt pairing aligned.
                     local ws_cycles
