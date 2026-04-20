@@ -174,33 +174,35 @@ show_command_help() {
         hammer|auto-hammer)
             echo "forge hammer — Implement an issue"
             echo ""
-            echo "Usage: forge hammer [<N>|new]"
+            echo "Usage: forge hammer [<N>|workshop]"
             echo "       forge auto-hammer"
             echo ""
-            echo "  forge hammer           Pick lowest open issue from queue"
-            echo "  forge hammer <N>       Target a specific issue by number"
-            echo "  forge hammer new       Workshop: discuss, file, and implement"
-            echo "  forge hammer new sessions  Browse past workshop sessions"
-            echo "  forge auto-hammer      Autonomous — picks from queue"
+            echo "  forge hammer                    Pick lowest open issue from queue"
+            echo "  forge hammer <N>                Target a specific issue by number"
+            echo "  forge hammer workshop           Workshop: discuss, file, and implement"
+            echo "  forge hammer workshop sessions  Browse past workshop sessions"
+            echo "  forge auto-hammer               Autonomous — picks from queue"
             echo ""
             echo "The Blacksmith picks up an issue and implements it on a feature"
-            echo "branch. Rework issues route to the Rework-Blacksmith."
+            echo "branch. Rework issues route to the Rework-Blacksmith. In workshop"
+            echo "mode, workshop:rework issues route to the Workshop-Rework-Blacksmith."
             ;;
         temper|auto-temper)
             echo "forge temper — Evaluate, open PR, merge, and release"
             echo ""
-            echo "Usage: forge temper [<N>|new]"
+            echo "Usage: forge temper [<N>|workshop]"
             echo "       forge auto-temper"
             echo ""
-            echo "  forge temper           Pick lowest open temperable issue from queue"
-            echo "  forge temper <N>       Target a specific issue by number"
-            echo "  forge temper new       Workshop: review the Workshop-Blacksmith's work"
-            echo "  forge temper new sessions  Browse past workshop sessions"
-            echo "  forge auto-temper      Autonomous — picks from queue"
+            echo "  forge temper                    Pick lowest open temperable issue from queue"
+            echo "  forge temper <N>                Target a specific issue by number"
+            echo "  forge temper workshop           Workshop: review the Workshop-Blacksmith's work"
+            echo "  forge temper workshop sessions  Browse past workshop sessions"
+            echo "  forge auto-temper               Autonomous — picks from queue"
             echo ""
             echo "The Temperer evaluates the Blacksmith's work against acceptance"
             echo "criteria and GRADING_CRITERIA.md. If approved, opens a PR and"
-            echo "merges it. Reworked issues route to the Rework-Temperer."
+            echo "merges it. Reworked issues route to the Rework-Temperer. In workshop"
+            echo "mode, workshop:reworked issues route to the Workshop-Rework-Temperer."
             ;;
         hone|auto-hone)
             echo "forge hone — Triage bugs or audit the codebase"
@@ -677,14 +679,14 @@ case "${1:-}" in
             exit 0
         fi
 
-        # --- Subcommand: new [sessions] (workshop mode, interactive only) ---
-        if [ "${1:-}" = "new" ] && [[ "$FORGE_COMMAND" != auto-* ]]; then
+        # --- Subcommand: workshop [sessions] (workshop mode, interactive only) ---
+        if [ "${1:-}" = "workshop" ] && [[ "$FORGE_COMMAND" != auto-* ]]; then
             shift
             require_forge_project
             check_auth
             check_labels
 
-            # "new sessions" — browse past workshop sessions
+            # "workshop sessions" — browse past workshop sessions
             if [ "${1:-}" = "sessions" ]; then
                 local sess_choice
                 sess_choice=$(pick_session "workshop-blacksmith" "all" 2>/dev/null || true)
@@ -697,54 +699,97 @@ case "${1:-}" in
                 exit 0
             fi
 
+            # Archive sessions whose issues have closed — lets a just-merged workshop
+            # cycle cleanly to a fresh discussion on the next invocation.
+            archive_closed_sessions "workshop-blacksmith" || forge_warn "Session archival reported errors; sessions may be stale."
+
             # Check for active workshop-blacksmith session
             local ws_session ws_issue
             IFS=$'\t' read -r ws_session _ ws_issue <<< "$(get_workshop_session "blacksmith")"
 
-            if [ -n "$ws_session" ]; then
-                if [ -n "$ws_issue" ]; then
-                    # Check if the issue is still open
-                    local issue_state
-                    issue_state=$(gh issue view "$ws_issue" --json state --jq '.state' 2>/dev/null || true)
-                    if [ -z "$issue_state" ]; then
-                        forge_warn "Could not verify issue #$ws_issue — it may no longer exist. Starting fresh."
-                        local session_id session_name="workshop-blacksmith-new"
-                        session_id=$(_forge_uuid)
-                        set_workshop_session "blacksmith" "$session_name" "$session_id" "" 2>/dev/null || true
-                        agent_msg BLACKSMITH "Starting new workshop session..."
-                        if ! run_forge_agent "Workshop-Blacksmith" "Read INGOT.md in the project root for architectural context. Greet the user and discuss what they'd like to build." "" \
-                            --session-id "$session_id" --session-name "$session_name" --interactive; then
-                            agent_fail BLACKSMITH "workshop failed."
-                            exit 1
-                        fi
-                        agent_ok BLACKSMITH "workshop complete."
-                        exit 0
-                    elif [ "$issue_state" = "CLOSED" ]; then
-                        # Issue closed — start a new workshop session
-                        local session_id session_name="workshop-blacksmith-new"
-                        session_id=$(_forge_uuid)
-                        set_workshop_session "blacksmith" "$session_name" "$session_id" "" 2>/dev/null || true
-                        agent_msg BLACKSMITH "Starting new workshop session..."
-                        if ! run_forge_agent "Workshop-Blacksmith" "Read INGOT.md in the project root for architectural context. Greet the user and discuss what they'd like to build." "" \
-                            --session-id "$session_id" --session-name "$session_name" --interactive; then
-                            agent_fail BLACKSMITH "workshop failed."
-                            exit 1
-                        fi
-                    else
-                        # Issue still open — resume
-                        agent_msg BLACKSMITH "Resuming workshop on issue #$ws_issue..."
-                        if ! run_forge_agent "Workshop-Blacksmith" "Continue where you left off on issue #${ws_issue}." "" --resume-session "$ws_session" --interactive; then
-                            agent_fail BLACKSMITH "workshop failed on issue #$ws_issue."
-                            exit 1
-                        fi
-                    fi
+            if [ -n "$ws_session" ] && [ -n "$ws_issue" ]; then
+                # Active session with an associated issue — verify state and dispatch
+                local issue_state
+                issue_state=$(gh issue view "$ws_issue" --json state --jq '.state' 2>/dev/null || true)
+
+                if [ -z "$issue_state" ]; then
+                    # Empty can mean issue deleted, gh auth lapse, or network hiccup.
+                    # Fail loud rather than clobber the active session by "starting fresh".
+                    forge_fail "Could not verify workshop issue #$ws_issue. Check 'gh auth status' or run 'gh issue view $ws_issue' to diagnose."
+                    exit 1
+                elif [ "$issue_state" = "CLOSED" ]; then
+                    # archive_closed_sessions above should have cleared the active flag;
+                    # but if it didn't (e.g. gh call failed earlier), fall through to fresh.
+                    ws_session=""
                 else
-                    # Session exists but no issue filed yet — resume discussion
-                    agent_msg BLACKSMITH "Resuming workshop discussion..."
-                    if ! run_forge_agent "Workshop-Blacksmith" "Continue where you left off." "" --resume-session "$ws_session" --interactive; then
-                        agent_fail BLACKSMITH "workshop failed."
+                    # Issue still open — classify by workshop:* label to pick the right agent.
+                    # Empty classification here means a transient gh failure (we just
+                    # verified the issue is OPEN) — fail loud.
+                    local classification ws_status agent_name prompt
+                    classification=$(classify_workshop_issue "$ws_issue")
+                    if [ -z "$classification" ]; then
+                        forge_fail "Could not classify workshop issue #$ws_issue. Run 'gh issue view $ws_issue' to diagnose, then retry."
                         exit 1
                     fi
+                    ws_status=$(printf '%s' "$classification" | cut -f3)
+
+                    case "$ws_status" in
+                        workshop:rework)
+                            agent_name="Workshop-Rework-Blacksmith"
+                            prompt=$(_workshop_rework_blacksmith_prompt_for_status "$ws_status" "$ws_issue")
+                            agent_msg BLACKSMITH "Reworking workshop issue #$ws_issue..."
+                            ;;
+                        workshop:hammered|workshop:tempering|workshop:tempered)
+                            forge_info "Workshop issue #$ws_issue is in review (label: $ws_status). Run: forge temper workshop"
+                            exit 0
+                            ;;
+                        workshop:reworked)
+                            forge_info "Workshop issue #$ws_issue is awaiting re-review (label: $ws_status). Run: forge temper workshop"
+                            exit 0
+                            ;;
+                        workshop:hammering)
+                            # Interrupt-resume of a Blacksmith run. Disambiguate first-pass
+                            # vs rework via prior rework cycles: if any ✅ **[Temperer]**
+                            # comments exist, the Workshop-Rework-Blacksmith was in flight.
+                            local ws_cycles
+                            ws_cycles=$(_workshop_has_completed_rework "$ws_issue")
+                            if [ "$ws_cycles" -gt 0 ]; then
+                                agent_name="Workshop-Rework-Blacksmith"
+                                prompt=$(_workshop_rework_blacksmith_prompt_for_status "workshop:rework" "$ws_issue")
+                                agent_msg BLACKSMITH "Resuming workshop rework on issue #$ws_issue..."
+                            else
+                                agent_name="Workshop-Blacksmith"
+                                prompt=$(_workshop_blacksmith_prompt_for_status "$ws_status" "$ws_issue")
+                                agent_msg BLACKSMITH "Resuming workshop on issue #$ws_issue..."
+                            fi
+                            ;;
+                        "")
+                            agent_name="Workshop-Blacksmith"
+                            prompt=$(_workshop_blacksmith_prompt_for_status "" "$ws_issue")
+                            agent_msg BLACKSMITH "Resuming workshop on issue #$ws_issue..."
+                            ;;
+                        *)
+                            forge_warn "Issue #$ws_issue has unexpected workshop status '$ws_status'. Resuming Workshop-Blacksmith."
+                            agent_name="Workshop-Blacksmith"
+                            prompt=$(_workshop_blacksmith_prompt_for_status "" "$ws_issue")
+                            ;;
+                    esac
+
+                    if ! run_forge_agent "$agent_name" "Continue where you left off. $prompt" "" --resume-session "$ws_session" --interactive; then
+                        agent_fail BLACKSMITH "workshop failed on issue #$ws_issue."
+                        exit 1
+                    fi
+                    agent_ok BLACKSMITH "workshop complete."
+                    exit 0
+                fi
+            fi
+
+            if [ -n "$ws_session" ]; then
+                # Session exists but no issue filed yet — resume discussion
+                agent_msg BLACKSMITH "Resuming workshop discussion..."
+                if ! run_forge_agent "Workshop-Blacksmith" "Continue where you left off." "" --resume-session "$ws_session" --interactive; then
+                    agent_fail BLACKSMITH "workshop failed."
+                    exit 1
                 fi
             else
                 # No workshop session — start fresh
@@ -752,7 +797,7 @@ case "${1:-}" in
                 session_id=$(_forge_uuid)
                 set_workshop_session "blacksmith" "$session_name" "$session_id" "" 2>/dev/null || true
                 agent_msg BLACKSMITH "Starting new workshop session..."
-                if ! run_forge_agent "Workshop-Blacksmith" "Read INGOT.md in the project root for architectural context. Greet the user and discuss what they'd like to build." "" \
+                if ! run_forge_agent "Workshop-Blacksmith" "Read INGOT.md in the project root for architectural context. Greet the user and discuss what they'd like to refine, fix, or reshape." "" \
                     --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail BLACKSMITH "workshop failed."
                     exit 1
@@ -766,8 +811,11 @@ case "${1:-}" in
                 local filed_issue
                 filed_issue=$(gh issue list --state open --label "workshop" --json number --jq 'sort_by(.number) | last | .number // empty' 2>/dev/null || true)
                 if [ -n "$filed_issue" ]; then
-                    update_workshop_session_issue "blacksmith" "$filed_issue"
-                    forge_info "Workshop issue #$filed_issue tracked."
+                    if update_workshop_session_issue "blacksmith" "$filed_issue"; then
+                        forge_info "Workshop issue #$filed_issue tracked."
+                    else
+                        forge_warn "Failed to persist workshop issue #$filed_issue in session config. The next 'forge temper workshop' will not find it; inspect ~/.forge/config.json and re-run manually."
+                    fi
                 fi
             fi
             agent_ok BLACKSMITH "workshop complete."
@@ -940,14 +988,14 @@ case "${1:-}" in
             exit 0
         fi
 
-        # --- Subcommand: new [sessions] (workshop mode, interactive only) ---
-        if [ "${1:-}" = "new" ] && [[ "$FORGE_COMMAND" != auto-* ]]; then
+        # --- Subcommand: workshop [sessions] (workshop mode, interactive only) ---
+        if [ "${1:-}" = "workshop" ] && [[ "$FORGE_COMMAND" != auto-* ]]; then
             shift
             require_forge_project
             check_auth
             check_labels
 
-            # "new sessions" — browse past workshop temperer sessions
+            # "workshop sessions" — browse past workshop temperer sessions
             if [ "${1:-}" = "sessions" ]; then
                 local sess_choice
                 sess_choice=$(pick_session "workshop-temperer" "all" 2>/dev/null || true)
@@ -960,17 +1008,22 @@ case "${1:-}" in
                 exit 0
             fi
 
+            # Archive sessions whose issues have closed — lets a just-merged workshop
+            # cycle cleanly on the next invocation.
+            archive_closed_sessions "workshop-blacksmith" || forge_warn "Session archival reported errors; sessions may be stale."
+            archive_closed_sessions "workshop-temperer" || forge_warn "Session archival reported errors; sessions may be stale."
+
             # Check for active workshop-blacksmith session
             local ws_bs_session ws_bs_issue
             IFS=$'\t' read -r ws_bs_session _ ws_bs_issue <<< "$(get_workshop_session "blacksmith")"
 
             if [ -z "$ws_bs_session" ]; then
-                forge_info "No active workshop. Start one with: forge hammer new"
+                forge_info "No active workshop. Start one with: forge hammer workshop"
                 exit 0
             fi
 
             if [ -z "$ws_bs_issue" ]; then
-                forge_info "The Workshop-Blacksmith hasn't filed an issue yet. Resume with: forge hammer new"
+                forge_info "The Workshop-Blacksmith hasn't filed an issue yet. Resume with: forge hammer workshop"
                 exit 0
             fi
 
@@ -985,6 +1038,66 @@ case "${1:-}" in
                 exit 0
             fi
 
+            # Classify by workshop:* label to pick the right agent.
+            # The preceding issue_state check already confirmed the issue is OPEN,
+            # so an empty classification means a transient gh failure — fail loud
+            # rather than fabricate a status and dispatch a label-mutating agent.
+            local classification ws_status agent_name prompt
+            classification=$(classify_workshop_issue "$ws_bs_issue")
+            if [ -z "$classification" ]; then
+                forge_fail "Could not classify workshop issue #$ws_bs_issue. Run 'gh issue view $ws_bs_issue' to diagnose, then retry."
+                exit 1
+            fi
+            ws_status=$(printf '%s' "$classification" | cut -f3)
+
+            case "$ws_status" in
+                workshop:hammered)
+                    agent_name="Workshop-Temperer"
+                    prompt=$(_workshop_temperer_prompt_for_status "$ws_status" "$ws_bs_issue")
+                    ;;
+                workshop:reworked)
+                    agent_name="Workshop-Rework-Temperer"
+                    prompt=$(_workshop_rework_temperer_prompt_for_status "$ws_status" "$ws_bs_issue")
+                    ;;
+                workshop:tempering)
+                    # Interrupt-resume of a Temperer run. Disambiguate first-pass
+                    # vs rework via prior rework cycles: if any ✅ **[Temperer]**
+                    # comments exist, the Workshop-Rework-Temperer was in flight.
+                    local ws_cycles
+                    ws_cycles=$(_workshop_has_completed_rework "$ws_bs_issue")
+                    if [ "$ws_cycles" -gt 0 ]; then
+                        agent_name="Workshop-Rework-Temperer"
+                        prompt=$(_workshop_rework_temperer_prompt_for_status "$ws_status" "$ws_bs_issue")
+                    else
+                        agent_name="Workshop-Temperer"
+                        prompt=$(_workshop_temperer_prompt_for_status "$ws_status" "$ws_bs_issue")
+                    fi
+                    ;;
+                workshop:tempered)
+                    # Previous review approved but PR/merge didn't complete. Both
+                    # Workshop-Temperer and Workshop-Rework-Temperer have the same
+                    # "tempered → PR/merge completion" branch (step 8 in each file),
+                    # so either agent can resume. Pick by prior rework cycles to
+                    # keep the conversation-history / system-prompt pairing aligned.
+                    local ws_cycles
+                    ws_cycles=$(_workshop_has_completed_rework "$ws_bs_issue")
+                    if [ "$ws_cycles" -gt 0 ]; then
+                        agent_name="Workshop-Rework-Temperer"
+                    else
+                        agent_name="Workshop-Temperer"
+                    fi
+                    prompt=$(_workshop_temperer_prompt_for_status "$ws_status" "$ws_bs_issue")
+                    ;;
+                workshop:hammering|workshop:rework|"")
+                    forge_info "Workshop issue #$ws_bs_issue is not ready for review (label: ${ws_status:-none}). Run: forge hammer workshop"
+                    exit 0
+                    ;;
+                *)
+                    forge_warn "Issue #$ws_bs_issue has unexpected workshop status '$ws_status'."
+                    exit 1
+                    ;;
+            esac
+
             # Check for active workshop-temperer session
             local ws_tp_session ws_tp_issue
             IFS=$'\t' read -r ws_tp_session _ ws_tp_issue <<< "$(get_workshop_session "temperer")"
@@ -992,7 +1105,7 @@ case "${1:-}" in
             if [ -n "$ws_tp_session" ] && [ "$ws_tp_issue" = "$ws_bs_issue" ]; then
                 # Resume existing temperer session for the same issue
                 agent_msg TEMPERER "Resuming workshop review of issue #$ws_bs_issue..."
-                if ! run_forge_agent "Workshop-Temperer" "Continue where you left off. Review issue #${ws_bs_issue}." "" --resume-session "$ws_tp_session" --interactive; then
+                if ! run_forge_agent "$agent_name" "Continue where you left off. $prompt" "" --resume-session "$ws_tp_session" --interactive; then
                     agent_fail TEMPERER "workshop review failed on issue #$ws_bs_issue."
                     exit 1
                 fi
@@ -1002,7 +1115,7 @@ case "${1:-}" in
                 session_id=$(_forge_uuid)
                 set_workshop_session "temperer" "$session_name" "$session_id" "$ws_bs_issue" 2>/dev/null || true
                 agent_msg TEMPERER "Starting workshop review of issue #$ws_bs_issue..."
-                if ! run_forge_agent "Workshop-Temperer" "Read INGOT.md in the project root for architectural context before starting. Greet the user, then evaluate issue #${ws_bs_issue}." "" \
+                if ! run_forge_agent "$agent_name" "Read INGOT.md in the project root for architectural context before starting. Greet the user, then: $prompt" "" \
                     --session-id "$session_id" --session-name "$session_name" --interactive; then
                     agent_fail TEMPERER "workshop review failed on issue #$ws_bs_issue."
                     exit 1

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Workshop state machine: 6 new `workshop:*` status labels (`workshop:hammering`, `workshop:hammered`, `workshop:reworked`, `workshop:tempering`, `workshop:tempered`, `workshop:rework`) mirroring the pipeline `status:*` lifecycle. Workshop issues still carry the `workshop` label and stay off the autonomous pipeline queue.
+- Workshop agent split: 2 new dedicated rework agents (Workshop-Rework-Blacksmith, Workshop-Rework-Temperer) that resume the original workshop session with focused rework instructions when the issue is labeled `workshop:rework` or `workshop:reworked`.
+- `classify_workshop_issue` helper in forge-lib.sh for workshop dispatch based on `workshop:*` labels. Mirrors `classify_issue_by_number`.
+- Workshop prompt helpers (`_workshop_blacksmith_prompt_for_status`, `_workshop_rework_blacksmith_prompt_for_status`, `_workshop_temperer_prompt_for_status`, `_workshop_rework_temperer_prompt_for_status`) mirroring the Blacksmith prompt helpers.
+
+### Changed
+- **Breaking:** CLI workshop subcommand renamed from `new` to `workshop`. Use `forge hammer workshop` / `forge temper workshop` (and `... workshop sessions` for the session picker) in place of the old `new` subcommand. No alias — forge is pre-1.0.
+- `forge hammer workshop` now dispatches Workshop-Blacksmith or Workshop-Rework-Blacksmith based on the `workshop:*` label on the associated issue. Fresh sessions start with the Workshop-Blacksmith's greet & discuss flow; `workshop:rework` routes to Workshop-Rework-Blacksmith to address Temperer feedback; `workshop:hammered` / `workshop:tempering` / `workshop:tempered` / `workshop:reworked` inform the user to run `forge temper workshop` instead.
+- `forge temper workshop` now dispatches Workshop-Temperer or Workshop-Rework-Temperer based on the `workshop:*` label. `workshop:hammered` routes to first-pass Workshop-Temperer; `workshop:reworked` routes to Workshop-Rework-Temperer. For the ambiguous labels `workshop:tempering` (interrupt-resume) and `workshop:tempered` (approved but PR/merge didn't complete), the CLI picks first-pass vs rework by counting prior ✅-addressed Temperer cycles, keeping the resumed session's conversation history aligned with the agent's system prompt. `workshop:rework` / `workshop:hammering` informs the user to run `forge hammer workshop`.
+- Workshop-Blacksmith and Workshop-Temperer rewritten for first-pass only — rework detection, ledger templates, and rework-specific feedback reading moved to the new dedicated rework agents. Self-review is now called out as mandatory, and PR creation is strictly the Workshop-Temperer's responsibility.
+- Workshop-Blacksmith framing updated from "discuss, file an issue, then implement" to "refine, fix, or reshape something you discovered while using the app." Major new features still point to `forge smelt`.
+- `archive_closed_sessions` now runs at the top of `forge hammer workshop` and `forge temper workshop`, letting a just-merged workshop cycle cleanly to a fresh discussion on the next invocation.
+- `update_workshop_session_issue` now also renames the session from its placeholder (`workshop-<role>-new`) to `workshop-<role>-issue-<N>` once an issue is filed, so the session picker can distinguish past workshops.
+
+### Fixed
+- Workshop-Blacksmith no longer conflates first-pass and rework modes. Previously, when the Workshop-Temperer sent work back, the Workshop-Blacksmith had no label to detect the rework and would typically mistake the second invocation for an interrupted first pass — skipping feedback reading and silently repeating the self-review. The new `workshop:rework` label plus dedicated Workshop-Rework-Blacksmith agent make the mode explicit end-to-end.
+
 ## [0.7.0] - 2026-04-14
 
 ### Added

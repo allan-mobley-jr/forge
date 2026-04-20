@@ -21,8 +21,10 @@ plugin/          — Claude Code plugin (only this gets cached)
     auto-temperer.md — Auto-Temperer: headless first-pass evaluation + PR + merge + release
     rework-temperer.md — Rework-Temperer: interactive rework re-review
     auto-rework-temperer.md — Auto-Rework-Temperer: headless rework re-review
-    workshop-blacksmith.md — Workshop-Blacksmith: interactive ad-hoc implementation
-    workshop-temperer.md — Workshop-Temperer: interactive ad-hoc evaluation
+    workshop-blacksmith.md — Workshop-Blacksmith: interactive ad-hoc first-pass implementation
+    workshop-rework-blacksmith.md — Workshop-Rework-Blacksmith: interactive ad-hoc rework
+    workshop-temperer.md — Workshop-Temperer: interactive ad-hoc first-pass evaluation
+    workshop-rework-temperer.md — Workshop-Rework-Temperer: interactive ad-hoc re-review
     honer.md             — Honer: interactive bug triage
     honer-audit.md       — Honer-Audit: interactive codebase audit
     auto-honer.md        — Auto-Honer: headless bug triage
@@ -46,7 +48,7 @@ Planning artifacts live in the codebase and on GitHub:
 ## Conventions
 
 - Agents use YAML frontmatter with `name`, `description`, `tools`
-- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four (bootstrap + feature variants), the Honer has four (bug triage + audit variants), the Blacksmith and Temperer each have four (first-pass + rework variants), and the Workshop agents are interactive only (no auto variants).
+- Each craftsman has two agents: interactive (no `-p`) and auto (with `-p`). The Smelter has four (bootstrap + feature variants), the Honer has four (bug triage + audit variants), the Blacksmith and Temperer each have four (first-pass + rework variants), and the Workshop Blacksmith and Temperer each have two (first-pass + rework variants, interactive only — no auto variants).
 - Agents are invoked via `claude --agent forge:<name>` from the CLI (plugin-namespaced)
 - Agents own their label transitions — the CLI only reads state
 - Core pipeline agents (Smelter, Blacksmith, Temperer) follow: research → plan → confer/decide → execute → record
@@ -60,14 +62,14 @@ Planning artifacts live in the codebase and on GitHub:
 
 ## Labels
 
-Target projects use these labels (23 total, defined in `forge-lib.sh`):
+Target projects use these labels (29 total, defined in `forge-lib.sh`):
 
 - **Meta:** `ai-generated`
 - **Status:** `status:ready`, `status:hammering`, `status:hammered`, `status:reworked`, `status:tempering`, `status:tempered`, `status:rework`, `status:needs-human`
 - **Type:** `type:bug`, `type:feature`, `type:chore`, `type:refactor`
 - **Priority:** `priority:high`, `priority:medium`, `priority:low`
 - **Scope:** `scope:ui`, `scope:api`, `scope:data`, `scope:auth`, `scope:infra`, `scope:docs`
-- **Workshop:** `workshop`
+- **Workshop:** `workshop`, `workshop:hammering`, `workshop:hammered`, `workshop:reworked`, `workshop:tempering`, `workshop:tempered`, `workshop:rework`
 
 When creating issues or PRs for **this repo**, apply relevant labels:
 
@@ -78,12 +80,15 @@ When creating issues or PRs for **this repo**, apply relevant labels:
 
 ```
 Core:        forge smelt  →  forge hammer  ⇄  forge temper  (repeat per issue)
+Workshop:    forge hammer workshop  ⇄  forge temper workshop  (ad-hoc, user-driven)
 Post-cycle:  forge hone
 ```
 
-Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation.
+Each command has an `auto-` variant (e.g., `forge auto-smelt`) for autonomous operation. Workshop commands are interactive only.
 `forge stoke` processes the issue queue: dispatches Blacksmith or Temperer based on the oldest issue's status label. Uses named sessions with resume for crash recovery.
 `forge cast` runs the full autonomous cycle: smelt → stoke → hone (repeats if new work emerges). Releases happen naturally in the Temperer after merges.
+
+Workshop mode has its own state machine with `workshop:*` labels (hammering → hammered → tempering → tempered → merged, with rework → reworked → tempering loopback). The CLI dispatches Workshop-Blacksmith/Workshop-Rework-Blacksmith on `forge hammer workshop` and Workshop-Temperer/Workshop-Rework-Temperer on `forge temper workshop` based on the current label. Workshop issues stay off the autonomous `forge stoke` / `forge cast` queue — they lack the `ai-generated` label.
 
 ## Git Workflow
 

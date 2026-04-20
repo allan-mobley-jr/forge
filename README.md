@@ -120,7 +120,7 @@ Rework:       status:rework → status:hammering → status:reworked → status:
 
 The CLI dispatches different agents based on the issue's status label. First-pass work routes to the Blacksmith/Temperer. Rework routes to the Rework-Blacksmith/Rework-Temperer, which resume the original session with focused rework instructions.
 
-In interactive mode, `forge hammer` picks the lowest numbered open issue, or you can target a specific issue with `forge hammer <N>`. Workshop mode (`forge hammer new`) allows ad-hoc work outside the queue.
+In interactive mode, `forge hammer` picks the lowest numbered open issue, or you can target a specific issue with `forge hammer <N>`. Workshop mode (`forge hammer workshop` / `forge temper workshop`) allows ad-hoc work outside the queue with its own state machine (`workshop:hammering` → `workshop:hammered` → `workshop:tempering` → `workshop:tempered` → merged, with `workshop:rework` sending work back). Use `forge hammer workshop sessions` / `forge temper workshop sessions` to browse past workshop sessions.
 
 ### Rework Protocol
 
