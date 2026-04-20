@@ -160,6 +160,12 @@ EOF
                 echo 'scope:infra'
                 echo 'scope:docs'
                 echo 'workshop'
+                echo 'workshop:hammering'
+                echo 'workshop:hammered'
+                echo 'workshop:reworked'
+                echo 'workshop:tempering'
+                echo 'workshop:tempered'
+                echo 'workshop:rework'
             else
                 echo 'ai-generated'
                 echo 'agent:needs-human'
@@ -184,6 +190,12 @@ EOF
                 echo 'scope:infra'
                 echo 'scope:docs'
                 echo 'workshop'
+                echo 'workshop:hammering'
+                echo 'workshop:hammered'
+                echo 'workshop:reworked'
+                echo 'workshop:tempering'
+                echo 'workshop:tempered'
+                echo 'workshop:rework'
             fi
             exit 0
         fi
@@ -720,13 +732,259 @@ _mock_lowest_issue() {
 # --- classify_issue_by_number / classify_lowest_open_issue drift guard ---
 #
 # Both functions must have identical status label case arms. Extract and compare.
+# Uses awk (portable across BSD/GNU) to slice the function body, then grep to
+# pull out the "*,status:LABEL,*)" case arms — BSD sed's `/start/,/end/{ ... }`
+# syntax is finicky with nested `s` commands on macOS, so we avoid it.
 @test "classify_issue_by_number case arms match classify_lowest_open_issue" {
     local lib="$FORGE_TEST_DIR/bin/forge-lib.sh"
-    # Extract case arms from both functions (status:* patterns)
     local lowest_arms reworked_arms
-    lowest_arms=$(sed -n '/^classify_lowest_open_issue/,/^}/{ /\*,status:/s/.*\*,\(status:[a-z-]*\),.*/\1/p }' "$lib" | sort)
-    reworked_arms=$(sed -n '/^classify_issue_by_number/,/^}/{ /\*,status:/s/.*\*,\(status:[a-z-]*\),.*/\1/p }' "$lib" | sort)
+    lowest_arms=$(awk '/^classify_lowest_open_issue/,/^}/' "$lib" \
+        | grep -oE '\*,status:[a-z-]+,\*\)' \
+        | grep -oE 'status:[a-z-]+' | sort | uniq)
+    reworked_arms=$(awk '/^classify_issue_by_number/,/^}/' "$lib" \
+        | grep -oE '\*,status:[a-z-]+,\*\)' \
+        | grep -oE 'status:[a-z-]+' | sort | uniq)
+    # Sanity: both extractions found something. Empty == empty would silently
+    # pass if the extraction regex ever broke again.
+    [[ -n "$lowest_arms" ]]
+    [[ -n "$reworked_arms" ]]
     [[ "$lowest_arms" == "$reworked_arms" ]]
+}
+
+# --- classify_workshop_issue ---
+#
+# Mocks gh issue view (which classify_workshop_issue consumes) and checks the
+# category/status split for every workshop:* label.
+_mock_workshop_issue() {
+    local num="$1" labels="$2"
+    mock_gh_with "
+        if [[ \"\$*\" == *\"issue view\"* ]]; then
+            printf '%s\t%s\n' '$num' '$labels'
+            exit 0
+        fi
+        echo ''
+    "
+}
+
+@test "classify_workshop_issue: workshop:hammering → hammerable" {
+    _mock_workshop_issue 11 "workshop,workshop:hammering,type:bug"
+    run classify_workshop_issue 11
+    [[ "$output" == $'11\thammerable\tworkshop:hammering' ]]
+}
+
+@test "classify_workshop_issue: workshop:rework → hammerable" {
+    _mock_workshop_issue 12 "workshop,workshop:rework,type:bug"
+    run classify_workshop_issue 12
+    [[ "$output" == $'12\thammerable\tworkshop:rework' ]]
+}
+
+@test "classify_workshop_issue: workshop:hammered → temperable" {
+    _mock_workshop_issue 13 "workshop,workshop:hammered,type:bug"
+    run classify_workshop_issue 13
+    [[ "$output" == $'13\ttemperable\tworkshop:hammered' ]]
+}
+
+@test "classify_workshop_issue: workshop:reworked → temperable" {
+    _mock_workshop_issue 14 "workshop,workshop:reworked,type:bug"
+    run classify_workshop_issue 14
+    [[ "$output" == $'14\ttemperable\tworkshop:reworked' ]]
+}
+
+@test "classify_workshop_issue: workshop:tempering → temperable" {
+    _mock_workshop_issue 15 "workshop,workshop:tempering,type:bug"
+    run classify_workshop_issue 15
+    [[ "$output" == $'15\ttemperable\tworkshop:tempering' ]]
+}
+
+@test "classify_workshop_issue: workshop:tempered → temperable" {
+    _mock_workshop_issue 16 "workshop,workshop:tempered,type:bug"
+    run classify_workshop_issue 16
+    [[ "$output" == $'16\ttemperable\tworkshop:tempered' ]]
+}
+
+@test "classify_workshop_issue: no workshop:* status → unknown with empty status" {
+    _mock_workshop_issue 17 "workshop,type:bug"
+    run classify_workshop_issue 17
+    [[ "$output" == $'17\tunknown\t' ]]
+}
+
+@test "classify_workshop_issue: closed or missing issue → empty output" {
+    mock_gh_with "echo ''"
+    run classify_workshop_issue 99
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+}
+
+# --- _workshop_blacksmith_prompt_for_status ---
+
+@test "_workshop_blacksmith_prompt_for_status: workshop:hammering → resume prompt" {
+    run _workshop_blacksmith_prompt_for_status "workshop:hammering" "42"
+    [[ "$output" == *"workshop:hammering"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_workshop_blacksmith_prompt_for_status: empty status → continue prompt" {
+    run _workshop_blacksmith_prompt_for_status "" "42"
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_workshop_blacksmith_prompt_for_status: unknown status → loud failure" {
+    run _workshop_blacksmith_prompt_for_status "workshop:rework" "42"
+    [[ "$status" -ne 0 ]]
+}
+
+@test "_workshop_rework_blacksmith_prompt_for_status: workshop:rework → rework-aware prompt" {
+    run _workshop_rework_blacksmith_prompt_for_status "workshop:rework" "42"
+    [[ "$output" == *"Temperer"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_workshop_rework_blacksmith_prompt_for_status: first-pass status → loud failure" {
+    run _workshop_rework_blacksmith_prompt_for_status "workshop:hammering" "42"
+    [[ "$status" -ne 0 ]]
+}
+
+@test "_workshop_temperer_prompt_for_status: workshop:hammered → review prompt" {
+    run _workshop_temperer_prompt_for_status "workshop:hammered" "42"
+    [[ "$output" == *"#42"* ]]
+}
+
+@test "_workshop_temperer_prompt_for_status: workshop:tempered → resume-to-merge prompt" {
+    run _workshop_temperer_prompt_for_status "workshop:tempered" "42"
+    [[ "$output" == *"workshop:tempered"* ]]
+    [[ "$output" == *"PR"* ]]
+}
+
+@test "_workshop_rework_temperer_prompt_for_status: workshop:reworked → re-review prompt" {
+    run _workshop_rework_temperer_prompt_for_status "workshop:reworked" "42"
+    [[ "$output" == *"Rework-Blacksmith"* ]]
+    [[ "$output" == *"#42"* ]]
+}
+
+# --- classify_workshop_issue drift guard ---
+#
+# Every workshop:* status label in FORGE_REQUIRED_LABELS must have a case arm
+# in classify_workshop_issue. Catches the "added label but forgot dispatch" bug.
+@test "classify_workshop_issue covers every workshop:* status label" {
+    local lib="$FORGE_TEST_DIR/bin/forge-lib.sh"
+    local labels_from_array arms_from_fn
+    labels_from_array=$(printf '%s\n' "${FORGE_REQUIRED_LABELS[@]}" \
+        | grep -oE '^workshop:[a-z-]+' | sort | uniq)
+    arms_from_fn=$(awk '/^classify_workshop_issue/,/^}/' "$lib" \
+        | grep -oE '\*,workshop:[a-z-]+,\*\)' \
+        | grep -oE 'workshop:[a-z-]+' | sort | uniq)
+    [[ -n "$labels_from_array" ]]
+    [[ -n "$arms_from_fn" ]]
+    [[ "$labels_from_array" == "$arms_from_fn" ]]
+}
+
+# --- _workshop_has_completed_rework ---
+
+@test "_workshop_has_completed_rework: no prior ✅ Temperer comments → 0" {
+    mock_gh_with '
+        if [[ "$*" == *"api"*"issues/"*"/comments"* ]]; then
+            echo "0"
+            exit 0
+        fi
+        echo ""
+    '
+    run _workshop_has_completed_rework 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "0" ]]
+}
+
+@test "_workshop_has_completed_rework: one addressed Temperer comment → 1" {
+    mock_gh_with '
+        if [[ "$*" == *"api"*"issues/"*"/comments"* ]]; then
+            echo "1"
+            exit 0
+        fi
+        echo ""
+    '
+    run _workshop_has_completed_rework 42
+    [[ "$output" == "1" ]]
+}
+
+@test "_workshop_has_completed_rework: gh failure normalizes to 0" {
+    mock_gh_with 'exit 1'
+    run _workshop_has_completed_rework 42
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "0" ]]
+}
+
+# --- update_workshop_session_issue ---
+#
+# update_workshop_session_issue must:
+#   1. write the numeric issue onto the active session
+#   2. rename the session from its placeholder (e.g. "workshop-blacksmith-new")
+#      to "workshop-<role>-issue-<N>" so the picker can distinguish past workshops
+# Regressions here orphan past workshops behind identical-looking names.
+@test "update_workshop_session_issue renames session and stores issue" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_workshop_session "blacksmith" "workshop-blacksmith-new" "cafebabe-0000-0000-0000-000000000000" ""
+    run update_workshop_session_issue "blacksmith" "42"
+    [[ "$status" -eq 0 ]]
+    run get_workshop_session "blacksmith"
+    # Output is: session_id\tname\tissue
+    [[ "$output" == *"cafebabe-0000-0000-0000-000000000000"* ]]
+    [[ "$output" == *"workshop-blacksmith-issue-42"* ]]
+    [[ "$output" == *"42"* ]]
+    # Placeholder name must be gone
+    [[ "$output" != *"workshop-blacksmith-new"* ]]
+}
+
+@test "update_workshop_session_issue rejects non-numeric issue" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    set_workshop_session "blacksmith" "workshop-blacksmith-new" "cafebabe-1111-1111-1111-111111111111" ""
+    run update_workshop_session_issue "blacksmith" "abc"
+    [[ "$status" -ne 0 ]]
+    [[ "$output" == *"invalid issue number"* ]]
+}
+
+@test "update_workshop_session_issue is a no-op when no active session" {
+    mkdir -p "$FORGE_CONFIG_DIR"
+    cat > "$FORGE_CONFIG_DIR/config.json" <<EOF
+{
+  "projects": {
+    "$(basename "$TEST_TMPDIR")": {
+      "path": "$TEST_TMPDIR",
+      "repo": "https://github.com/test/test",
+      "created": "2026-01-01T00:00:00Z",
+      "sessions": {}
+    }
+  }
+}
+EOF
+    cd "$TEST_TMPDIR"
+    # No session set
+    run update_workshop_session_issue "blacksmith" "42"
+    [[ "$status" -eq 0 ]]
 }
 
 # The verdict vocabulary is "REWORK", not "REJECT". Mixed vocabulary confused

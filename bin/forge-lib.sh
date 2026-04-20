@@ -547,9 +547,14 @@ set_workshop_session() {
     set_session "workshop-$role" "$@"
 }
 
-# update_workshop_session_issue — update the issue number on the active workshop session.
-# Called after the Workshop-Blacksmith files an issue so the Temperer can find it.
+# update_workshop_session_issue — update the issue number and rename the active workshop session.
+# Called after the Workshop-Blacksmith files an issue so the Temperer can find it and so the
+# session picker can distinguish it from other past workshops.
 # Usage: update_workshop_session_issue <role> <issue_number>
+#
+# Side effect: the session name is rewritten from its placeholder ("workshop-<role>-new") to
+# "workshop-<role>-issue-<N>", mirroring the blacksmith-issue-<N> / temperer-issue-<N> naming
+# convention used by the pipeline. session_id (UUID) is unchanged.
 update_workshop_session_issue() {
     local role="$1"
     local issue="$2"
@@ -576,10 +581,15 @@ if active:
             except ValueError:
                 print(f'Error: invalid issue number \"{iss}\" — must be numeric', file=sys.stderr)
                 sys.exit(1)
+            h['name'] = f'{role}-issue-{iss}'
             break
-    with open(cfg_path, 'w') as f:
-        json.dump(cfg, f, indent=2)
-        f.write('\n')
+    try:
+        with open(cfg_path, 'w') as f:
+            json.dump(cfg, f, indent=2)
+            f.write('\n')
+    except OSError as e:
+        print(f'Error: failed to write {cfg_path}: {e}', file=sys.stderr)
+        sys.exit(1)
 " "$FORGE_CONFIG_DIR/config.json" "$project_name" "workshop-$role" "$issue"
 }
 
@@ -743,6 +753,13 @@ FORGE_REQUIRED_LABELS=(
     "scope:docs|0075ca|Documentation updates"
     # Workshop label — ad-hoc interactive work outside the pipeline
     "workshop|c5def5|Ad-hoc workshop issue"
+    # Workshop status labels — mirror status:* for the interactive workshop flow
+    "workshop:hammering|c5def5|Workshop implementation in progress"
+    "workshop:hammered|1d76db|Workshop implementation complete"
+    "workshop:reworked|1d76db|Workshop rework complete"
+    "workshop:tempering|fbca04|Workshop review in progress"
+    "workshop:tempered|0e8a16|Workshop review passed"
+    "workshop:rework|d93f0b|Workshop sent back to Blacksmith"
 )
 
 # --- Label management ---
@@ -1015,6 +1032,65 @@ classify_issue_by_number() {
     printf '%s\t%s\t%s\n' "$num" "$category" "$status"
 }
 
+# classify_workshop_issue — classify a workshop issue by number.
+# Same output format as classify_issue_by_number but reads workshop:* labels:
+#   <number>\t<category>\t<status>
+#   hammerable — workshop:rework or workshop:hammering → workshop-{rework-,}blacksmith
+#   temperable — workshop:hammered|tempering|reworked|tempered → workshop-{rework-,}temperer
+#   unknown    — no workshop:* status (fresh issue just filed, pre-first-label-flip)
+# Prints nothing (returns 0) when the issue doesn't exist or is closed.
+classify_workshop_issue() {
+    local number="$1"
+    local data
+    data=$(gh issue view "$number" --json number,labels,state --jq '
+        select(.state == "OPEN")
+        | "\(.number)\t\(.labels | map(.name) | join(","))"
+    ' 2>/dev/null || true)
+
+    [ -z "$data" ] && return 0
+
+    local num labels
+    IFS=$'\t' read -r num labels <<< "$data"
+
+    local padded=",${labels},"
+
+    local category status=""
+    case "$padded" in
+        *,workshop:rework,*)     category="hammerable"; status="workshop:rework" ;;
+        *,workshop:hammering,*)  category="hammerable"; status="workshop:hammering" ;;
+        *,workshop:hammered,*)   category="temperable"; status="workshop:hammered" ;;
+        *,workshop:reworked,*)   category="temperable"; status="workshop:reworked" ;;
+        *,workshop:tempering,*)  category="temperable"; status="workshop:tempering" ;;
+        *,workshop:tempered,*)   category="temperable"; status="workshop:tempered" ;;
+        *)                       category="unknown" ;;
+    esac
+
+    printf '%s\t%s\t%s\n' "$num" "$category" "$status"
+}
+
+# _workshop_has_completed_rework — detect whether any rework cycle has
+# been completed on the given workshop issue. Used to disambiguate
+# `workshop:hammering` and `workshop:tempering`, which are set by both
+# first-pass agents (Workshop-Blacksmith / Workshop-Temperer) and their
+# rework variants. On interrupt-resume, the CLI needs to pick the right
+# variant so the resumed session's conversation history aligns with the
+# agent's system prompt.
+#
+# Signal: a `✅ **[Temperer]**` comment exists iff the Workshop-Rework-Blacksmith
+# ran at least once (it prepends `✅` to addressed Temperer comments before
+# transitioning to workshop:reworked). Count > 0 → rework variant is in flight.
+# Exits 0 on success, prints count to stdout. Non-numeric output means gh failed.
+_workshop_has_completed_rework() {
+    local issue="$1"
+    local count
+    count=$(gh api "repos/{owner}/{repo}/issues/${issue}/comments" \
+        --jq '[.[] | select(.body | test("^✅\\s*\\*\\*\\[Temperer\\]"))] | length' \
+        2>/dev/null || echo 0)
+    # Normalize non-numeric/empty to 0
+    [[ "$count" =~ ^[0-9]+$ ]] || count=0
+    printf '%s\n' "$count"
+}
+
 # _blacksmith_prompt_for_status — build the Blacksmith prompt for a given status.
 # Usage: _blacksmith_prompt_for_status <status> <issue>
 # Prints the prompt body to stdout. Callers in forge.sh / run_stoke_loop are
@@ -1053,6 +1129,70 @@ _rework_blacksmith_prompt_for_status() {
             ;;
         *)
             forge_fail "_rework_blacksmith_prompt_for_status: unexpected status '$status' for issue #${issue}"
+            exit 1
+            ;;
+    esac
+}
+
+# _workshop_blacksmith_prompt_for_status — Workshop-Blacksmith resume prompt.
+# Usage: _workshop_blacksmith_prompt_for_status <status> <issue>
+# Empty status means the issue was just filed and has not reached workshop:hammering yet.
+_workshop_blacksmith_prompt_for_status() {
+    local status="$1" issue="$2"
+    case "$status" in
+        workshop:hammering)
+            echo "Issue #${issue} has workshop:hammering — a previous Workshop-Blacksmith run was interrupted. Check the linked branch for partial work and pick up where you left off."
+            ;;
+        "")
+            echo "Continue with issue #${issue}."
+            ;;
+        *)
+            forge_fail "_workshop_blacksmith_prompt_for_status: unexpected status '$status' for issue #${issue}"
+            exit 1
+            ;;
+    esac
+}
+
+# _workshop_rework_blacksmith_prompt_for_status — Workshop-Rework-Blacksmith prompt.
+_workshop_rework_blacksmith_prompt_for_status() {
+    local status="$1" issue="$2"
+    case "$status" in
+        workshop:rework)
+            echo "Issue #${issue} has workshop:rework — the Workshop-Temperer rejected a prior pass. Read every comment tagged \"**[Temperer]**\" that isn't prefixed with ✅ and address every finding in this pass."
+            ;;
+        *)
+            forge_fail "_workshop_rework_blacksmith_prompt_for_status: unexpected status '$status' for issue #${issue}"
+            exit 1
+            ;;
+    esac
+}
+
+# _workshop_temperer_prompt_for_status — Workshop-Temperer resume prompt.
+_workshop_temperer_prompt_for_status() {
+    local status="$1" issue="$2"
+    case "$status" in
+        workshop:hammered|workshop:tempering)
+            echo "Review issue #${issue}."
+            ;;
+        workshop:tempered)
+            echo "Issue #${issue} is workshop:tempered. Pick up where you left off — check for an existing PR and complete the merge."
+            ;;
+        *)
+            forge_fail "_workshop_temperer_prompt_for_status: unexpected status '$status' for issue #${issue}"
+            exit 1
+            ;;
+    esac
+}
+
+# _workshop_rework_temperer_prompt_for_status — Workshop-Rework-Temperer prompt.
+_workshop_rework_temperer_prompt_for_status() {
+    local status="$1" issue="$2"
+    case "$status" in
+        workshop:reworked|workshop:tempering)
+            echo "Re-review issue #${issue} — the Workshop-Rework-Blacksmith has addressed your feedback. Verify each finding was addressed and check for new issues in changed areas."
+            ;;
+        *)
+            forge_fail "_workshop_rework_temperer_prompt_for_status: unexpected status '$status' for issue #${issue}"
             exit 1
             ;;
     esac
