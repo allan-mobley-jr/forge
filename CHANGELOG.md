@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.0] - 2026-04-20
 
 ### Added
 - Workshop state machine: 6 new `workshop:*` status labels (`workshop:hammering`, `workshop:hammered`, `workshop:reworked`, `workshop:tempering`, `workshop:tempered`, `workshop:rework`) mirroring the pipeline `status:*` lifecycle. Workshop issues still carry the `workshop` label and stay off the autonomous pipeline queue.
@@ -299,6 +299,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.8.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.8.0
 [0.7.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.7.0
 [0.6.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.3
 [0.6.2]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.2
