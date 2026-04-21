@@ -304,6 +304,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.8.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.8.1
 [0.8.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.8.0
 [0.7.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.7.0
 [0.6.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.3
