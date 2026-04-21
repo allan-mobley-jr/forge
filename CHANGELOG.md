@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] - 2026-04-21
+
+### Changed
+- Interactive Blacksmith variants (Blacksmith, Rework-Blacksmith, Workshop-Blacksmith, Workshop-Rework-Blacksmith) now confer with the user before implementing self-review findings. The Blacksmith presents each finding from `code-reviewer`, `silent-failure-hunter`, and `pr-test-analyzer` with a proposed Fix/Reject disposition and requires explicit user confirmation before fixing. A finding is any concern raised by any of the three agents, regardless of severity. Auto variants keep their silent-fix behavior.
+
 ## [0.8.0] - 2026-04-20
 
 ### Added
@@ -299,6 +304,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `forge deploy` for human-controlled production releases
 - `curl | bash` installer with Vercel plugin and Playwright MCP setup
 
+[0.8.1]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.8.1
 [0.8.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.8.0
 [0.7.0]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.7.0
 [0.6.3]: https://github.com/allan-mobley-jr/forge/releases/tag/v0.6.3
