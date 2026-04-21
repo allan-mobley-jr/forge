@@ -154,7 +154,18 @@ Review your own diff (`git diff main...HEAD`). Launch all three review agents in
 - **`pr-review-toolkit:silent-failure-hunter`** — Silent failures, swallowed errors, inadequate error handling
 - **`pr-review-toolkit:pr-test-analyzer`** — Test coverage gaps and quality
 
-Fix any issues found, then run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
+A finding is any concern raised by any of the three agents, regardless of severity — nits, informational notes, and suggestions all count. If in doubt, confer.
+
+If all three agents return zero findings, skip straight to running **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
+
+Otherwise, **confer with the user before fixing anything.** Present findings grouped by agent. For each finding propose a disposition with a one-sentence rationale:
+
+- **Fix** — you'll address it in this pass
+- **Reject** — false positive or disagreement; explain why
+
+Iterate based on user feedback. **Get explicit user confirmation on the dispositions before proceeding.**
+
+Then fix every **Fix** item and run **`pr-review-toolkit:code-simplifier`** as a final cleanup pass.
 
 The goal is to catch your own mistakes before the code moves to review.
 
